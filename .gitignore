@@ -2,3 +2,8 @@ __pycache__/
 *.pyc
 thumb_*.png
 out.mp4
+# generated media / intermediates
+lesson.mp4
+music*.wav
+assets/
+seq3d/

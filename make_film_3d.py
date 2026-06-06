@@ -24,7 +24,7 @@ import tyguy3d as T
 
 FPS = 24
 RES = (800, 450)
-SAMPLES = 16   # denoiser cleans the flat materials well at low samples
+SAMPLES = 12   # denoiser cleans the flat materials well at low samples
 SEQ_DIR = "/tmp/seq3d"
 
 T.SUBSURF_RENDER = 1   # lighter subdivision for faster film frames
