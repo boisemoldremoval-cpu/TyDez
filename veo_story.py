@@ -43,7 +43,7 @@ SHOTS = [
     # ACT 1
     (f"{TY} waves warmly to camera in {ROOM} with {KIDS}; he says, \"Hey friends! Welcome to Bible Club!\" cheerful music.{STYLE}", True),
     (f"{TY} holds up a Bible with a warm smile in {ROOM}; he says, \"Today's big question: who is my neighbor?\"{STYLE}", True),
-    (f"Close-up of the curious 3D cartoon kids on the rug; Leo (glasses, green shirt) raises his hand and asks, \"Everybody nearby?\"{STYLE}", False),
+    (f"Close-up of the curious 3D cartoon kids on the rug in {ROOM}, eyes wide with interest; a boy with glasses raises his hand eagerly. Gentle warm music, soft room ambience, no dialogue.{STYLE}", False),
     (f"{TY} kneels to the kids' level, gentle, and says, \"Let me tell you a story Jesus told...\"{STYLE}", True),
     (f"A magical storybook opens, glowing pages turning, the club room dissolving into {ROAD}; gentle whoosh, sparkles.{STYLE}", False),
     # ACT 2 — parable
@@ -70,7 +70,7 @@ SHOTS = [
     (f"Magical storybook pages turn back, glowing sparkles, dissolving from the road back into {ROOM}.{STYLE}", False),
     # ACT 3
     (f"{TY} sits with the kids in {ROOM}, gentle smile, and asks, \"So... who was the real neighbor?\"{STYLE}", True),
-    (f"The 3D cartoon kids think; Aisha (purple hijab) lights up and says, \"The one who stopped to help!\"{STYLE}", False),
+    (f"The 3D cartoon kids on the rug in {ROOM} react with delight; a girl in a purple hijab raises her hand excitedly with a big smile. Cheerful music, no dialogue.{STYLE}", False),
     (f"{TY} nods proudly in {ROOM} and says, \"Exactly! Not the important ones, the kind one.\"{STYLE}", True),
     (f"{TY} sincere in {ROOM}, says, \"Jesus said: go, and do likewise.\" soft inspirational music.{STYLE}", True),
     (f"Close-up of the kids nodding, inspired and smiling, in {ROOM}.{STYLE}", False),
@@ -128,8 +128,19 @@ def main():
         while not op.done:
             time.sleep(10)
             op = client.operations.get(op)
-        client.files.download(file=op.response.generated_videos[0].video)
-        op.response.generated_videos[0].video.save(out)
+        if getattr(op, "error", None):
+            print(f"  !! shot {n} ERROR: {op.error}")
+            continue
+        resp = op.response
+        vids = getattr(resp, "generated_videos", None) if resp else None
+        if not vids:
+            cnt = getattr(resp, "rai_media_filtered_count", None)
+            reasons = getattr(resp, "rai_media_filtered_reasons", None)
+            print(f"  !! shot {n} produced NO video (content-filtered). "
+                  f"count={cnt} reasons={reasons}")
+            continue
+        client.files.download(file=vids[0].video)
+        vids[0].video.save(out)
         print(f"  saved {out}  ({time.time()-t0:.0f}s)")
     print("Done. Assemble with: python3 assemble_3d.py " +
           " ".join(f"shot{n}.mp4" for n in range(1, len(SHOTS) + 1)) +
