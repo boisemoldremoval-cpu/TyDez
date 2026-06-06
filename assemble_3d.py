@@ -28,6 +28,11 @@ def main():
     vertical = "--vertical" in args
     bookends = "--bookends" in args          # include intro/outro (off by default)
     args = [a for a in args if a not in ("--vertical", "--bookends")]
+    xfade = 0.0
+    if "--xfade" in args:                     # crossfade seconds between clips
+        i = args.index("--xfade")
+        xfade = float(args[i + 1])
+        del args[i:i + 2]
     out = "tyguy_3d_9x16.mp4" if vertical else "tyguy_3d.mp4"
     if "--out" in args:
         i = args.index("--out")

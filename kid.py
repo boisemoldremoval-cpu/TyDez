@@ -28,6 +28,14 @@ KID1 = {
     "pants": _c(70, 78, 96), "pants_sh": _c(54, 60, 76),
     "shoe": _c(60, 60, 70), "ponytail": False,
 }
+KID_TYGUY = {   # kid version of the TyGuy character
+    "skin": _c(228, 178, 142), "skin_sh": _c(204, 156, 122),
+    "hair": _c(46, 33, 27), "hair_sh": _c(30, 22, 16),
+    "shirt": _c(33, 92, 208), "shirt_sh": _c(24, 66, 158),   # royal-blue hoodie
+    "pants": _c(28, 30, 38), "pants_sh": _c(20, 22, 28),
+    "shoe": _c(33, 92, 208), "ponytail": False,
+    "emblem_T": True, "spiky": True,
+}
 SAM = {   # original hero kid
     "skin": _c(238, 192, 156), "skin_sh": _c(214, 168, 132),
     "hair": _c(58, 40, 26), "hair_sh": _c(40, 26, 16),
