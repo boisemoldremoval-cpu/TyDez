@@ -13,3 +13,6 @@ voices/
 *.mp4
 *.wav
 cartoon2d.mp4
+
+# third-party installed skills
+.agents/
