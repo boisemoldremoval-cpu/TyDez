@@ -113,6 +113,42 @@ render, family-friendly.*
 
 ---
 
+## ⚡ QUICK TEST FIRST (3 shots) — validate the look before spending credits
+
+Generate just these three. They form a complete mini-arc and will tell you (a) does
+TyGuy look right, (b) does he stay consistent across shots, (c) is Veo's audio good.
+If these look great, generate the full 8.
+
+1. **Test-A (Mia alone)** = Shot 1 above.
+2. **Test-B (the welcome)** = Shot 4 above — the key two-character shot; the hardest for
+   consistency, so it's the best test.
+3. **Test-C (TyGuy outro)** = Shot 8 above — confirms the hero pose + brand look.
+
+Send me `testA.mp4 testB.mp4 testC.mp4` and I'll cut a ~20s teaser (with your intro/outro)
+so you can judge before committing to the rest.
+
+---
+
+## 📱 VERTICAL 9:16 VERSION (Shorts / Reels / TikTok)
+
+Same prompts, with these changes:
+- Set Veo **aspect ratio to 9:16**.
+- **Reframe for tall:** prefer **single-character, medium or full-body vertical** framing;
+  keep the subject centered with headroom. Append to each prompt:
+  *"vertical 9:16 composition, subject centered, full-body framing, headroom above head."*
+- **Favor single-character shots** (1, 3, 5, 7, 8) — two-character wide shots (2, 6) are
+  harder to frame vertically; for those add *"tight vertical framing, both characters
+  centered and close together."*
+- **Camera:** prefer push-ins and slight tilts over wide horizontal pans (pans waste the
+  tall frame).
+- Keep it punchy — a 9:16 cut works best at ~20–35s total, so consider the 3-shot test
+  arc (Mia alone → welcome → Mia happy → outro) for a tight Short.
+
+Tell me you're going vertical and I'll also rebuild your **intro/outro to 9:16** (center-crop
+or padded) so the whole Short matches.
+
+---
+
 ## Audio: two options
 - **Let Veo voice it (simplest):** keep the dialogue lines above; Veo 3 generates the
   speech, SFX, and music per clip. I'll just sequence the clips + add your intro/outro.
