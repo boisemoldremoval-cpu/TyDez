@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "veo-use": {
+      "source": "cnemri/google-genai-skills",
+      "sourceType": "github",
+      "skillPath": "skills/veo-use/SKILL.md",
+      "computedHash": "93fff067175d11a90a79ac1dd6aef210e9915539a24a9b38c930e05cbb14a7e8"
+    }
+  }
+}
