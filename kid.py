@@ -28,6 +28,13 @@ KID1 = {
     "pants": _c(70, 78, 96), "pants_sh": _c(54, 60, 76),
     "shoe": _c(60, 60, 70), "ponytail": False,
 }
+SAM = {   # original hero kid
+    "skin": _c(238, 192, 156), "skin_sh": _c(214, 168, 132),
+    "hair": _c(58, 40, 26), "hair_sh": _c(40, 26, 16),
+    "shirt": _c(70, 150, 210), "shirt_sh": _c(52, 122, 178),   # sky-blue tee
+    "pants": _c(70, 80, 100), "pants_sh": _c(54, 62, 80),
+    "shoe": _c(245, 230, 90), "ponytail": False,
+}
 KID2 = {
     "skin": _c(210, 160, 120), "skin_sh": _c(188, 140, 104),
     "hair": _c(70, 50, 30), "hair_sh": _c(52, 36, 20),
