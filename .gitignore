@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+thumb_*.png
+out.mp4
