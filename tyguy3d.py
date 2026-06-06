@@ -19,9 +19,9 @@ def _c(r, g, b):
 
 
 TYGUY = {
-    "skin": _c(226, 176, 140), "hair": _c(46, 33, 27), "beard": _c(150, 122, 100),
+    "skin": _c(223, 168, 128), "hair": _c(32, 23, 18), "beard": _c(120, 96, 78),
     "hoodie": _c(33, 92, 208), "hoodie_dark": _c(24, 66, 158),
-    "pants": _c(26, 28, 36), "shoe": _c(33, 92, 208),
+    "pants": _c(24, 26, 34), "shoe": _c(33, 92, 208),
     "beard_on": True, "hair_long": False, "emblem_T": True,
     "shoe_white": True, "quiff": True,
 }
@@ -60,10 +60,18 @@ def mat(name, color, rough=0.55, sub=0.0):
     b = m.node_tree.nodes.get("Principled BSDF")
     b.inputs["Base Color"].default_value = (*color, 1.0)
     b.inputs["Roughness"].default_value = rough
-    if "Subsurface Weight" in b.inputs:
+    if sub > 0 and "Subsurface Weight" in b.inputs:
         b.inputs["Subsurface Weight"].default_value = sub
+        if "Subsurface Radius" in b.inputs:
+            b.inputs["Subsurface Radius"].default_value = (0.30, 0.12, 0.07)
+        if "Subsurface Scale" in b.inputs:
+            b.inputs["Subsurface Scale"].default_value = 0.12
     _mats[key] = m
     return m
+
+
+# render-time subdivision level (2 = smooth stills, 1 = faster film frames)
+SUBSURF_RENDER = 2
 
 
 def _smooth(obj, subsurf=1):
@@ -72,7 +80,7 @@ def _smooth(obj, subsurf=1):
     if subsurf:
         mo = obj.modifiers.new("subsurf", "SUBSURF")
         mo.levels = subsurf
-        mo.render_levels = subsurf
+        mo.render_levels = max(SUBSURF_RENDER, subsurf)
 
 
 def _ball(loc, r, m, scale=(1, 1, 1), subsurf=1, coll=None):
@@ -128,7 +136,7 @@ def build_character(pal, x=0.0, y=0.0, facing=-1, pose=None, name="char"):
     """
     pose = pose or {}
     fy = facing  # +1 face +Y, -1 face -Y
-    skin = mat("skin", pal["skin"], rough=0.5, sub=0.12)
+    skin = mat("skin", pal["skin"], rough=0.42, sub=0.22)
     hair = mat("hair", pal["hair"], rough=0.6)
     hoodie = mat("hoodie", pal["hoodie"], rough=0.65)
     hood_d = mat("hoodied", pal["hoodie_dark"], rough=0.65)
@@ -145,11 +153,11 @@ def build_character(pal, x=0.0, y=0.0, facing=-1, pose=None, name="char"):
     x = 0.0
     y = 0.0
 
-    # heights
-    HIP = 0.95
-    SH = 1.62
-    HEAD = 2.02
-    HR = 0.40
+    # heights  (caricature proportions: big expressive head)
+    HIP = 0.92
+    SH = 1.58
+    HEAD = 2.14
+    HR = 0.52
 
     # legs
     for sgn in (-1, 1):
@@ -182,15 +190,15 @@ def build_character(pal, x=0.0, y=0.0, facing=-1, pose=None, name="char"):
             t_b.inputs["Emission Color"].default_value = (0.9, 0.95, 1.0, 1)
             t_b.inputs["Emission Strength"].default_value = 0.2
         cy_ = y + fy * 0.345
-        parts.append(_box((x, cy_, 1.30), (0.10, 0.05, 0.34), tmat))      # stem
-        parts.append(_box((x, cy_, 1.45), (0.34, 0.05, 0.11), tmat))      # top bar
-        # hoodie drawstrings
+        parts.append(_box((x, cy_, 1.27), (0.11, 0.05, 0.30), tmat))      # stem
+        parts.append(_box((x, cy_, 1.44), (0.36, 0.05, 0.11), tmat))      # top bar
+        # hoodie drawstrings (kept wide and ending above the T so the T reads clearly)
         smat = mat("string", (0.95, 0.96, 1.0), rough=0.5)
         for sg in (-1, 1):
-            sx = x + sg * 0.10
-            _capsule((sx, y + fy * 0.30, 1.62), (sx, y + fy * 0.345, 1.42),
-                     0.02, smat, subsurf=0, coll=parts)
-            parts.append(_ball((sx, y + fy * 0.345, 1.41), 0.032, smat, subsurf=0))
+            sx = x + sg * 0.14
+            _capsule((sx, y + fy * 0.31, 1.64), (sx, y + fy * 0.35, 1.52),
+                     0.017, smat, subsurf=0, coll=parts)
+            parts.append(_ball((sx, y + fy * 0.35, 1.51), 0.026, smat, subsurf=0))
 
     # arms
     lean = math.radians(pose.get("lean", 0))
@@ -245,36 +253,52 @@ def build_character(pal, x=0.0, y=0.0, facing=-1, pose=None, name="char"):
     parts.append(_ball((x, y + fy * 0.34, HEAD + 0.22), 0.20, hair,
                        scale=(1.5, 0.6, 0.45)))
     if pal.get("quiff"):
-        # raised front quiff / spiky tuft
-        parts.append(_ball((x, y + fy * 0.30, HEAD + 0.40), 0.17, hair,
-                           scale=(1.45, 0.75, 1.05)))
-        for sg in (-1, 0, 1):
-            parts.append(_ball((x + sg * 0.13, y + fy * 0.26, HEAD + 0.52),
-                               0.07, hair, scale=(0.8, 0.8, 1.5)))
+        # smooth upswept quiff (pompadour-style front), reads cleaner than spikes
+        parts.append(_ball((x, y + fy * 0.30, HEAD + 0.42), 0.30, hair,
+                           scale=(1.55, 1.0, 1.0)))
+        parts.append(_ball((x, y + fy * 0.40, HEAD + 0.56), 0.20, hair,
+                           scale=(1.45, 0.8, 1.15)))
+        parts.append(_ball((x, y + fy * 0.46, HEAD + 0.66), 0.13, hair,
+                           scale=(1.3, 0.7, 1.1)))
 
     # face  (front faces the camera at -Y, i.e. y + fy*HR)
     eye_y = y + fy * (HR * 0.86)
     eye_z = HEAD + 0.02
     hi = mat("hilite", (1.0, 1.0, 1.0), rough=0.2)
     for sgn in (-1, 1):
-        ex = x + sgn * 0.155
-        # eye white
-        parts.append(_ball((ex, eye_y, eye_z), 0.10, white, scale=(1.0, 0.6, 1.2)))
+        ex = x + sgn * 0.19
+        # big expressive eye white
+        parts.append(_ball((ex, eye_y, eye_z), 0.135, white, scale=(0.95, 0.6, 1.25)))
         # iris/pupil, pushed forward so it reads from the front
-        parts.append(_ball((ex, eye_y + fy * 0.055, eye_z), 0.058, dark,
+        parts.append(_ball((ex, eye_y + fy * 0.07, eye_z - 0.01), 0.075, dark,
                            scale=(1.0, 0.7, 1.0)))
         # catch-light
-        parts.append(_ball((ex - sgn * 0.02, eye_y + fy * 0.09, eye_z + 0.03),
-                           0.018, hi))
-        # eyebrow
-        parts.append(_box((ex, eye_y + fy * 0.02, eye_z + 0.15),
-                          (0.15, 0.05, 0.035), hair))
+        parts.append(_ball((ex - sgn * 0.025, eye_y + fy * 0.12, eye_z + 0.04),
+                           0.025, hi))
+        # thick expressive eyebrow
+        parts.append(_box((ex, eye_y + fy * 0.04, eye_z + 0.20),
+                          (0.20, 0.06, 0.05), hair))
     # nose
     parts.append(_ball((x, y + fy * (HR * 0.95), HEAD - 0.08), 0.06, skin,
                        scale=(0.8, 0.9, 0.8)))
-    # smile (thin dark curved box); for bearded TyGuy it reads as a grin line
-    parts.append(_box((x, y + fy * (HR * 0.82), HEAD - 0.20),
-                      (0.18, 0.05, 0.03), dark))
+    # mouth (expression from pose)
+    mouthmat = mat("mouth", (0.42, 0.12, 0.12), rough=0.5)
+    teeth = mat("teeth", (0.98, 0.98, 0.98), rough=0.3)
+    expr = pose.get("mouth", "smile")
+    if expr in ("smile", "open"):
+        mz = HEAD - 0.26
+        parts.append(_ball((x, y + fy * (HR * 0.78), mz), 0.19, mouthmat,
+                           scale=(1.25, 0.5, 0.75)))
+        parts.append(_ball((x, y + fy * (HR * 0.86), mz + 0.07), 0.16, teeth,
+                           scale=(1.05, 0.42, 0.34)))
+    elif expr == "sad":
+        mz = HEAD - 0.24
+        parts.append(_ball((x, y + fy * (HR * 0.82), mz), 0.10, mouthmat,
+                           scale=(1.25, 0.5, 0.45)))
+    else:  # neutral
+        mz = HEAD - 0.22
+        parts.append(_ball((x, y + fy * (HR * 0.82), mz), 0.09, mouthmat,
+                           scale=(1.3, 0.5, 0.3)))
 
     # parent everything to the root empty and place it in the world
     for o in parts:
@@ -301,8 +325,9 @@ def setup_render(res=(1280, 720), samples=80, fps=24):
     sc.render.resolution_x, sc.render.resolution_y = res
     sc.render.fps = fps
     sc.render.film_transparent = False
-    # color management
+    # color management: use Standard (not AgX) for punchy cartoon colors
     try:
+        sc.view_settings.view_transform = "Standard"
         sc.view_settings.look = "None"
     except Exception:
         pass
@@ -322,29 +347,32 @@ def add_camera(loc, look_at, lens=50):
 
 
 def add_lights():
-    # key
+    # warm key (soft, large for gentle shadows)
     k = bpy.data.lights.new("Key", "AREA")
-    k.energy = 900
-    k.size = 6
+    k.energy = 1100
+    k.size = 9
+    k.color = (1.0, 0.95, 0.86)
     ko = bpy.data.objects.new("Key", k)
     bpy.context.scene.collection.objects.link(ko)
-    ko.location = (4, -5, 7)
+    ko.location = (4.5, -5.5, 7.5)
     ko.rotation_euler = (0.6, 0.2, 0.6)
-    # fill
+    # cool fill
     f = bpy.data.lights.new("Fill", "AREA")
-    f.energy = 300
-    f.size = 8
+    f.energy = 420
+    f.size = 12
+    f.color = (0.85, 0.9, 1.0)
     fo = bpy.data.objects.new("Fill", f)
     bpy.context.scene.collection.objects.link(fo)
-    fo.location = (-5, -4, 4)
+    fo.location = (-6, -4, 4.5)
     fo.rotation_euler = (1.0, -0.2, -0.6)
-    # rim
+    # rim / back light for that Pixar pop
     r = bpy.data.lights.new("Rim", "AREA")
-    r.energy = 500
-    r.size = 4
+    r.energy = 800
+    r.size = 5
+    r.color = (1.0, 0.97, 0.92)
     ro = bpy.data.objects.new("Rim", r)
     bpy.context.scene.collection.objects.link(ro)
-    ro.location = (0, 5, 6)
+    ro.location = (0, 5.5, 6.5)
     ro.rotation_euler = (-0.7, 0, 0)
 
 
