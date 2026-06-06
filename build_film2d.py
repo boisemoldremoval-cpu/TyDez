@@ -5,13 +5,14 @@ film: tyguy_film_2d.mp4 (1280x720, 24fps, stereo).
 
 Run make_tyguy2d.py first to produce cartoon2d.mp4.
 """
+import sys
 import subprocess
 import imageio_ffmpeg
 
 INTRO = "/root/.claude/uploads/ff8cfb28-4e13-5a8d-82f5-0d89c1f5c66e/aedae882-gemini_generated_video_0B5B250C.mp4"
 OUTRO = "/root/.claude/uploads/ff8cfb28-4e13-5a8d-82f5-0d89c1f5c66e/87539884-gemini_generated_video_7CC21B3D.mp4"
-MID = "cartoon2d.mp4"
-OUT = "tyguy_film_2d.mp4"
+MID = sys.argv[1] if len(sys.argv) > 1 else "cartoon2d.mp4"
+OUT = sys.argv[2] if len(sys.argv) > 2 else "tyguy_film_2d.mp4"
 
 fc = (
     "[0:v]scale=1280:720:force_original_aspect_ratio=decrease,"
