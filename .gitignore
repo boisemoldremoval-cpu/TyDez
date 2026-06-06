@@ -7,3 +7,9 @@ lesson.mp4
 music*.wav
 assets/
 seq3d/
+
+# voice models & generated media
+voices/
+*.mp4
+*.wav
+cartoon2d.mp4
