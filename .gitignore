@@ -16,3 +16,24 @@ cartoon2d.mp4
 
 # third-party installed skills
 .agents/
+
+# ── Arcads skill pack (krusemediallc/arcads-claude-code) ─────────────────────
+.env
+.env.*
+!.env.example
+MASTER_CONTEXT.md
+.claude/skills/
+.claude/worktrees/
+.claude/settings.local.json
+.cursor/skills/
+.DS_Store
+outputs/
+output/
+# Reference media is local-only (face photos, product shots, style boards).
+references/
+!references/README.md
+# Disposable one-off thumbnail iteration scripts (not the canonical skill script)
+scripts/generate-thumbnails.sh
+scripts/generate-thumbnails-*.sh
+scripts/generate-ab-variants*.sh
+scripts/regen-*.sh
