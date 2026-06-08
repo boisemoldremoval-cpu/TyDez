@@ -25,3 +25,13 @@ python3 make_promo.py out.mp4    # custom output path
 Edit the `CONFIG` block at the top of `make_promo.py` to change the brand,
 copy, services, badges, contact details, and colors, then re-render.
 The scene timeline and palette live just below `CONFIG`.
+
+## Developer tools
+
+- **`tools/claude-gemini-bridge/`** — a vendored copy of
+  [tkaufmann/claude-gemini-bridge](https://github.com/tkaufmann/claude-gemini-bridge)
+  that lets Claude Code delegate large, multi-file analyses to Google Gemini.
+  Install it on your own machine with `tools/claude-gemini-bridge/install.sh`
+  (requires the Gemini CLI + `GEMINI_API_KEY`). See
+  [`tools/claude-gemini-bridge/VENDORED.md`](tools/claude-gemini-bridge/VENDORED.md)
+  for details.
