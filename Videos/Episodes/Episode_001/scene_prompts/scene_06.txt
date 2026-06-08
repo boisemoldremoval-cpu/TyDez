@@ -1,0 +1,68 @@
+==============================================================================
+ EPISODE 001 — "Taking Turns"
+ SCENE 06 of 7   |   BEAT: PEACEFUL ENDING
+ ~7s   |   16:9  ->  feeds Scene 07
+==============================================================================
+
+>>> COPY-PASTE THIS INTO VEO / GEMINI <<<
+------------------------------------------------------------------------------
+Pixar/Disney-style 3D animation, warm, wholesome Christian kids' cartoon, soft
+rounded shapes, big expressive friendly faces, gentle and reverent, family-
+friendly, high-detail subsurface skin, soft cinematic global illumination,
+shallow depth of field, 24fps feature-film feel. Kelliee (a bright, bubbly 3D
+cartoon girl, age 10, light-brown skin, curly auburn hair in two puff
+pigtails, big hazel eyes, freckles, sunny-yellow hoodie with a small white
+cross on the chest, teal leggings, white-and-pink sneakers); Ben (a 3D cartoon
+boy, age 9, short sandy-blond hair, light skin, round cheeks, green-striped
+t-shirt, grey shorts, red sneakers), Kelliee walks up kindly; Ben realizes and
+hops off, apologizing; they smile and Ben offers her the swing, then they take
+turns happily. Setting: at the swing set on the grass. Camera: medium two-
+shot, warm slow push-in, eye level. Lighting: full bright golden morning sun,
+warm and glowing. Mood: warm, peaceful, joyful, reconciled. Ben says, "Oh —
+sorry! I didn't see you. You go first!". Kelliee says, "Thanks, Ben! Let's
+take turns.". Color palette: brand royal-blue, sunny gold, warm cream, soft
+heavenly light. Audio: gentle uplifting orchestral score, soft acoustic
+guitar, light playful percussion, warm natural ambience; reverent and never
+scary. Clip length about 7 seconds, 16:9 aspect ratio.
+------------------------------------------------------------------------------
+
+NEGATIVE PROMPT (paste into the negative / 'avoid' field):
+subtitles, captions, on-screen text, watermark, logo text, distorted face,
+extra fingers, extra limbs, deformed hands, warped anatomy, flickering,
+morphing character, inconsistent character design, low quality, blurry, jpeg
+artifacts, duplicate characters, extra people, scary imagery, violence, blood,
+dark or frightening tone
+
+==============================================================================
+ SCENE BREAKDOWN (reference — not pasted into Veo)
+==============================================================================
+VIDEO STYLE:          Pixar/Disney-style 3D animation, warm, wholesome Christian kids' cartoon, soft
+                      rounded shapes, big expressive friendly faces, gentle
+                      and reverent, family-friendly, high-detail subsurface
+                      skin, soft cinematic global illumination, shallow depth
+                      of field, 24fps feature-film feel
+MAIN CHARACTER:       Kelliee (a bright, bubbly 3D cartoon girl, age 10, light-brown skin, curly
+                      auburn hair in two puff pigtails, big hazel eyes,
+                      freckles, sunny-yellow hoodie with a small white cross
+                      on the chest, teal leggings, white-and-pink sneakers);
+                      Ben (a 3D cartoon boy, age 9, short sandy-blond hair,
+                      light skin, round cheeks, green-striped t-shirt, grey
+                      shorts, red sneakers)
+LOCATION:             at the swing set on the grass
+ACTION:               Kelliee walks up kindly; Ben realizes and hops off, apologizing; they smile
+                      and Ben offers her the swing, then they take turns
+                      happily
+CAMERA ANGLE:         medium two-shot, warm slow push-in, eye level
+LIGHTING:             full bright golden morning sun, warm and glowing
+MOOD:                 warm, peaceful, joyful, reconciled
+DIALOGUE:             Ben: Oh — sorry! I didn't see you. You go first! / Kelliee: Thanks, Ben! Let's
+                      take turns.
+MUST STAY CONSISTENT: Kelliee: ALWAYS the same: auburn puff pigtails, yellow cross hoodie, freckles,
+                      hazel eyes — never change her design or outfit | Ben:
+                      sandy-blond hair and green-striped shirt in every shot
+                      he appears in | Ben same sandy-blond hair and green-
+                      striped shirt; both genuinely happy
+DO NOT SHOW:          (use the standard negative prompt above)
+ENDING FRAME:         Kelliee swings gently with Ben pushing, both laughing; TyGuy steps into frame
+                      from the side, smiling at camera
+==============================================================================

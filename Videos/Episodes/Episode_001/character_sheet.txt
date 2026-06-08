@@ -1,0 +1,53 @@
+==============================================================================
+ CHARACTER CONSISTENCY SHEET — Episode 001
+==============================================================================
+
+Paste the matching block into any clip where the character
+appears, and keep these details WORD-FOR-WORD identical across
+every scene. Consistency is what makes the episode feel real.
+
+------------------------------------------------------------------------------
+TYGUY   —   host / big-brother mentor (consistent lead, every episode)
+------------------------------------------------------------------------------
+APPEARANCE:           a cheerful 3D cartoon young man, early 20s, warm tan skin, short dark-brown
+                      hair, big friendly brown eyes, bright kind smile
+WARDROBE:             royal-blue hoodie with a white letter 'T' on the chest, dark jeans, white
+                      sneakers
+VOICE:                warm, upbeat, encouraging young-adult male voice
+PERSONALITY:          kind, patient, joyful, gently teaches Scripture by example
+LOCK (never change):  ALWAYS the same: face shape, dark-brown hair, royal-blue 'T' hoodie, brown
+                      eyes — never change his design or outfit
+PROMPT SNIPPET:       a cheerful 3D cartoon young man, early 20s, warm tan skin, short dark-brown
+                      hair, big friendly brown eyes, bright kind smile, royal-
+                      blue hoodie with a white letter 'T' on the chest, dark
+                      jeans, white sneakers
+
+------------------------------------------------------------------------------
+KELLIEE   —   sidekick (consistent, every episode)
+------------------------------------------------------------------------------
+APPEARANCE:           a bright, bubbly 3D cartoon girl, age 10, light-brown skin, curly auburn hair
+                      in two puff pigtails, big hazel eyes, freckles
+WARDROBE:             sunny-yellow hoodie with a small white cross on the chest, teal leggings,
+                      white-and-pink sneakers
+VOICE:                cheerful, curious, slightly higher-energy young girl voice
+PERSONALITY:          eager and warm-hearted, asks the questions kids are thinking, sometimes reacts
+                      first and learns the lesson
+LOCK (never change):  ALWAYS the same: auburn puff pigtails, yellow cross hoodie, freckles, hazel
+                      eyes — never change her design or outfit
+PROMPT SNIPPET:       a bright, bubbly 3D cartoon girl, age 10, light-brown skin, curly auburn hair
+                      in two puff pigtails, big hazel eyes, freckles, sunny-
+                      yellow hoodie with a small white cross on the chest,
+                      teal leggings, white-and-pink sneakers
+
+------------------------------------------------------------------------------
+BEN   —   guest kid (this episode only)
+------------------------------------------------------------------------------
+APPEARANCE:           a 3D cartoon boy, age 9, short sandy-blond hair, light skin, round cheeks
+WARDROBE:             green-striped t-shirt, grey shorts, red sneakers
+VOICE:                energetic young boy, a little impatient at first
+PERSONALITY:          excitable, doesn't realize he cut in line, quick to say sorry
+LOCK (never change):  sandy-blond hair and green-striped shirt in every shot he appears in
+PROMPT SNIPPET:       a 3D cartoon boy, age 9, short sandy-blond hair, light skin, round cheeks,
+                      green-striped t-shirt, grey shorts, red sneakers
+
+==============================================================================

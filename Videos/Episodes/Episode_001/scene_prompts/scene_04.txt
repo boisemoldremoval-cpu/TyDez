@@ -1,0 +1,59 @@
+==============================================================================
+ EPISODE 001 — "Taking Turns"
+ SCENE 04 of 7   |   BEAT: WRONG REACTION
+ ~6s   |   16:9  ->  feeds Scene 05
+==============================================================================
+
+>>> COPY-PASTE THIS INTO VEO / GEMINI <<<
+------------------------------------------------------------------------------
+Pixar/Disney-style 3D animation, warm, wholesome Christian kids' cartoon, soft
+rounded shapes, big expressive friendly faces, gentle and reverent, family-
+friendly, high-detail subsurface skin, soft cinematic global illumination,
+shallow depth of field, 24fps feature-film feel. Kelliee (a bright, bubbly 3D
+cartoon girl, age 10, light-brown skin, curly auburn hair in two puff
+pigtails, big hazel eyes, freckles, sunny-yellow hoodie with a small white
+cross on the chest, teal leggings, white-and-pink sneakers), Kelliee crosses
+her arms, scrunches her face, stomps one foot, and opens her mouth as if to
+shout. Setting: beside the swing set on the grass. Camera: medium close-up,
+slight low angle, holds steady on her. Lighting: warm sun, a touch cooler to
+feel her frustration. Mood: frustrated, upset (gentle and kid-appropriate,
+never scary). Kelliee says, "Hey! That was MY turn! That's not fair!". Color
+palette: brand royal-blue, sunny gold, warm cream, soft heavenly light. Audio:
+gentle uplifting orchestral score, soft acoustic guitar, light playful
+percussion, warm natural ambience; reverent and never scary. Clip length about
+6 seconds, 16:9 aspect ratio.
+------------------------------------------------------------------------------
+
+NEGATIVE PROMPT (paste into the negative / 'avoid' field):
+subtitles, captions, on-screen text, watermark, logo text, distorted face,
+extra fingers, extra limbs, deformed hands, warped anatomy, flickering,
+morphing character, inconsistent character design, low quality, blurry, jpeg
+artifacts, duplicate characters, extra people, scary imagery, violence, blood,
+dark or frightening tone, yelling face that looks frightening, tears, anything
+harsh or mean
+
+==============================================================================
+ SCENE BREAKDOWN (reference — not pasted into Veo)
+==============================================================================
+VIDEO STYLE:          Pixar/Disney-style 3D animation, warm, wholesome Christian kids' cartoon, soft
+                      rounded shapes, big expressive friendly faces, gentle
+                      and reverent, family-friendly, high-detail subsurface
+                      skin, soft cinematic global illumination, shallow depth
+                      of field, 24fps feature-film feel
+MAIN CHARACTER:       Kelliee (a bright, bubbly 3D cartoon girl, age 10, light-brown skin, curly
+                      auburn hair in two puff pigtails, big hazel eyes,
+                      freckles, sunny-yellow hoodie with a small white cross
+                      on the chest, teal leggings, white-and-pink sneakers)
+LOCATION:             beside the swing set on the grass
+ACTION:               Kelliee crosses her arms, scrunches her face, stomps one foot, and opens her
+                      mouth as if to shout
+CAMERA ANGLE:         medium close-up, slight low angle, holds steady on her
+LIGHTING:             warm sun, a touch cooler to feel her frustration
+MOOD:                 frustrated, upset (gentle and kid-appropriate, never scary)
+DIALOGUE:             Kelliee: Hey! That was MY turn! That's not fair!
+MUST STAY CONSISTENT: Kelliee: ALWAYS the same: auburn puff pigtails, yellow cross hoodie, freckles,
+                      hazel eyes — never change her design or outfit
+DO NOT SHOW:          yelling face that looks frightening, tears, anything harsh or mean
+ENDING FRAME:         Kelliee, arms crossed and pouting, as a familiar blue sleeve enters frame —
+                      TyGuy's hand resting gently on her shoulder
+==============================================================================

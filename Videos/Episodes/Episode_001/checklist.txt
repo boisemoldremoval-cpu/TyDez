@@ -1,0 +1,64 @@
+==============================================================================
+ FINAL CHECKLIST — Episode 001: "Taking Turns"
+==============================================================================
+
+Run this BEFORE you spend credits generating. Veo clips are
+paid and async — catching problems here saves real money.
+
+THIS EPISODE
+  Verse:  Ephesians 4:32 — "Be kind to one another, tender-hearted, forgiving
+          one another, as God in Christ forgave you."
+  Lesson: When someone is unfair to us, Jesus helps us choose kindness and
+          forgiveness instead of anger.
+
+REQUIRED BIBLE-LESSON BEATS (every episode must have all 7)
+  [x] BIBLE VERSE
+  [x] LIFE LESSON
+  [x] THE PROBLEM
+  [x] WRONG REACTION
+  [x] BIBLICAL CORRECTION
+  [x] PEACEFUL ENDING
+  [x] CALL TO FOLLOW JESUS
+
+STORY & STRUCTURE
+  [ ] Logline is clear and the episode has a beginning/middle/end
+  [ ] All 7 scenes read in order and tell one coherent story
+  [ ] Bible verse is quoted accurately
+  [ ] The call to follow Jesus is warm and clear at the end
+  [ ] Every clip is between 4-8s (short and punchy)
+
+CONSISTENCY (the make-or-break)
+  [ ] TyGuy matches the series bible WORD-FOR-WORD (royal-blue 'T' hoodie)
+  [ ] Kelliee matches the series bible WORD-FOR-WORD (yellow cross hoodie)
+  [ ] Wardrobe / colors match the character sheet in every scene
+  [ ] A seed/reference image is set for TyGuy and Kelliee
+  [ ] Style clause + palette are identical across all clips
+
+EACH SCENE PROMPT INCLUDES
+  [ ] Style, character, location, action
+  [ ] Camera angle, lighting, mood
+  [ ] Dialogue (or marked visual-only)
+  [ ] What must stay consistent + what NOT to show
+  [ ] Ending-frame description that hands off to the next clip
+
+CONTINUITY HANDOFFS
+  [ ] S01 hands to Scene 02: Kelliee proudly holds the Bible up toward camera, then…
+  [ ] S02 hands to Scene 03: Kelliee skips toward an empty swing, the swing clearly…
+  [ ] S03 hands to Scene 04: Kelliee freezes mid-reach, swing now taken, her smile…
+  [ ] S04 hands to Scene 05: Kelliee, arms crossed and pouting, as a familiar blue…
+  [ ] S05 hands to Scene 06: Kelliee uncrosses her arms and takes a calming breath, a…
+  [ ] S06 hands to Scene 07: Kelliee swings gently with Ben pushing, both laughing;…
+  [ ] S07 final clip: freeze on TyGuy and Kelliee waving together, golden…
+
+TECHNICAL
+  [ ] Aspect ratio set to 16:9 on every clip
+  [ ] Negative prompt pasted into every generation
+  [ ] GEMINI_API_KEY exported (never committed)
+  [ ] Model selected: veo-3.0-generate-001
+
+AFTER GENERATION
+  [ ] Watch clips end-to-start: does each ending match the next opening?
+  [ ] Re-roll any clip where the character drifts off-model
+  [ ] Assemble in order, add music/VO, export
+
+==============================================================================
