@@ -100,6 +100,18 @@ def draw_kid(base, cx, feet_y, H, pal, pose=None):
     d.rounded_rectangle([cx - tw / 2 + ldx, (sh_y + hip_y) / 2,
                          cx + tw / 2 + ldx, hip_y + H * 0.03],
                         radius=H * 0.06, fill=pal["shirt_sh"])
+    # white "T" emblem (kid TyGuy)
+    if pal.get("emblem_T"):
+        ex = cx + ldx
+        ey = sh_y + (hip_y - sh_y) * 0.45
+        tw2 = tw * 0.42
+        th2 = (hip_y - sh_y) * 0.5
+        d.rounded_rectangle([ex - tw2 / 2, ey - th2 * 0.4,
+                             ex + tw2 / 2, ey - th2 * 0.4 + th2 * 0.28],
+                            radius=2, fill=(245, 248, 255))      # top bar
+        d.rounded_rectangle([ex - tw2 * 0.16, ey - th2 * 0.4,
+                             ex + tw2 * 0.16, ey + th2 * 0.6],
+                            radius=2, fill=(245, 248, 255))      # stem
 
     # arms
     shl = (cx - tw / 2 + ldx + H * 0.02, sh_y + H * 0.03)
