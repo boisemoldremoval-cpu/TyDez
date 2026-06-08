@@ -45,8 +45,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import textwrap
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -643,6 +645,101 @@ def build(ep: Episode, base: Path) -> Path:
 
 
 # ----------------------------------------------------------------------------
+# Generate — call Veo on each scene prompt and save the clips.
+# TyGuy/Kelliee shots are image-seeded from a reference image so they stay
+# on-model. Generation is paid and async (~1-3 min/clip); needs GEMINI_API_KEY.
+# ----------------------------------------------------------------------------
+RECURRING = {"tyguy", "kelliee"}
+
+
+def _scene_uses_recurring(scene: Scene) -> bool:
+    return any(name.lower() in RECURRING for name in scene.characters)
+
+
+def generate(ep: Episode, base: Path, which=None, seed_path: str = "tyguy_seed.png",
+             dry_run: bool = False) -> Path:
+    """Generate one mp4 per selected scene into Episode_NNN/clips/."""
+    ep_dir = base / "Episodes" / ep.folder_name()
+    clips_dir = ep_dir / "clips"
+    clips_dir.mkdir(parents=True, exist_ok=True)
+
+    indices = which or list(range(1, len(ep.scenes) + 1))
+    seed_available = Path(seed_path).exists()
+
+    print(f"\nEpisode {ep.number:03d} — \"{ep.title}\"  |  model: {ep.model_hint}")
+    print(f"Seed image: {seed_path} "
+          f"({'found' if seed_available else 'MISSING — recurring shots will not be seeded'})")
+    print(f"Generating {len(indices)} clip(s) -> {clips_dir}\n")
+
+    if dry_run:
+        for n in indices:
+            scene = ep.scenes[n - 1]
+            seeded = _scene_uses_recurring(scene) and seed_available
+            print(f"[scene {n:02d}] ~{scene.seconds}s  "
+                  f"{'SEEDED (image-to-video)' if seeded else 'text-to-video'}  "
+                  f"beat={scene.beat or '-'}")
+            print("  PROMPT:   " + " ".join(build_veo_prompt(scene, ep).split())[:160] + "…")
+            print("  NEGATIVE: " + " ".join(build_negative(scene, ep).split())[:90] + "…")
+            print(f"  -> {clips_dir / f'clip_{n:02d}.mp4'}\n")
+        print("Dry run only — no API calls made. Drop --dry-run to generate for real.")
+        return ep_dir
+
+    key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    if not key:
+        raise SystemExit("ERROR: set GEMINI_API_KEY (Google AI key with Veo access).")
+
+    from google import genai          # imported lazily so build/demo need no SDK
+    from google.genai import types
+
+    client = genai.Client(api_key=key)
+    seed_img = None
+    if seed_available:
+        with open(seed_path, "rb") as f:
+            mime = "image/png" if seed_path.lower().endswith("png") else "image/jpeg"
+            seed_img = types.Image(image_bytes=f.read(), mime_type=mime)
+
+    for n in indices:
+        scene = ep.scenes[n - 1]
+        out = clips_dir / f"clip_{n:02d}.mp4"
+        seeded = _scene_uses_recurring(scene) and seed_img is not None
+        print(f"[scene {n:02d}/{len(ep.scenes)}] {'seeded' if seeded else 'text'} "
+              f"({ep.aspect_ratio}) ~{scene.seconds}s …")
+        kwargs = dict(
+            model=ep.model_hint,
+            prompt=" ".join(build_veo_prompt(scene, ep).split()),
+            config=types.GenerateVideosConfig(
+                aspect_ratio=ep.aspect_ratio,
+                number_of_videos=1,
+                negative_prompt=" ".join(build_negative(scene, ep).split())),
+        )
+        if seeded:
+            kwargs["image"] = seed_img
+        op = client.models.generate_videos(**kwargs)
+        t0 = time.time()
+        while not op.done:
+            time.sleep(10)
+            op = client.operations.get(op)
+        if getattr(op, "error", None):
+            print(f"  !! scene {n} ERROR: {op.error}")
+            continue
+        resp = op.response
+        vids = getattr(resp, "generated_videos", None) if resp else None
+        if not vids:
+            reasons = getattr(resp, "rai_media_filtered_reasons", None)
+            print(f"  !! scene {n} produced NO video (content-filtered). reasons={reasons}")
+            continue
+        client.files.download(file=vids[0].video)
+        vids[0].video.save(str(out))
+        print(f"  saved {out}  ({time.time()-t0:.0f}s)")
+
+    print(f"\nDone. Assemble in order with the existing helper, e.g.:\n"
+          f"  python3 assemble_3d.py " +
+          " ".join(str(clips_dir / f'clip_{n:02d}.mp4') for n in indices) +
+          " --out episode_" + f"{ep.number:03d}.mp4")
+    return ep_dir
+
+
+# ----------------------------------------------------------------------------
 # SERIES BIBLE — the locked, reused-every-episode definitions.
 # TyGuy and Kelliee must look and sound identical in every episode, so their
 # descriptions live here (or in series.json) and every episode inherits them.
@@ -975,6 +1072,18 @@ def main(argv=None):
     ps = sub.add_parser("series", help="write the series bible (TyGuy + Kelliee) to a file")
     ps.add_argument("out", nargs="?", default="series.json", help="path (default: series.json)")
 
+    pg = sub.add_parser("generate", help="generate the video clips with Veo (paid; needs GEMINI_API_KEY)")
+    pg.add_argument("spec", nargs="?", help="episode JSON spec (omit with --demo)")
+    pg.add_argument("--demo", action="store_true", help="generate the bundled demo episode")
+    pg.add_argument("--base", default="Videos", help="base output dir (default: Videos)")
+    pg.add_argument("--series", default=None, help="path to series bible JSON")
+    pg.add_argument("--seed", default="tyguy_seed.png",
+                    help="reference image to seed TyGuy/Kelliee shots (default: tyguy_seed.png)")
+    pg.add_argument("--scenes", type=int, nargs="+", metavar="N",
+                    help="only generate these scene numbers (default: all)")
+    pg.add_argument("--dry-run", action="store_true",
+                    help="show what would be generated without calling the API")
+
     args = p.parse_args(argv)
 
     if args.cmd == "template":
@@ -987,6 +1096,19 @@ def main(argv=None):
         Path(args.out).write_text(json.dumps(SERIES, indent=2))
         print(f"✓ Wrote series bible to {args.out}")
         print("  Edit shared TyGuy/Kelliee details here; episodes inherit them.")
+        return 0
+
+    if args.cmd == "generate":
+        if args.demo:
+            ep = Episode.from_dict(merge_series(example_spec(), load_series()))
+        elif args.spec:
+            ep = _load_spec(args.spec, args.series)
+        else:
+            p.error("generate needs a spec path or --demo")
+        # Make sure the package exists alongside the clips.
+        build(ep, Path(args.base))
+        generate(ep, Path(args.base), which=args.scenes, seed_path=args.seed,
+                 dry_run=args.dry_run)
         return 0
 
     if args.cmd == "demo":

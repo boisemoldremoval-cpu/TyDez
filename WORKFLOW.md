@@ -87,7 +87,37 @@ python3 video_workflow.py build episode_002.json --base /path/to/Videos --series
 [`example_episode.json`](example_episode.json) is a real, editable spec you can
 copy for new episodes.
 
-## From prompts to video
+## Generate the actual clips
+
+The app can call Veo for you and save one `clip_NN.mp4` per scene into
+`Episode_XXX/clips/`. Shots with TyGuy or Kelliee are **image-seeded** from a
+reference image (`tyguy_seed.png`) so they stay on-model.
+
+> Generation is **paid** (~a few $ per ~8s clip) and **async** (1–3 min each),
+> and needs `google-genai` plus a Veo-enabled key. Preview first with `--dry-run`.
+
+```bash
+pip install google-genai
+export GEMINI_API_KEY=...                 # never commit this
+
+# Preview exactly what will be generated — no API calls, no cost:
+python3 video_workflow.py generate --demo --dry-run
+
+# Generate every clip for the demo episode:
+python3 video_workflow.py generate --demo
+
+# Generate from your own spec, or just specific scenes:
+python3 video_workflow.py generate episode_002.json
+python3 video_workflow.py generate episode_002.json --scenes 3 4 5
+python3 video_workflow.py generate episode_002.json --seed kelliee_seed.png
+```
+
+Then assemble in order (clips connect via each scene's ending frame), add
+music/voiceover, and export — e.g. with this repo's `assemble_3d.py`.
+
+## From prompts to video, manually
+
+If you'd rather drive Veo/Gemini by hand:
 
 1. Run `build`, then open `Episode_XXX/checklist.txt` and tick it through.
 2. Copy each `scene_prompts/scene_NN.txt` prompt + negative into Veo/Gemini
