@@ -732,11 +732,67 @@ def generate(ep: Episode, base: Path, which=None, seed_path: str = "tyguy_seed.p
         vids[0].video.save(str(out))
         print(f"  saved {out}  ({time.time()-t0:.0f}s)")
 
-    print(f"\nDone. Assemble in order with the existing helper, e.g.:\n"
-          f"  python3 assemble_3d.py " +
-          " ".join(str(clips_dir / f'clip_{n:02d}.mp4') for n in indices) +
-          " --out episode_" + f"{ep.number:03d}.mp4")
+    print(f"\nDone. Assemble in order with:\n"
+          f"  python3 video_workflow.py assemble {ep.number} --base {base}")
     return ep_dir
+
+
+# ----------------------------------------------------------------------------
+# Assemble — stitch the generated clips into one episode file, in order.
+# Clips connect via each scene's ending frame; this normalizes size/fps and
+# concatenates clip_01..clip_NN (keeping each clip's Veo audio).
+# ----------------------------------------------------------------------------
+def _ffmpeg_exe() -> str:
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        from shutil import which
+        exe = which("ffmpeg")
+        if not exe:
+            raise SystemExit("ERROR: need imageio-ffmpeg (pip install imageio-ffmpeg) "
+                             "or a system 'ffmpeg' on PATH.")
+        return exe
+
+
+def assemble(ep: Episode, base: Path, vertical: bool = False,
+             out: Path | None = None, xfade: float = 0.0) -> Path:
+    import subprocess
+
+    ep_dir = base / "Episodes" / ep.folder_name()
+    clips_dir = ep_dir / "clips"
+    clips = sorted(clips_dir.glob("clip_*.mp4"))
+    if not clips:
+        raise SystemExit(f"No clips found in {clips_dir} — run 'generate' first.")
+    out = out or (ep_dir / f"episode_{ep.number:03d}.mp4")
+
+    Wt, Ht = (1080, 1920) if vertical else (1280, 720)
+    parts, concat = [], ""
+    for i in range(len(clips)):
+        parts.append(
+            f"[{i}:v]split=2[bg{i}][fg{i}];"
+            f"[bg{i}]scale={Wt}:{Ht}:force_original_aspect_ratio=increase,"
+            f"crop={Wt}:{Ht},gblur=sigma=24[bgb{i}];"
+            f"[fg{i}]scale={Wt}:{Ht}:force_original_aspect_ratio=decrease[fg{i}s];"
+            f"[bgb{i}][fg{i}s]overlay=(W-w)/2:(H-h)/2,setsar=1,fps=24[v{i}];"
+            f"[{i}:a]aresample=48000,aformat=channel_layouts=stereo[a{i}];"
+        )
+        concat += f"[v{i}][a{i}]"
+    fc = "".join(parts) + f"{concat}concat=n={len(clips)}:v=1:a=1[v][a]"
+
+    cmd = [_ffmpeg_exe(), "-y"]
+    for c in clips:
+        cmd += ["-i", str(c)]
+    cmd += ["-filter_complex", fc, "-map", "[v]", "-map", "[a]",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "medium", "-crf", "19",
+            "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(out)]
+    print(f"Assembling {len(clips)} clips -> {out} ({Wt}x{Ht})")
+    r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if r.returncode != 0:
+        print(r.stderr.decode()[-2000:])
+        raise SystemExit("assembly failed")
+    print(f"Done -> {out}")
+    return out
 
 
 # ----------------------------------------------------------------------------
@@ -1083,6 +1139,16 @@ def main(argv=None):
                     help="only generate these scene numbers (default: all)")
     pg.add_argument("--dry-run", action="store_true",
                     help="show what would be generated without calling the API")
+    pg.add_argument("--assemble", action="store_true",
+                    help="stitch the clips into one episode file after generating")
+    pg.add_argument("--vertical", action="store_true",
+                    help="with --assemble, build a 9:16 (1080x1920) cut")
+
+    pa = sub.add_parser("assemble", help="stitch an episode's clips into one mp4")
+    pa.add_argument("number", type=int, help="episode number (e.g. 1)")
+    pa.add_argument("--base", default="Videos", help="base output dir (default: Videos)")
+    pa.add_argument("--vertical", action="store_true", help="9:16 (1080x1920) cut")
+    pa.add_argument("--out", default=None, help="output mp4 path")
 
     args = p.parse_args(argv)
 
@@ -1098,6 +1164,13 @@ def main(argv=None):
         print("  Edit shared TyGuy/Kelliee details here; episodes inherit them.")
         return 0
 
+    if args.cmd == "assemble":
+        # Rebuild the episode object just to resolve its folder name.
+        ep = Episode(number=args.number, title="")
+        out = Path(args.out) if args.out else None
+        assemble(ep, Path(args.base), vertical=args.vertical, out=out)
+        return 0
+
     if args.cmd == "generate":
         if args.demo:
             ep = Episode.from_dict(merge_series(example_spec(), load_series()))
@@ -1109,6 +1182,8 @@ def main(argv=None):
         build(ep, Path(args.base))
         generate(ep, Path(args.base), which=args.scenes, seed_path=args.seed,
                  dry_run=args.dry_run)
+        if args.assemble and not args.dry_run:
+            assemble(ep, Path(args.base), vertical=args.vertical)
         return 0
 
     if args.cmd == "demo":

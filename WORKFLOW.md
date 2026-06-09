@@ -110,10 +110,24 @@ python3 video_workflow.py generate --demo
 python3 video_workflow.py generate episode_002.json
 python3 video_workflow.py generate episode_002.json --scenes 3 4 5
 python3 video_workflow.py generate episode_002.json --seed kelliee_seed.png
+
+# Generate AND stitch into one episode file in a single step:
+python3 video_workflow.py generate --demo --assemble
 ```
 
-Then assemble in order (clips connect via each scene's ending frame), add
-music/voiceover, and export — e.g. with this repo's `assemble_3d.py`.
+## Assemble the episode
+
+Stitch the generated clips into one file, in order (they connect via each
+scene's ending frame). Normalizes size/fps and keeps each clip's Veo audio.
+
+```bash
+python3 video_workflow.py assemble 1                 # -> Episode_001/episode_001.mp4
+python3 video_workflow.py assemble 1 --vertical      # 9:16 cut for shorts/reels
+python3 video_workflow.py assemble 1 --out final.mp4
+```
+
+Needs `imageio-ffmpeg` (`pip install imageio-ffmpeg`) or a system `ffmpeg`.
+Add your own music/voiceover afterward, then publish.
 
 ## From prompts to video, manually
 
