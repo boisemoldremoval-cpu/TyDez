@@ -146,7 +146,7 @@ def main():
     out = "with_music.mp4"
     if "--out" in args:
         i = args.index("--out"); out = args[i + 1]; del args[i:i + 2]
-    bed_vol = 0.32
+    bed_vol = 0.85
     if "--bed-vol" in args:
         i = args.index("--bed-vol"); bed_vol = float(args[i + 1]); del args[i:i + 2]
     if not args:
@@ -169,11 +169,12 @@ def main():
         fc = (f"[1:a]atrim=0:{dur},afade=t=out:st={fo}:d=1,volume={bed_vol},"
               f"aresample={SR},aformat=channel_layouts=stereo[m];"
               f"[0:a]volume=1.0,aresample={SR},aformat=channel_layouts=stereo[o];"
-              f"[o][m]amix=inputs=2:duration=first:normalize=0,"
-              f"alimiter=limit=0.97[a]")
+              f"[o][m]amix=inputs=2:duration=first:normalize=0[mix];"
+              f"[mix]loudnorm=I=-14:TP=-1.5:LRA=11[a]")
     else:
         fc = (f"[1:a]atrim=0:{dur},afade=t=out:st={fo}:d=1,volume={bed_vol},"
-              f"aresample={SR},aformat=channel_layouts=stereo[a]")
+              f"aresample={SR},aformat=channel_layouts=stereo,"
+              f"loudnorm=I=-14:TP=-1.5:LRA=11[a]")
     cmd += [fc, "-map", "0:v", "-map", "[a]",
             "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
             "-movflags", "+faststart", out]
