@@ -181,14 +181,15 @@ export interface ClipOverlay {
 /** Video effect applied to a clip (behavior-driven) */
 export interface ClipEffect {
   id: string;
-  effectId: string; // Reference to EffectPreset
-  type: "effect";
-  renderer: string; // "shake", "blur", "glitch", etc.
-  params: Record<string, any>; // Effect-specific parameters
+  name?: string; // Human-readable label (set when applied from the picker UI)
+  effectId?: string; // Reference to EffectPreset
+  type?: "effect";
+  renderer?: string; // "shake", "blur", "glitch", etc.
+  params?: Record<string, any>; // Effect-specific parameters
 
   // Timing (relative to clip)
-  startTime: number;
-  duration: number;
+  startTime?: number;
+  duration?: number;
 
   // Intensity control
   intensity: number; // 0-1

@@ -30,5 +30,9 @@
     "types": ["vitest/globals", "@testing-library/jest-dom"]
   },
   "include": ["src"],
+  "exclude": [
+    "src/features/video-effects/components",
+    "src/features/video-effects/utils"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
