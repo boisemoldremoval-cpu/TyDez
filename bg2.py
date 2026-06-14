@@ -89,3 +89,92 @@ def _cloud(d, x, y, s):
     for dx, dy, r in [(-70, 10, 42), (-20, -8, 54), (40, 6, 46), (-15, 22, 50)]:
         d.ellipse([x + dx * s - r * s, y + dy * s - r * s,
                    x + dx * s + r * s, y + dy * s + r * s], fill=col)
+
+
+# ---- parable backgrounds ----
+_DESERT = _CLUB = _INN = None
+
+
+def desert_road(t):
+    global _DESERT
+    if _DESERT is None:
+        sky = _vgrad((250, 225, 175), (245, 240, 220), int(H * 0.66))
+        img = Image.new("RGB", (W, H), (224, 196, 150))
+        img.paste(Image.fromarray(sky, "RGB"), (0, 0)); img = img.convert("RGBA")
+        d = ImageDraw.Draw(img)
+        gy = int(H * 0.66)
+        # distant hills
+        for hx, hr, c in [(220, 150, (214, 188, 150)), (640, 200, (206, 178, 138)),
+                          (1050, 170, (214, 188, 150))]:
+            d.ellipse([hx - hr, gy - hr * 0.7, hx + hr, gy + hr], fill=c)
+        d.rectangle([0, gy, W, H], fill=(224, 196, 150))      # sand
+        # winding road
+        d.polygon([(W * 0.30, gy), (W * 0.70, gy), (W * 1.05, H), (W * -0.05, H)], fill=(210, 182, 138))
+        d.polygon([(W * 0.40, gy), (W * 0.60, gy), (W * 0.78, H), (W * 0.22, H)], fill=(202, 174, 130))
+        # rocks + bushes
+        rng = np.random.default_rng(8)
+        for _ in range(16):
+            rx, ry = rng.uniform(0, W), rng.uniform(gy + 20, H - 30)
+            r = rng.uniform(12, 30)
+            d.ellipse([rx - r, ry - r * 0.6, rx + r, ry + r * 0.6], fill=(168, 150, 120))
+        for _ in range(12):
+            bx, by = rng.uniform(0, W), rng.uniform(gy + 10, H - 40)
+            d.ellipse([bx - 22, by - 14, bx + 22, by + 10], fill=(120, 150, 80))
+        _DESERT = img
+    img = _DESERT.copy(); d = ImageDraw.Draw(img, "RGBA")
+    sx, sy = W * 0.82, H * 0.16
+    d.ellipse([sx - 50, sy - 50, sx + 50, sy + 50], fill=(255, 238, 170))
+    return img.convert("RGBA")
+
+
+def club_room(t):
+    global _CLUB
+    if _CLUB is None:
+        img = Image.fromarray(_vgrad((236, 214, 186), (222, 198, 168), H), "RGB").convert("RGBA")
+        d = ImageDraw.Draw(img)
+        fy = int(H * 0.70)
+        d.rectangle([0, fy, W, H], fill=(178, 138, 96))               # wood floor
+        for i in range(0, W, 90):
+            d.line([(i, fy), (i + 40, H)], fill=(160, 122, 84), width=2)
+        d.ellipse([W * 0.28, H * 0.80, W * 0.72, H * 1.02], fill=(200, 90, 90))   # rug
+        d.ellipse([W * 0.33, H * 0.83, W * 0.67, H * 0.99], fill=(220, 170, 90))
+        # bookshelf
+        d.rectangle([W * 0.04, fy - 180, W * 0.20, fy], fill=(140, 100, 66))
+        for r in range(3):
+            yy = fy - 170 + r * 56
+            for bx in range(int(W * 0.05), int(W * 0.19), 18):
+                d.rectangle([bx, yy, bx + 14, yy + 46],
+                            fill=tuple(int(c) for c in np.random.default_rng(bx + r).integers(60, 220, 3)))
+        # window
+        d.rectangle([W * 0.74, fy - 200, W * 0.94, fy - 40], fill=(150, 205, 235), outline=(150, 110, 70), width=8)
+        d.line([(W * 0.84, fy - 200), (W * 0.84, fy - 40)], fill=(150, 110, 70), width=6)
+        d.line([(W * 0.74, fy - 120), (W * 0.94, fy - 120)], fill=(150, 110, 70), width=6)
+        # bunting banner
+        for i in range(8):
+            x = W * 0.30 + i * 60
+            col = [(230, 80, 80), (240, 200, 70), (80, 160, 220)][i % 3]
+            d.polygon([(x, 40), (x + 50, 40), (x + 25, 95)], fill=col)
+        _CLUB = img
+    return _CLUB.copy()
+
+
+def inn(t):
+    global _INN
+    if _INN is None:
+        img = Image.fromarray(_vgrad((250, 180, 120), (120, 90, 140), int(H * 0.7)), "RGB").convert("RGBA")
+        d = ImageDraw.Draw(img)
+        gy = int(H * 0.74)
+        d.rectangle([0, gy, W, H], fill=(120, 100, 80))
+        # inn building
+        bx0, by0 = W * 0.30, H * 0.26
+        d.rectangle([bx0, by0, W * 0.80, gy], fill=(206, 184, 150))
+        d.polygon([(bx0 - 24, by0), (W * 0.80 + 24, by0), (W * 0.80 - 40, by0 - 70),
+                   (bx0 + 40, by0 - 70)], fill=(150, 100, 80))
+        d.rounded_rectangle([W * 0.50, gy - 150, W * 0.60, gy], radius=10, fill=(110, 74, 50))  # door
+        for wx in (0.35, 0.68):
+            d.rectangle([W * wx, by0 + 50, W * wx + 60, by0 + 120], fill=(255, 220, 120),
+                        outline=(150, 100, 70), width=5)                # glowing windows
+        # lantern
+        d.ellipse([W * 0.62, gy - 150, W * 0.66, gy - 130], fill=(255, 220, 120))
+        _INN = img
+    return _INN.copy()
