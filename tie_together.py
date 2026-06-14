@@ -73,9 +73,14 @@ def main():
     bed_vol = float(take("--bed-vol", "0.5"))
     size = take("--size", None)
     fps_override = take("--fps", None)
+    endcard = take("--endcard", None)        # PNG/JPG or MP4 appended at the end
+    endcard_dur = float(take("--endcard-dur", "3.5"))
     no_music = "--no-music" in args
     if no_music:
         args.remove("--no-music")
+    grade = "--grade" in args
+    if grade:
+        args.remove("--grade")
 
     files = args
     if not files:
@@ -86,8 +91,19 @@ def main():
             raise SystemExit(f"missing input: {f}")
 
     metas = [probe(f) for f in files]
+    n_clips = len(files)
+
+    # segments = real clips (+ optional end card appended last)
     durs = [m[0] for m in metas]
-    n = len(files)
+    seg_audio = [m[4] for m in metas]
+    seg_grade = [grade] * n_clips        # end card is never graded
+    if endcard:
+        if not os.path.exists(endcard):
+            raise SystemExit(f"missing endcard: {endcard}")
+        durs.append(endcard_dur)
+        seg_audio.append(False)
+        seg_grade.append(False)
+    n = len(durs)
 
     if size:
         W, H = (int(x) for x in size.lower().split("x"))
@@ -99,18 +115,24 @@ def main():
         total = durs[0]
     else:
         total = sum(durs) - (n - 1) * xdur
-    print(f"tying {n} clips -> {out}  ({W}x{H} @ {FPS}fps, ~{total:.1f}s, "
-          f"{transition} {xdur}s)")
+    print(f"tying {n_clips} clips{' + end card' if endcard else ''} -> {out}  "
+          f"({W}x{H} @ {FPS}fps, ~{total:.1f}s, {transition} {xdur}s"
+          f"{', graded' if grade else ''})")
 
     cmd = [FF, "-y"]
     for f in files:
         cmd += ["-i", f]
+    if endcard:  # video input index == n_clips
+        if endcard.lower().endswith((".png", ".jpg", ".jpeg")):
+            cmd += ["-loop", "1", "-t", f"{endcard_dur:.3f}", "-i", endcard]
+        else:
+            cmd += ["-i", endcard]
 
-    # silent fill for clips without audio
+    # silent fill for any segment without audio (video inputs occupy 0..n-1)
     next_idx = n
     silent_idx = {}
-    for i, m in enumerate(metas):
-        if not m[4]:
+    for i in range(n):
+        if not seg_audio[i]:
             cmd += ["-f", "lavfi", "-t", f"{durs[i]:.3f}",
                     "-i", "anullsrc=channel_layout=stereo:sample_rate=48000"]
             silent_idx[i] = next_idx
@@ -129,15 +151,19 @@ def main():
         next_idx += 1
 
     fc = []
-    # normalize video to common canvas/fps
+    # clean, punchy grade for a 'fresh & restored' look
+    grade_f = ("eq=contrast=1.10:saturation=1.18:brightness=0.012:gamma=0.98,"
+               "unsharp=5:5:0.5:5:5:0.0")
+    # normalize video to common canvas/fps (+ optional grade)
     for i in range(n):
-        fc.append(
-            f"[{i}:v]scale={W}:{H}:force_original_aspect_ratio=decrease,"
-            f"pad={W}:{H}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={FPS},"
-            f"format=yuv420p[v{i}]")
+        chain = (f"[{i}:v]scale={W}:{H}:force_original_aspect_ratio=decrease,"
+                 f"pad={W}:{H}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={FPS}")
+        if seg_grade[i]:
+            chain += "," + grade_f
+        fc.append(chain + f",format=yuv420p[v{i}]")
     # normalize audio
-    for i, m in enumerate(metas):
-        src = f"[{i}:a]" if m[4] else f"[{silent_idx[i]}:a]"
+    for i in range(n):
+        src = f"[{i}:a]" if seg_audio[i] else f"[{silent_idx[i]}:a]"
         fc.append(f"{src}aresample=48000,aformat=channel_layouts=stereo[a{i}]")
 
     if n == 1:
@@ -175,7 +201,8 @@ def main():
     cmd += ["-filter_complex", ";".join(fc),
             "-map", f"[{vfinal}]", "-map", "[aout]",
             "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20",
-            "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", out]
+            "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+            "-movflags", "+faststart", out]
 
     r = subprocess.run(cmd, stderr=subprocess.PIPE)
     if r.returncode != 0:
