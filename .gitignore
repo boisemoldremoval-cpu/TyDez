@@ -12,6 +12,7 @@ seq3d/
 voices/
 *.mp4
 *.wav
+*.mp3
 cartoon2d.mp4
 
 # third-party installed skills
