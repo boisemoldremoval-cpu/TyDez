@@ -1,0 +1,360 @@
+import React from "react";
+import { TopBar } from "./TopBar";
+import { EnhancedMediaPanel } from "./media-panel/EnhancedMediaPanel";
+import { PreviewPanel } from "./preview/PreviewPanel";
+import { PropertiesPanel } from "./PropertiesPanel";
+import { Timeline } from "./timeline/Timeline";
+import { getInsertIndexForNewTrack, useTimelineStore } from "@/store/timelineStore";
+import { useProjectStore } from "@/store/projectStore";
+import { createClipFromAsset } from "@/lib/timeline/timelineClip";
+import { createTextClip, TEXT_PRESETS } from "@/lib/text/textClip";
+import { autoAdaptSequenceForFirstVisualClip } from "@/lib/sequence/sequenceAutoAspect";
+import { DEFAULT_PLACEMENT_POLICY, resolveAddToTimelinePlacement, resolveDefaultFitModeForAsset } from "@/lib/timeline/placementPolicy";
+import { getPlaybackClock } from "@/hooks/usePlaybackClock";
+import { useWindowSize } from "@/hooks/useWindowSize";
+import { MobileEditorLayout } from "./MobileEditorLayout";
+import type { MediaAsset } from "@/types";
+import { useUIStore } from "@/store/uiStore";
+import { useAudioLibraryStore } from "@/features/audio-library/store/audioLibraryStore";
+import { useStickersStore } from "@/features/stickers/store/stickersStore";
+
+export const EditorLayout: React.FC = () => {
+  const { width } = useWindowSize();
+
+  if (width < 768) {
+    return <MobileEditorLayout />;
+  }
+
+  const { tracks, clips, addClip, updateClip, insertTrackAt, getTimelineEndTime, createTransitionBetweenClips } = useTimelineStore();
+  const { mediaAssets, project, updateProject, addMediaAsset } = useProjectStore();
+  const { selectedClipIds } = useUIStore();
+
+  const findAdjacentClipsAtPlayhead = () => {
+    const playheadTime = getPlaybackClock().time;
+    for (const track of tracks.filter((candidate) => candidate.type !== "audio" && !candidate.locked)) {
+      const sorted = clips.filter((clip) => clip.trackId === track.id).sort((a, b) => a.startTime - b.startTime);
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const left = sorted[i];
+        const right = sorted[i + 1];
+        const cutTime = left.startTime + left.duration;
+        const isAtCut = Math.abs(cutTime - right.startTime) <= 0.001 && Math.abs(playheadTime - cutTime) <= 0.25;
+        if (isAtCut) return [left.id, right.id] as const;
+      }
+    }
+    return null;
+  };
+  const { getCachedFile } = useAudioLibraryStore();
+
+  const handleAddToTimeline = (item: any, type: string) => {
+    // Handle different item types
+    if (type === "media") {
+      const mediaAsset = mediaAssets.find((asset) => asset.id === item.id);
+      if (!mediaAsset) return;
+
+      const placement = resolveAddToTimelinePlacement({
+        asset: mediaAsset,
+        tracks,
+        clips,
+        playheadTime: getPlaybackClock().time,
+        sequenceEndTime: getTimelineEndTime(),
+      });
+      let targetTrackId = placement.targetTrackId;
+      if (placement.shouldCreateTrack || !targetTrackId) {
+        const latestTracks = useTimelineStore.getState().tracks;
+        const insertIndex = getInsertIndexForNewTrack(latestTracks, placement.trackType);
+        targetTrackId = insertTrackAt(placement.trackType, insertIndex);
+      }
+
+      if (!targetTrackId) return;
+
+      if (DEFAULT_PLACEMENT_POLICY.autoAdaptSequenceForFirstVisualClip) {
+        autoAdaptSequenceForFirstVisualClip({
+          project,
+          existingClips: clips,
+          asset: mediaAsset,
+          updateProject,
+        });
+      }
+
+      const nextProject = useProjectStore.getState().project;
+
+      const newClip = createClipFromAsset({
+        asset: mediaAsset,
+        trackId: targetTrackId,
+        startTime: placement.startTime,
+        width: nextProject?.canvasWidth || project?.canvasWidth || 1920,
+        height: nextProject?.canvasHeight || project?.canvasHeight || 1080,
+        fitMode: resolveDefaultFitModeForAsset(mediaAsset),
+      });
+
+      addClip(newClip);
+    } else if (type === "text") {
+      // Text clips follow the same placement policy semantics:
+      // playhead-first, no overwrite, create track when occupied.
+      const sequenceEndTime = getTimelineEndTime();
+      const playheadTime = getPlaybackClock().time;
+      const startTime = Math.max(0, Math.min(playheadTime, Math.max(0, sequenceEndTime)));
+      const firstUnlockedTextTrack = tracks.find((track) => track.type === "text" && !track.locked);
+      let targetTrackId: string | null = firstUnlockedTextTrack?.id ?? null;
+
+      if (targetTrackId) {
+        const targetTrackClips = clips.filter((clip) => clip.trackId === targetTrackId);
+        const occupiedAtPlayhead = targetTrackClips.some((clip) => clip.startTime <= startTime && startTime < clip.startTime + clip.duration);
+        if (occupiedAtPlayhead) {
+          targetTrackId = null;
+        }
+      }
+
+      if (!targetTrackId) {
+        const latestTracks = useTimelineStore.getState().tracks;
+        const insertIndex = getInsertIndexForNewTrack(latestTracks, "text");
+        targetTrackId = insertTrackAt("text", insertIndex);
+      }
+
+      if (!targetTrackId) return;
+
+      // Determine preset settings
+      let presetConfig = {};
+      if (item.id && item.id.startsWith("text-")) {
+        const presetName = item.name?.toLowerCase().replace(/\s+/g, "") as keyof typeof TEXT_PRESETS;
+        if (TEXT_PRESETS[presetName]) {
+          presetConfig = TEXT_PRESETS[presetName];
+        }
+      }
+
+      // Create text clip
+      const textClip = createTextClip({
+        trackId: targetTrackId,
+        startTime,
+        duration: 5.0,
+        text: item.text || item.name || "Text", // Use effect's default text first, then name as fallback
+        canvasWidth: project?.canvasWidth || 1920,
+        canvasHeight: project?.canvasHeight || 1080,
+        textRole: "title", // Text effects and templates are titles, not captions
+        ...presetConfig,
+        // Map styling properties from custom text tab effects or templates
+        fontFamily: item.fontFamily,
+        color: item.color,
+        fontSize: item.fontSize,
+        fontWeight: item.fontWeight,
+        fontStyle: item.fontStyle,
+        stroke: item.stroke,
+        shadow: item.shadow,
+        background: item.background,
+        styleId: item.styleId,
+        templateId: item.templateId,
+      });
+
+      addClip(textClip);
+    } else if (type === "audio" && item?.audioUrl) {
+      // Audio library item - must be downloaded first
+      const cachedFile = getCachedFile(item.id);
+
+      if (!cachedFile) {
+        console.error("[EditorLayout] Audio not downloaded yet:", item.id);
+        return;
+      }
+
+      // Convert relative cache path to absolute path
+      // cachedFile.localPath is relative to AppCache (e.g., "audio-library/filename.wav")
+      (async () => {
+        const { appCacheDir } = await import("@tauri-apps/api/path");
+        const { join } = await import("@tauri-apps/api/path");
+        const appCache = await appCacheDir();
+        const absolutePath = await join(appCache, cachedFile.localPath);
+
+        // Use local cached file path
+        const mediaAsset: MediaAsset = {
+          id: `audio-library-${item.id}`,
+          name: item.name || "Library Audio",
+          path: absolutePath, // Use absolute path for media playback
+          type: "audio",
+          duration: cachedFile.metadata.duration || Number(item.duration) || 5,
+          size: cachedFile.size,
+          coverArt: item.coverArtUrl,
+        };
+
+        addMediaAsset(mediaAsset);
+
+        const latestTracks = useTimelineStore.getState().tracks;
+        const latestClips = useTimelineStore.getState().clips;
+        const placement = resolveAddToTimelinePlacement({
+          asset: mediaAsset,
+          tracks: latestTracks,
+          clips: latestClips,
+          playheadTime: getPlaybackClock().time,
+          sequenceEndTime: getTimelineEndTime(),
+        });
+        let targetTrackId = placement.targetTrackId;
+        if (placement.shouldCreateTrack || !targetTrackId) {
+          const insertIndex = getInsertIndexForNewTrack(useTimelineStore.getState().tracks, "audio");
+          targetTrackId = insertTrackAt("audio", insertIndex);
+        }
+
+        if (!targetTrackId) return;
+
+        addClip(
+          createClipFromAsset({
+            asset: mediaAsset,
+            trackId: targetTrackId,
+            startTime: placement.startTime,
+            width: project?.canvasWidth || 1920,
+            height: project?.canvasHeight || 1080,
+            fitMode: resolveDefaultFitModeForAsset(mediaAsset),
+          }),
+        );
+      })().catch((error) => {
+        console.error("[EditorLayout] Failed to add audio to timeline:", error);
+      });
+    } else if (type === "stickers") {
+      const cachedSticker = useStickersStore.getState().getCachedSticker(item.id);
+      if (!cachedSticker) {
+        console.error("[EditorLayout] Sticker not downloaded yet:", item.id);
+        return;
+      }
+
+      (async () => {
+        const { appCacheDir, join } = await import("@tauri-apps/api/path");
+        const appCache = await appCacheDir();
+
+        let relativePath = "";
+        if (cachedSticker.format === "lottie") {
+          relativePath = cachedSticker.localImagePath || "";
+        } else if (cachedSticker.format === "gif") {
+          relativePath = cachedSticker.localAnimationPath || "";
+        } else {
+          relativePath = cachedSticker.localImagePath || "";
+        }
+
+        if (!relativePath) {
+          console.error("[EditorLayout] Missing path for sticker:", item.id);
+          return;
+        }
+
+        const absolutePath = await join(appCache, relativePath);
+
+        const mediaAsset: MediaAsset = {
+          id: `sticker-${item.id}`,
+          name: item.name || "Sticker",
+          path: absolutePath,
+          type: "image",
+          duration: 3.0,
+          size: 0,
+        };
+
+        addMediaAsset(mediaAsset);
+
+        const latestTracks = useTimelineStore.getState().tracks;
+        const latestClips = useTimelineStore.getState().clips;
+        const placement = resolveAddToTimelinePlacement({
+          asset: mediaAsset,
+          tracks: latestTracks,
+          clips: latestClips,
+          playheadTime: getPlaybackClock().time,
+          sequenceEndTime: getTimelineEndTime(),
+        });
+
+        let targetTrackId = placement.targetTrackId;
+        if (placement.shouldCreateTrack || !targetTrackId) {
+          const insertIndex = getInsertIndexForNewTrack(useTimelineStore.getState().tracks, placement.trackType);
+          targetTrackId = insertTrackAt(placement.trackType, insertIndex);
+        }
+
+        if (!targetTrackId) return;
+
+        addClip(
+          createClipFromAsset({
+            asset: mediaAsset,
+            trackId: targetTrackId,
+            startTime: placement.startTime,
+            width: project?.canvasWidth || 1920,
+            height: project?.canvasHeight || 1080,
+            fitMode: resolveDefaultFitModeForAsset(mediaAsset),
+          }),
+        );
+      })().catch((error) => {
+        console.error("[EditorLayout] Failed to add sticker to timeline:", error);
+      });
+    } else if (type === "transitions") {
+      const selectedPair = selectedClipIds.length === 2 ? ([selectedClipIds[0], selectedClipIds[1]] as const) : null;
+      const pair = selectedPair ?? findAdjacentClipsAtPlayhead();
+      if (!pair) {
+        useProjectStore.getState().showToast("Select two adjacent clips or place the playhead at a cut", "warning");
+        return;
+      }
+      const transitionType = item?.preview === "dissolve" || item?.name?.toLowerCase?.() === "dissolve" ? "dissolve" : "fade";
+      const result = createTransitionBetweenClips(pair[0], pair[1], transitionType, Number(item?.duration) || 0.5);
+      if (result.error) {
+        useProjectStore.getState().showToast(result.error, "warning");
+      } else {
+        useProjectStore.getState().showToast(`${item?.name || "Transition"} added`);
+      }
+    } else if (type === "effects" || type === "filters") {
+      const selectedClipId = selectedClipIds[0] ?? null;
+      let targetClip = clips.find((c) => c.id === selectedClipId);
+
+      // If no clip is explicitly selected, find the active visual clip (video/image) at the playhead
+      if (!targetClip) {
+        const currentTime = getPlaybackClock().time;
+        const visualClips = clips.filter((c) => {
+          const asset = mediaAssets.find((a) => a.id === c.mediaId);
+          return asset && (asset.type === "video" || asset.type === "image");
+        });
+        targetClip = visualClips.find((c) => currentTime >= c.startTime && currentTime <= c.startTime + c.duration);
+      }
+
+      if (!targetClip) {
+        useProjectStore.getState().showToast(`Select a video or image clip to apply this ${type === "effects" ? "effect" : "filter"}`, "warning");
+        return;
+      }
+
+      const asset = mediaAssets.find((a) => a.id === targetClip.mediaId);
+      if (asset?.type !== "video" && asset?.type !== "image") {
+        useProjectStore.getState().showToast("Effects and filters can only be applied to video or image clips", "warning");
+        return;
+      }
+
+      if (type === "effects") {
+        const currentEffects = targetClip.effects || [];
+        const effectExists = currentEffects.some((fx) => fx.id === item.id);
+
+        if (effectExists) {
+          useProjectStore.getState().showToast(`Effect "${item.name}" is already applied`, "warning");
+          return;
+        }
+
+        const updatedEffects = [...currentEffects, { id: item.id, name: item.name, intensity: 0.5 }];
+
+        updateClip(targetClip.id, { effects: updatedEffects });
+        useProjectStore.getState().showToast(`Applied ${item.name} effect`);
+      } else {
+        updateClip(targetClip.id, {
+          filter: { id: item.id, name: item.name, intensity: 0.8 },
+        });
+        useProjectStore.getState().showToast(`Applied ${item.name} filter`);
+      }
+    }
+  };
+
+  return (
+    <div className="w-full h-full flex flex-col app-shell overflow-hidden p-1 pt-0">
+      <TopBar />
+
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden gap-1">
+        <div className="flex-1 min-h-0 flex overflow-hidden gap-2">
+          <EnhancedMediaPanel onAddToTimeline={handleAddToTimeline} />
+
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden panel-shell">
+            <PreviewPanel />
+          </div>
+
+          <PropertiesPanel />
+        </div>
+
+        <div className="h-80 panel-shell overflow-hidden">
+          <Timeline />
+        </div>
+      </div>
+    </div>
+  );
+};

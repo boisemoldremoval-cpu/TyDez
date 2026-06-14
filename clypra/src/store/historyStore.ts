@@ -1,0 +1,153 @@
+/**
+ * History Store
+ *
+ * OWNERSHIP: Undo/redo command journal (persistent domain state)
+ * PERSISTENCE: Should be persistent (future: save with project)
+ * MUTABILITY: Append-only command log
+ *
+ * Responsibilities:
+ * - Execute commands against timelineStore
+ * - Maintain undo/redo stacks
+ * - Provide undo/redo operations
+ * - Track history state (canUndo, canRedo)
+ *
+ * Does NOT:
+ * - Directly mutate timeline (commands do that)
+ * - Own timeline state (timelineStore is source of truth)
+ * - Manage runtime resources (ProjectSession handles that)
+ * - Increment epoch (commands handle that internally)
+ * - Trigger auto-save (middleware handles that automatically)
+ *
+ * Architecture principle:
+ * Commands are pure state transformers: (state) => newState
+ * All side effects (epoch increment, auto-save) are encapsulated within commands
+ * or handled by middleware. This enables:
+ * - Deterministic undo/redo
+ * - Command replay for testing
+ * - Future: collaborative editing (commands as CRDT operations)
+ * - Future: AI orchestration (commands as operation primitives)
+ *
+ * Bridges the command-based history system with Zustand state management.
+ *
+ * Architecture:
+ *   UI Action → historyStore.execute() → CommandJournal → Command.apply() → timelineStore
+ */
+
+import { create } from "zustand";
+import { CommandJournal } from "@/core/history";
+import type { Command, CommandJournalState } from "@/core/history";
+import { useTimelineStore } from "./timelineStore";
+
+interface HistoryStore {
+  // Command journal instance
+  journal: CommandJournal;
+
+  // Current history state
+  state: CommandJournalState;
+
+  // Execute a command
+  execute: (command: Command) => void;
+
+  // Undo last command
+  undo: () => void;
+
+  // Redo last undone command
+  redo: () => void;
+
+  // Begin transaction
+  beginTransaction: (label: string) => void;
+
+  // Commit transaction
+  commitTransaction: () => void;
+
+  // Rollback transaction
+  rollbackTransaction: () => void;
+
+  // Clear history
+  clear: () => void;
+}
+
+// Create command journal instance
+const commandJournal = new CommandJournal({
+  maxSize: 100,
+  enableCoalescing: true,
+  coalescingWindowMs: 500,
+});
+
+export const useHistoryStore = create<HistoryStore>((set, get) => {
+  // Subscribe to command journal changes
+  commandJournal.subscribe((state) => {
+    set({ state });
+  });
+
+  return {
+    journal: commandJournal,
+    state: commandJournal.getState(),
+
+    execute: (command) => {
+      const { journal } = get();
+
+      // Get current timeline state
+      const timelineStore = useTimelineStore.getState();
+
+      // Execute command (command handles epoch increment internally)
+      const newState = journal.execute(command, timelineStore);
+
+      // Update timeline store (auto-save triggered by middleware)
+      useTimelineStore.setState(newState);
+    },
+
+    undo: () => {
+      const { journal } = get();
+
+      if (!journal.canUndo()) return;
+
+      // Get current timeline state
+      const timelineStore = useTimelineStore.getState();
+
+      // Undo (inverse command handles epoch increment internally)
+      const newState = journal.undo(timelineStore);
+
+      // Update timeline store (auto-save triggered by middleware)
+      useTimelineStore.setState(newState);
+    },
+
+    redo: () => {
+      const { journal } = get();
+
+      if (!journal.canRedo()) return;
+
+      // Get current timeline state
+      const timelineStore = useTimelineStore.getState();
+
+      // Redo (command handles epoch increment internally)
+      const newState = journal.redo(timelineStore);
+
+      // Update timeline store (auto-save triggered by middleware)
+      useTimelineStore.setState(newState);
+    },
+
+    beginTransaction: (label) => {
+      const { journal } = get();
+      journal.beginTransaction(label);
+    },
+
+    commitTransaction: () => {
+      const { journal } = get();
+      const timelineStore = useTimelineStore.getState();
+      journal.commitTransaction(timelineStore);
+    },
+
+    rollbackTransaction: () => {
+      const { journal } = get();
+      const timelineStore = useTimelineStore.getState();
+      const newState = journal.rollbackTransaction(timelineStore);
+      useTimelineStore.setState(newState);
+    },
+
+    clear: () => {
+      const { journal } = get();
+      journal.clear();
+    },
+  };
+});

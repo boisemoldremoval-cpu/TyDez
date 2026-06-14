@@ -1,0 +1,20 @@
+/**
+ * Playback Module
+ *
+ * Imperative playback engine (NOT React state).
+ *
+ * Architecture:
+ *   TransportAuthority (single source of truth for playback ownership)
+ *       ↓
+ *   ProgramPlaybackContext ── wraps PlaybackClock (timeline playback)
+ *   SourcePlaybackContext  ── wraps HTMLMediaElement (source preview)
+ */
+
+export { PlaybackClock, getPlaybackClock, resetPlaybackClock } from "./PlaybackClock";
+export type { PlaybackState, PlaybackClockState, PlaybackClockListener } from "./PlaybackClock";
+
+export type { PlaybackContext, PlaybackContextType, PlaybackContextStateSnapshot, PlaybackContextListener } from "./PlaybackContext";
+export { TransportAuthority } from "./TransportAuthority";
+export type { AuthorityContextSwitchListener, AuthorityStateListener } from "./TransportAuthority";
+export { ProgramPlaybackContext } from "./ProgramPlaybackContext";
+export { SourcePlaybackContext } from "./SourcePlaybackContext";

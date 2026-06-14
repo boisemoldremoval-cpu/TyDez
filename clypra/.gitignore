@@ -1,0 +1,36 @@
+```
+# Rust/Cargo
+target/
+Cargo.lock
+**/*.rs.bk
+/dist
+
+# Dependencies
+node_modules/
+
+# Tauri-specific
+src-tauri/target/
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Scratch/experimental files
+scratch/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.kiro/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+*.env.*
+```

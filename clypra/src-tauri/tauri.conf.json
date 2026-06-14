@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Clypra",
+  "version": "1.0.1",
+  "identifier": "com.clypra.editor",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 1100,
+        "minHeight": 720,
+        "titleBarStyle": "Overlay",
+        "devtools": true
+      }
+    ],
+    "security": {
+      "csp": null,
+      "headers": {
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Embedder-Policy": "require-corp"
+      },
+      "assetProtocol": {
+        "enable": true,
+        "scope": {
+          "allow": ["$HOME/**/*", "$DESKTOP/**/*", "$DOCUMENT/**/*", "$DOWNLOAD/**/*", "$VIDEO/**/*", "$PUBLIC/**/*", "/Volumes/**/*", "$APPCACHE/**/*"]
+        }
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "externalBin": ["bin/ffmpeg", "bin/ffprobe"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
+  }
+}
