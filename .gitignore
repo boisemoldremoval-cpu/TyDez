@@ -1,6 +1,9 @@
 __pycache__/
 *.pyc
 thumb_*.png
+# generated cartoon intermediates (rebuilt by make_mold_*.py)
+vertical_bg.png
+qa_*.png
 out.mp4
 # generated media / intermediates
 lesson.mp4
