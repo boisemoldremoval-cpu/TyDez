@@ -24,7 +24,7 @@ import make_own2d as O          # cinematic() + add_bokeh()
 import make_cartoon as M        # generate_music()
 import kid
 
-W, H, FPS, DUR = 1280, 720, 24, 10.0
+W, H, FPS, DUR = 1280, 720, 24, 12.0
 GROUND = int(H * 0.94)
 OUT = sys.argv[1] if len(sys.argv) > 1 else "blocks_clip.mp4"
 
@@ -216,8 +216,19 @@ for i, (_c, gx, gy, _r) in enumerate(TOWER):
     arc = _SC.uniform(70, 150)
     _SCATTER.append((rx, ry, spin, arc))
 
-KICK = 5.05          # moment of impact
-SETTLE = 1.25        # time for blocks to land & settle
+# --------------------------------------------------------------------------- #
+# beat sheet (seconds) -- paced so each story beat lands with room to breathe
+# --------------------------------------------------------------------------- #
+BUILD_START = 0.40   # first block drops
+BSPACE      = 0.28   # gap between blocks dropping in
+ADMIRE      = 3.20   # castle finished -> TyGuy sits back & cheers (joyful peak)
+ENTER       = 4.40   # bully storms in from the right (TyGuy still oblivious)
+WIND        = 6.00   # bully plants & cocks back -- the anticipation beat
+KICK        = 6.40   # moment of impact
+SETTLE      = 1.30   # time for blocks to scatter, land & settle
+SHOCK_HOLD  = 0.90   # TyGuy frozen in shock before he crumples
+LOGO_FADE   = 4.50   # logo starts fading as the threat closes in
+LOGO_OUT    = 5.30   # logo fully gone before the kick
 
 
 def draw_tower(base, t):
@@ -230,7 +241,7 @@ def draw_tower(base, t):
 
         if t < KICK:
             # build: each block drops into place in order
-            appear = 0.35 + i * 0.33
+            appear = BUILD_START + i * BSPACE
             p = clamp((t - appear) / 0.42)
             if p <= 0:
                 continue
@@ -279,50 +290,66 @@ def tear(d, cx, cy, s, a=1.0):
 # characters
 # --------------------------------------------------------------------------- #
 def draw_tyguy(base, t):
-    """TyGuy: kneeling & building, then hurt after the tower falls."""
-    if t < KICK - 0.2:
-        # kneeling, reaching toward the tower, happy
-        b = math.sin(t * 4) * 4
-        kid.draw_kid(base, W * 0.30, GROUND + 26, 250, kid.KID_TYGUY,
-                     {"arm_l": 8, "arm_r": 64, "elbow": 18, "lean": 12,
-                      "mouth": "open" if (t * 2) % 1 > 0.5 else "smile",
-                      "brow": "happy", "look": 1, "blink": blink(t)})
+    """Build joyfully, admire the finished castle, then shock -> sorrow."""
+    if t < KICK - 0.12:
+        if t < ADMIRE:
+            # kneeling, reaching toward the tower, happily placing blocks
+            kid.draw_kid(base, W * 0.30, GROUND + 26, 250, kid.KID_TYGUY,
+                         {"arm_l": 8, "arm_r": 64, "elbow": 18, "lean": 12,
+                          "mouth": "open" if (t * 2) % 1 > 0.5 else "smile",
+                          "brow": "happy", "look": 1, "blink": blink(t)})
+        else:
+            # the joyful peak: sits back, throws his arms up and cheers,
+            # bouncing with excitement at the finished castle
+            hop = max(0.0, math.sin((t - ADMIRE) * 6.0)) * 7
+            kid.draw_kid(base, W * 0.30, GROUND + 26 - hop, 250, kid.KID_TYGUY,
+                         {"arm_l": 128, "arm_r": 128, "elbow": 14, "lean": 6,
+                          "mouth": "bigsmile", "brow": "happy", "look": 1,
+                          "blink": blink(t)})
     else:
-        # stands, shocked then sad
-        p = clamp((t - KICK) / 0.9)
-        mouth = "open" if p < 0.55 else "sad"
-        brow = "sad"
+        # startles to his feet, frozen wide-eyed, then crumples in tears
+        shock = t < KICK + SHOCK_HOLD
+        startle = lerp(-13, 0, eo(clamp((t - KICK) / 0.35)))
         kid.draw_kid(base, W * 0.30, GROUND, 285, kid.KID_TYGUY,
-                     {"arm_l": 26, "arm_r": 22, "elbow": 10,
-                      "mouth": mouth, "brow": brow, "look": 1,
-                      "blink": blink(t)})
-        if t > KICK + 1.4:
+                     {"arm_l": 26, "arm_r": 22, "elbow": 10, "lean": startle,
+                      "mouth": "open" if shock else "sad", "brow": "sad",
+                      "look": 1, "blink": 0 if shock else blink(t)})
+        cry = KICK + SHOCK_HOLD + 0.5
+        if t > cry:
             d = ImageDraw.Draw(base, "RGBA")
-            tt = (t - (KICK + 1.4)) % 2.2
+            tt = (t - cry) % 2.2
             fall = clamp(tt / 1.6)
             ty = lerp(GROUND - 285 * 0.66, GROUND - 285 * 0.52, fall)
             tear(d, W * 0.30 + 285 * 0.085, ty, 7, a=clamp(1 - fall))
 
 
 def draw_bully(base, t):
-    """Antagonist runs in from the right, kicks, then stands cross-armed."""
-    if t < 3.6:
+    """Storms in from the right, winds up, kicks, then stands grumpy."""
+    if t < ENTER:
         return
-    d = ImageDraw.Draw(base, "RGBA")
-    if t < KICK:
-        # run in toward the tower
-        p = eo(clamp((t - 3.6) / (KICK - 3.6)))
-        x = lerp(W * 1.12, W * 0.66, p)
-        lean = lerp(2, 16, p)
+    if t < WIND:
+        # run in toward the tower, leaning into the charge
+        p = eo(clamp((t - ENTER) / (WIND - ENTER)))
+        x = lerp(W * 1.12, W * 0.69, p)
+        lean = lerp(2, 18, p)
         kid.draw_kid(base, x, GROUND, 300, BULLY,
-                     {"walk": (t * 2.4) % 1, "arm_l": 26, "arm_r": -18,
+                     {"walk": (t * 2.6) % 1, "arm_l": 26, "arm_r": -18,
                       "lean": lean, "mouth": "neutral", "brow": "sad",
                       "look": -1, "blink": blink(t, 1)})
+    elif t < KICK:
+        # plant and cock back -- the held anticipation beat before the strike
+        w = ease(clamp((t - WIND) / (KICK - WIND)))
+        lean = lerp(18, -15, w)
+        kid.draw_kid(base, W * 0.70, GROUND, 300, BULLY,
+                     {"arm_l": 34, "arm_r": -28, "elbow": -20, "lean": lean,
+                      "mouth": "neutral", "brow": "sad", "look": -1, "blink": 0})
     else:
-        # planted by the rubble, arms low, grumpy & defiant
-        sway = math.sin(t * 1.5) * 2
-        kid.draw_kid(base, W * 0.74, GROUND, 300, BULLY,
-                     {"arm_l": 40, "arm_r": 40, "elbow": -30, "lean": sway,
+        # whip forward on impact, then plant: grumpy & defiant by the rubble
+        snap = ease(clamp((t - KICK) / 0.22))
+        x = lerp(W * 0.70, W * 0.74, clamp((t - KICK) / 0.4))
+        lean = lerp(-15, 20, snap) if t < KICK + 0.45 else math.sin(t * 1.5) * 2
+        kid.draw_kid(base, x, GROUND, 300, BULLY,
+                     {"arm_l": 40, "arm_r": 40, "elbow": -30, "lean": lean,
                       "mouth": "sad", "brow": "sad", "look": -1,
                       "blink": blink(t, 1)})
 
@@ -386,11 +413,11 @@ def build_logo():
 
 def overlay_logo(rgb, t):
     """Logo pops in during the happy build, fades as the conflict starts."""
-    if t > 5.4:
+    if t > LOGO_OUT:
         return rgb
     a = clamp(t / 0.5)
-    if t > 4.7:
-        a = clamp((5.4 - t) / 0.7)
+    if t > LOGO_FADE:
+        a = clamp((LOGO_OUT - t) / (LOGO_OUT - LOGO_FADE))
     pop = O.eo(clamp(t / 0.6)) if t < 0.6 else 1.0
     logo = build_logo()
     sc = lerp(0.86, 1.0, pop) * 0.92
@@ -414,7 +441,14 @@ def frame_at(t):
     O.add_bokeh(base, t)
     zoom = lerp(1.07, 1.0, eo(t / DUR))
     dx = lerp(-14, 14, t / DUR)
-    out = O.cinematic(base, t, zoom, dx, 0)     # -> RGB
+    # quick camera shake on impact to sell the kick, decaying over ~0.4s
+    dy = 0.0
+    k = t - KICK
+    if 0 <= k < 0.4:
+        amp = 9 * (1 - k / 0.4)
+        dx += math.sin(k * 70) * amp
+        dy += math.cos(k * 82) * amp
+    out = O.cinematic(base, t, zoom, dx, dy)     # -> RGB
     out = overlay_logo(out, t)
     return np.asarray(out, dtype=np.uint8)
 
