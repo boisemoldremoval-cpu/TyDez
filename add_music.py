@@ -303,6 +303,126 @@ def synth_grunge(dur, bpm=92):
     return stereo / peak * 0.9
 
 
+def synth_industrial(dur, bpm=120):
+    """Industrial / metal, mid-driving (~120 BPM), DRONE-forward.
+    Prominent dark evolving drone + noise wash, mechanical kick, metallic
+    clang 'snare', and distorted power-chord stabs as accents. E-minor."""
+    sr = SR
+    n = int(dur * sr)
+    L = np.zeros(n, dtype=np.float32)
+    R = np.zeros(n, dtype=np.float32)
+    beat = 60.0 / bpm
+    rng = np.random.default_rng(5)
+
+    # low roots (E1..) for the drone; dark bVI/bVII movement
+    roots = {"E": 41.20, "G": 49.00, "A": 55.00, "C": 65.41, "D": 73.42}
+    prog = ["E", "E", "C", "D"]      # change every 4 beats (2 bars feel)
+    seg_beats = 4
+    seg_len = seg_beats * beat
+
+    def place(buf, sig, start):
+        s = int(start * sr)
+        e = min(n, s + len(sig))
+        if s < n:
+            buf[s:e] += sig[:e - s]
+
+    def env_ar(t, atk, rel, dur):
+        e = np.ones_like(t)
+        a = int(atk * sr); r = int(rel * sr)
+        if a:
+            e[:a] = np.linspace(0, 1, a)
+        if r:
+            e[-r:] = np.linspace(1, 0, r)
+        return e
+
+    def drone(freq, d, amp=0.5):
+        t = np.arange(int(d * sr)) / sr
+        w = np.zeros(len(t))
+        for det in (0.991, 1.0, 1.006, 1.5, 1.502):    # detuned root + fifth
+            for k in range(1, 6):
+                w += np.sin(2 * np.pi * freq * det * k * t) / k
+        w /= 18.0
+        lfo = 0.72 + 0.28 * np.sin(2 * np.pi * 0.12 * t + rng.random() * 6)
+        w = np.tanh(w * 1.3) * lfo
+        return (w * env_ar(t, 0.08, 0.12, d) * amp).astype(np.float32)
+
+    def wash(d, amp=0.16):
+        t = np.arange(int(d * sr)) / sr
+        nz = rng.normal(0, 1, len(t))
+        nz = np.convolve(nz, np.ones(40) / 40, mode="same")   # darken (LP)
+        swell = np.sin(np.pi * t / d) ** 2                    # swell in/out
+        return (nz * swell * amp).astype(np.float32)
+
+    def kick(amp=1.0):
+        t = np.arange(int(0.24 * sr)) / sr
+        f = 130 * np.exp(-t * 28) + 45
+        body = np.sin(2 * np.pi * np.cumsum(f) / sr)
+        click = np.exp(-t * 300) * 0.5
+        return ((body + click) * np.exp(-t * 12) * amp).astype(np.float32)
+
+    def clang():
+        t = np.arange(int(0.55 * sr)) / sr
+        parts = (1.0, 2.76, 5.40, 8.93)        # inharmonic = metallic
+        w = sum(np.sin(2 * np.pi * 520 * r * t) for r in parts) / len(parts)
+        noise = rng.uniform(-1, 1, len(t)) * 0.5
+        sig = np.tanh((w * 0.7 + noise * 0.6) * 1.5) * np.exp(-t * 8)
+        # short metallic echoes
+        out = sig.copy()
+        for dl, g in ((0.09, 0.4), (0.18, 0.2)):
+            s = int(dl * sr)
+            out[s:] += sig[:len(sig) - s] * g
+        return (out * 0.5).astype(np.float32)
+
+    def tick():
+        t = np.arange(int(0.04 * sr)) / sr
+        return (np.diff(rng.uniform(-1, 1, len(t) + 1)) *
+                np.exp(-t * 60) * 0.22).astype(np.float32)
+
+    def stab(freq, d, amp=0.34):
+        t = np.arange(int(d * sr)) / sr
+        w = np.zeros(len(t))
+        for f in (freq, freq * 1.5, freq * 2.0):
+            for k in range(1, 8):
+                w += np.sin(2 * np.pi * f * k * t) / k
+        w = np.tanh((w / 3.0) * 4.5)
+        env = np.minimum(1, t / 0.004) * np.exp(-t * 5.0)
+        return (w * env * amp).astype(np.float32)
+
+    # continuous drone + wash, chord changes every seg_len
+    tpos = 0.0
+    si = 0
+    while tpos < dur:
+        rf = roots[prog[si % len(prog)]]
+        dr = drone(rf, min(seg_len + 0.15, dur - tpos + 0.15))
+        place(L, dr, tpos); place(R, dr, tpos)
+        wsh = wash(min(seg_len, dur - tpos))
+        place(L, wsh, tpos); place(R, wsh * 0.9, tpos)
+        tpos += seg_len
+        si += 1
+
+    # mid-driving industrial beat
+    nbeats = int(dur / beat) + 1
+    for b in range(nbeats):
+        tb = b * beat
+        rf = roots[prog[(b // seg_beats) % len(prog)]]
+        if b % 2 == 0:                       # kick on 1 & 3
+            k = kick(); place(L, k, tb); place(R, k, tb)
+        else:                                # clang 'snare' on 2 & 4
+            c = clang(); place(L, c, tb); place(R, c, tb)
+        tk = tick(); place(L, tk, tb + beat / 2); place(R, tk * 1.1, tb + beat / 2)
+        if b % seg_beats == 0:               # distorted stab accent per phrase
+            st = stab(rf * 2, beat)  # up an octave so it cuts
+            place(L, st, tb); place(R, st, tb)
+
+    stereo = np.stack([L, R], axis=1)
+    stereo += rng.normal(0, 0.006, (n, 2)).astype(np.float32)   # faint hiss
+    fi, fo = int(0.06 * sr), int(1.2 * sr)
+    stereo[:fi] *= np.linspace(0, 1, fi)[:, None]
+    stereo[-fo:] *= np.linspace(1, 0, fo)[:, None]
+    peak = np.max(np.abs(stereo)) or 1.0
+    return stereo / peak * 0.9
+
+
 def write_wav(path, stereo):
     data = np.clip(stereo, -1, 1)
     pcm = (data * 32767).astype("<i2")

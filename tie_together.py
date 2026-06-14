@@ -31,7 +31,8 @@ import subprocess
 import imageio_ffmpeg
 
 # reuse the music-bed synth from add_music.py
-from add_music import synth_bed, synth_hardcore, synth_grunge, write_wav
+from add_music import (synth_bed, synth_hardcore, synth_grunge,
+                        synth_industrial, write_wav)
 
 FF = imageio_ffmpeg.get_ffmpeg_exe()
 
@@ -168,6 +169,8 @@ def main():
                 bed = synth_hardcore(total)
             elif style == "grunge":
                 bed = synth_grunge(total)
+            elif style == "industrial":
+                bed = synth_industrial(total)
             else:
                 bed = synth_bed(total)
             write_wav(bed_path, bed)
