@@ -185,3 +185,35 @@ def draw_donkey(base, cx, feet_y, H, pal_load=False):
     fd = ImageDraw.Draw(base)
     fd.ellipse([head[0] - H * 0.02, head[1] - H * 0.02, head[0] + H * 0.02, head[1] + H * 0.02], fill=(40, 30, 28))
     return base
+
+
+SHEPHERD = {"robe": _c(150, 112, 72), "robe_sh": _c(120, 88, 56), "sash": _c(96, 68, 46),
+            "cloth": _c(210, 182, 132), "band": _c(96, 68, 46), "skin": _c(224, 176, 138),
+            "hair": _c(58, 42, 30), "beard": _c(72, 52, 38)}
+
+
+def draw_sheep(base, cx, feet_y, H, look=1, bob=0.0):
+    """A cute fluffy sheep, scaled to H (head-to-foot)."""
+    sz = base.size
+    body = Image.new("RGBA", sz, (0, 0, 0, 0))
+    d = ImageDraw.Draw(body)
+    feet_y += bob
+    cyb = feet_y - H * 0.42
+    for lx in (cx - H * 0.28, cx - H * 0.10, cx + H * 0.10, cx + H * 0.28):
+        d.line([(lx, cyb + H * 0.05), (lx, feet_y)], fill=(64, 58, 60), width=max(3, int(H * 0.07)))
+    for ox, oy, r in [(-0.30, 0.0, 0.30), (-0.10, -0.10, 0.36), (0.12, -0.04, 0.34),
+                      (0.30, 0.04, 0.26), (0.0, 0.14, 0.34)]:
+        rr = r * H
+        d.ellipse([cx + ox * H - rr, cyb + oy * H - rr, cx + ox * H + rr, cyb + oy * H + rr],
+                  fill=(246, 246, 249))
+    hx = cx + look * H * 0.46
+    hy = cyb - H * 0.02
+    hrr = H * 0.20
+    d.ellipse([hx - hrr, hy - hrr * 1.15, hx + hrr, hy + hrr * 1.05], fill=(74, 66, 68))
+    d.ellipse([hx - look * hrr - hrr * 0.35, hy - hrr * 0.7, hx - look * hrr + hrr * 0.35,
+               hy - hrr * 0.1], fill=(74, 66, 68))
+    d.ellipse([hx - hrr * 0.9, hy - hrr * 1.5, hx + hrr * 0.9, hy - hrr * 0.4], fill=(246, 246, 249))
+    _outline(base, body, max(2, int(H * 0.05)))
+    fd = ImageDraw.Draw(base)
+    fd.ellipse([hx + look * hrr * 0.2 - hrr * 0.16, hy - hrr * 0.15,
+                hx + look * hrr * 0.2 + hrr * 0.16, hy + hrr * 0.17], fill=(18, 16, 16))

@@ -178,3 +178,39 @@ def inn(t):
         d.ellipse([W * 0.62, gy - 150, W * 0.66, gy - 130], fill=(255, 220, 120))
         _INN = img
     return _INN.copy()
+
+
+_MEADOW = None
+def meadow(t):
+    global _MEADOW
+    if _MEADOW is None:
+        sky = _vgrad((150, 205, 245), (208, 236, 250), int(H * 0.55))
+        img = Image.new("RGB", (W, H), (120, 195, 110))
+        img.paste(Image.fromarray(sky, "RGB"), (0, 0)); img = img.convert("RGBA")
+        d = ImageDraw.Draw(img)
+        for hy, c in [(0.58, (152, 212, 122)), (0.66, (132, 200, 106)), (0.74, (114, 188, 94))]:
+            yy = int(H * hy)
+            d.ellipse([-220, yy, int(W * 0.62), yy + 420], fill=c)
+            d.ellipse([int(W * 0.40), yy - 30, W + 220, yy + 420], fill=c)
+        d.rectangle([0, int(H * 0.80), W, H], fill=(114, 188, 94))
+        fy = int(H * 0.60)
+        d.line([(0, fy), (W, fy - 8)], fill=(150, 110, 70), width=6)
+        for fx in range(40, W, 130):
+            d.rectangle([fx, fy - 42, fx + 10, fy + 16], fill=(150, 110, 70))
+        rng = np.random.default_rng(3)
+        for _ in range(50):
+            fx = rng.uniform(0, W); fyy = rng.uniform(H * 0.66, H * 0.98)
+            c = tuple(int(v) for v in rng.choice([(250, 210, 70), (255, 255, 255), (240, 140, 200)]))
+            d.ellipse([fx - 4, fyy - 4, fx + 4, fyy + 4], fill=c)
+        _MEADOW = img
+    img = _MEADOW.copy(); d = ImageDraw.Draw(img, "RGBA")
+    sx, sy = W * 0.15, H * 0.14
+    for i in range(10):
+        a = i / 10 * math.tau + t * 0.1
+        d.line([(sx + math.cos(a) * 60, sy + math.sin(a) * 60),
+                (sx + math.cos(a) * 100, sy + math.sin(a) * 100)], fill=(255, 235, 150, 200), width=6)
+    d.ellipse([sx - 46, sy - 46, sx + 46, sy + 46], fill=(255, 232, 140))
+    for bx, cy, sc, spd in [(0.30, 0.16, 1.0, 12), (0.70, 0.10, 0.8, 8)]:
+        cx = (bx * W + t * spd) % (W + 300) - 150
+        _cloud(d, cx, H * cy, sc)
+    return img.convert("RGBA")
