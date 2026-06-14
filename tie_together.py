@@ -82,6 +82,8 @@ def main():
     clip_start = float(take("--clip-start", "0"))   # in-point into each clip
     cl = take("--clip-len", None)                   # trim each clip to N seconds
     clip_len = float(cl) if cl else None
+    pass_arg = take("--pass", None)                 # comma-list of pass-through scenes
+    pass_set = set(pass_arg.split(",")) if pass_arg else set()
     no_music = "--no-music" in args
     if no_music:
         args.remove("--no-music")
@@ -117,6 +119,11 @@ def main():
             raise SystemExit(f"missing input: {f}")
         m = probe(f)
         metas.append(m)
+        if f in pass_set:                      # designed scene: no trim/grade
+            segs.append({"path": f, "image": f.lower().endswith(IMG),
+                         "dur": m[0], "has_audio": m[4], "grade": False,
+                         "trim": None})
+            continue
         if clip_len:
             length = min(clip_len, max(0.5, m[0] - clip_start))
             trim = (clip_start, length)
