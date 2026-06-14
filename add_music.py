@@ -212,6 +212,97 @@ def synth_hardcore(dur, bpm=148):
     return stereo / peak * 0.9
 
 
+def synth_grunge(dur, bpm=92):
+    """Grungy, raw bed: sludgy detuned distorted guitar-ish power chords,
+    fuzz bass, loose drums, plus tape hiss / vinyl crackle / bit-crush grit.
+    Lower & dirtier than synth_hardcore. E-minor sludge riff."""
+    sr = SR
+    n = int(dur * sr)
+    L = np.zeros(n, dtype=np.float32)
+    R = np.zeros(n, dtype=np.float32)
+    beat = 60.0 / bpm
+    rng = np.random.default_rng(11)
+
+    roots = {"E": 82.41, "G": 98.00, "A": 110.0, "C": 130.81, "D": 146.83}
+    prog = ["E", "E", "G", "D", "E", "E", "C", "D"]   # 8-bar sludge loop
+
+    def place(buf, sig, start):
+        s = int(start * sr)
+        e = min(n, s + len(sig))
+        if s < n:
+            buf[s:e] += sig[:e - s]
+
+    def kick():
+        t = np.arange(int(0.22 * sr)) / sr
+        f = 110 * np.exp(-t * 26) + 46
+        env = np.exp(-t * 13)
+        return (np.sin(2 * np.pi * np.cumsum(f) / sr) * env).astype(np.float32)
+
+    def snare():
+        t = np.arange(int(0.26 * sr)) / sr
+        noise = rng.uniform(-1, 1, len(t))
+        env = np.exp(-t * 15)
+        body = 0.3 * np.sin(2 * np.pi * 150 * t)
+        return np.tanh((noise * 0.9 + body) * env * 1.4).astype(np.float32) * 0.55
+
+    def fuzzbass(freq, d):
+        t = np.arange(int(d * sr)) / sr
+        w = np.sin(2 * np.pi * freq * t)
+        w = np.tanh(w * 6.0)                 # heavy fuzz
+        env = np.minimum(1, t / 0.006) * np.exp(-t * 1.6)
+        return (w * env * 0.6).astype(np.float32)
+
+    def guitar(freq, d):
+        # detuned, palm-muted-ish distorted power chord (root + fifth + octave)
+        t = np.arange(int(d * sr)) / sr
+        w = np.zeros(len(t))
+        for f, det in ((freq, 1.0), (freq * 1.5, 1.004), (freq * 2.0, 0.997)):
+            for k in range(1, 9):
+                w += np.sin(2 * np.pi * f * det * k * t) / k
+        w /= 3.0
+        # slow wobble (tape/pitch drift) + fuzz
+        wob = 1.0 + 0.012 * np.sin(2 * np.pi * 5.0 * t)
+        w = np.tanh(w * 5.0 * wob)
+        env = np.minimum(1, t / 0.004) * (0.5 + 0.5 * np.exp(-t * 1.1))
+        return (w * env * 0.42).astype(np.float32)
+
+    nbeats = int(dur / beat) + 1
+    for b in range(nbeats):
+        tb = b * beat
+        rf = roots[prog[b % len(prog)]]
+        place(L, kick(), tb); place(R, kick(), tb)
+        if b % 2 == 1:
+            sn = snare(); place(L, sn, tb); place(R, sn, tb)
+        # chugging eighths on guitar + bass
+        for off in (0.0, 0.5):
+            g = guitar(rf, beat * 0.5)
+            place(L, g, tb + off * beat); place(R, g, tb + off * beat)
+            bs = fuzzbass(rf / 2, beat * 0.5)
+            place(L, bs, tb + off * beat); place(R, bs, tb + off * beat)
+
+    stereo = np.stack([L, R], axis=1)
+
+    # --- grit layer: tape hiss + vinyl crackle ---
+    hiss = rng.normal(0, 0.012, (n, 2)).astype(np.float32)
+    crackle = np.zeros((n, 2), dtype=np.float32)
+    pops = rng.random(n) < 0.0008
+    crackle[pops] = rng.uniform(-0.5, 0.5, (pops.sum(), 1))
+    stereo += hiss + crackle
+
+    # bit-crush for lo-fi rawness (reduce bit depth + light sample hold)
+    levels = 28.0
+    stereo = np.round(stereo * levels) / levels
+    hold = 3
+    stereo[: (n // hold) * hold] = np.repeat(
+        stereo[: (n // hold) * hold: hold], hold, axis=0)
+
+    fi, fo = int(0.04 * sr), int(0.9 * sr)
+    stereo[:fi] *= np.linspace(0, 1, fi)[:, None]
+    stereo[-fo:] *= np.linspace(1, 0, fo)[:, None]
+    peak = np.max(np.abs(stereo)) or 1.0
+    return stereo / peak * 0.9
+
+
 def write_wav(path, stereo):
     data = np.clip(stereo, -1, 1)
     pcm = (data * 32767).astype("<i2")

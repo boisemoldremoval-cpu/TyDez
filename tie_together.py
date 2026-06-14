@@ -31,7 +31,7 @@ import subprocess
 import imageio_ffmpeg
 
 # reuse the music-bed synth from add_music.py
-from add_music import synth_bed, synth_hardcore, write_wav
+from add_music import synth_bed, synth_hardcore, synth_grunge, write_wav
 
 FF = imageio_ffmpeg.get_ffmpeg_exe()
 
@@ -73,9 +73,11 @@ def main():
     bed_vol = float(take("--bed-vol", "0.5"))
     size = take("--size", None)
     fps_override = take("--fps", None)
+    intro = take("--intro", None)            # PNG/JPG or MP4 prepended at the start
+    intro_dur = float(take("--intro-dur", "3.0"))
     endcard = take("--endcard", None)        # PNG/JPG or MP4 appended at the end
     endcard_dur = float(take("--endcard-dur", "3.5"))
-    style = take("--style", "uplifting")     # uplifting | hardcore (for synth bed)
+    style = take("--style", "uplifting")     # uplifting | hardcore | grunge (synth bed)
     clip_start = float(take("--clip-start", "0"))   # in-point into each clip
     cl = take("--clip-len", None)                   # trim each clip to N seconds
     clip_len = float(cl) if cl else None
@@ -90,34 +92,42 @@ def main():
     if not files:
         print("usage: tie_together.py clip1.mp4 clip2.mp4 ... [--out final.mp4]")
         raise SystemExit(1)
+
+    IMG = (".png", ".jpg", ".jpeg")
+
+    def add_card(path, card_dur, label):
+        if not os.path.exists(path):
+            raise SystemExit(f"missing {label}: {path}")
+        if path.lower().endswith(IMG):
+            return {"path": path, "image": True, "dur": card_dur,
+                    "has_audio": False, "grade": False, "trim": None}
+        m = probe(path)
+        return {"path": path, "image": False, "dur": m[0],
+                "has_audio": m[4], "grade": False, "trim": None}
+
+    # Build the ordered segment list: [intro] + clips + [endcard].
+    # Only real clips get trimmed/graded; intro & end card are passed through.
+    segs = []
+    if intro:
+        segs.append(add_card(intro, intro_dur, "intro"))
+    metas = []
     for f in files:
         if not os.path.exists(f):
             raise SystemExit(f"missing input: {f}")
-
-    metas = [probe(f) for f in files]
-    n_clips = len(files)
-
-    # segments = real clips (+ optional end card appended last)
-    # optionally trim each clip [clip_start, clip_start+clip_len] for tighter pacing
-    trims = []
-    durs = []
-    for m in metas:
+        m = probe(f)
+        metas.append(m)
         if clip_len:
             length = min(clip_len, max(0.5, m[0] - clip_start))
-            trims.append((clip_start, length))
-            durs.append(length)
+            trim = (clip_start, length)
         else:
-            trims.append(None)
-            durs.append(m[0])
-    seg_audio = [m[4] for m in metas]
-    seg_grade = [grade] * n_clips        # end card is never graded
+            length, trim = m[0], None
+        segs.append({"path": f, "image": False, "dur": length,
+                     "has_audio": m[4], "grade": grade, "trim": trim})
     if endcard:
-        if not os.path.exists(endcard):
-            raise SystemExit(f"missing endcard: {endcard}")
-        durs.append(endcard_dur)
-        seg_audio.append(False)
-        seg_grade.append(False)
-    n = len(durs)
+        segs.append(add_card(endcard, endcard_dur, "endcard"))
+
+    n = len(segs)
+    durs = [s["dur"] for s in segs]
 
     if size:
         W, H = (int(x) for x in size.lower().split("x"))
@@ -125,29 +135,25 @@ def main():
         W, H = metas[0][1], metas[0][2]
     FPS = float(fps_override) if fps_override else metas[0][3]
 
-    if n == 1:
-        total = durs[0]
-    else:
-        total = sum(durs) - (n - 1) * xdur
-    print(f"tying {n_clips} clips{' + end card' if endcard else ''} -> {out}  "
-          f"({W}x{H} @ {FPS}fps, ~{total:.1f}s, {transition} {xdur}s"
-          f"{', graded' if grade else ''})")
+    total = durs[0] if n == 1 else sum(durs) - (n - 1) * xdur
+    print(f"tying {len(files)} clips"
+          f"{' +intro' if intro else ''}{' +endcard' if endcard else ''} -> {out}  "
+          f"({W}x{H} @ {FPS}fps, ~{total:.1f}s, {transition} {xdur}s, "
+          f"{style} bed{', graded' if grade else ''})")
 
     cmd = [FF, "-y"]
-    for f in files:
-        cmd += ["-i", f]
-    if endcard:  # video input index == n_clips
-        if endcard.lower().endswith((".png", ".jpg", ".jpeg")):
-            cmd += ["-loop", "1", "-t", f"{endcard_dur:.3f}", "-i", endcard]
+    for s in segs:  # video inputs occupy indices 0..n-1, in segment order
+        if s["image"]:
+            cmd += ["-loop", "1", "-t", f"{s['dur']:.3f}", "-i", s["path"]]
         else:
-            cmd += ["-i", endcard]
+            cmd += ["-i", s["path"]]
 
-    # silent fill for any segment without audio (video inputs occupy 0..n-1)
+    # silent fill for any segment without audio
     next_idx = n
     silent_idx = {}
-    for i in range(n):
-        if not seg_audio[i]:
-            cmd += ["-f", "lavfi", "-t", f"{durs[i]:.3f}",
+    for i, s in enumerate(segs):
+        if not s["has_audio"]:
+            cmd += ["-f", "lavfi", "-t", f"{s['dur']:.3f}",
                     "-i", "anullsrc=channel_layout=stereo:sample_rate=48000"]
             silent_idx[i] = next_idx
             next_idx += 1
@@ -158,7 +164,12 @@ def main():
         bed_path = music
         if bed_path is None:
             bed_path = "/tmp/_tie_bed.wav"
-            bed = synth_hardcore(total) if style == "hardcore" else synth_bed(total)
+            if style == "hardcore":
+                bed = synth_hardcore(total)
+            elif style == "grunge":
+                bed = synth_grunge(total)
+            else:
+                bed = synth_bed(total)
             write_wav(bed_path, bed)
             print(f"synthesized {style} bed -> {bed_path}")
         cmd += ["-i", bed_path]
@@ -170,23 +181,23 @@ def main():
     grade_f = ("eq=contrast=1.10:saturation=1.18:brightness=0.012:gamma=0.98,"
                "unsharp=5:5:0.5:5:5:0.0")
     # normalize video to common canvas/fps (+ optional trim/grade)
-    for i in range(n):
+    for i, s in enumerate(segs):
         pre = ""
-        if i < n_clips and trims[i]:
-            cs, cl = trims[i]
-            pre = f"trim=start={cs:.3f}:end={cs + cl:.3f},setpts=PTS-STARTPTS,"
+        if s["trim"]:
+            cs, clen = s["trim"]
+            pre = f"trim=start={cs:.3f}:end={cs + clen:.3f},setpts=PTS-STARTPTS,"
         chain = (f"[{i}:v]{pre}scale={W}:{H}:force_original_aspect_ratio=decrease,"
                  f"pad={W}:{H}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={FPS}")
-        if seg_grade[i]:
+        if s["grade"]:
             chain += "," + grade_f
         fc.append(chain + f",format=yuv420p[v{i}]")
     # normalize audio
-    for i in range(n):
-        if seg_audio[i]:
+    for i, s in enumerate(segs):
+        if s["has_audio"]:
             pre = ""
-            if i < n_clips and trims[i]:
-                cs, cl = trims[i]
-                pre = f"atrim=start={cs:.3f}:end={cs + cl:.3f},asetpts=N/SR/TB,"
+            if s["trim"]:
+                cs, clen = s["trim"]
+                pre = f"atrim=start={cs:.3f}:end={cs + clen:.3f},asetpts=N/SR/TB,"
             fc.append(f"[{i}:a]{pre}aresample=48000,"
                       f"aformat=channel_layouts=stereo[a{i}]")
         else:
