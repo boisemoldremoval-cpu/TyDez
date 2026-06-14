@@ -246,6 +246,117 @@ def scene_jug(W, H, N):
 
 
 # ----------------------------------------------------------------------------
+def _poster(pw, ph):
+    """DesilFuel product 'ad' image to display on the CRT screen."""
+    s = ph / 720.0
+    img = vgrad(pw, ph, (12, 16, 12), (3, 20, 9))
+    d = ImageDraw.Draw(img)
+    # jug on the right
+    jug = _jug(s)
+    jh = int(ph * 0.82)
+    jw = int(jug.width * jh / jug.height)
+    jug = jug.resize((jw, jh), Image.LANCZOS)
+    img = img.convert("RGBA")
+    img.alpha_composite(jug, (int(pw * 0.60), (ph - jh) // 2))
+    img = img.convert("RGB")
+    d = ImageDraw.Draw(img)
+    # left copy
+    lx = int(pw * 0.06)
+    d.text((lx, int(ph * 0.30)), "DesilFuel", font=ImageFont.truetype(F_DISPLAY, int(90 * s)),
+           fill=C_GOLD, anchor="lm")
+    d.rounded_rectangle([lx, int(ph * 0.40), lx + int(pw * 0.30), int(ph * 0.405) + int(8 * s)],
+                        radius=int(4 * s), fill=C_ACID)
+    fb = ImageFont.truetype(F_BOLD, int(30 * s))
+    d.text((lx, int(ph * 0.50)), "THE CHEMICAL THAT", font=fb, fill=C_WHITE, anchor="lm")
+    d.text((lx, int(ph * 0.56)), "PUTS MOLD TO SHAME", font=fb, fill=C_WHITE, anchor="lm")
+    return img
+
+
+def _phosphor(img):
+    """Green CRT phosphor look: green cast, scanlines, vignette, soft glow."""
+    W, H = img.size
+    arr = np.asarray(img).astype(np.float32)
+    # green-dominant cast
+    arr[..., 0] *= 0.55
+    arr[..., 1] = np.clip(arr[..., 1] * 1.15 + 18, 0, 255)
+    arr[..., 2] *= 0.60
+    # scanlines
+    arr[::2, :, :] *= 0.7
+    # vignette / curvature darkening
+    yy, xx = np.mgrid[0:H, 0:W]
+    cx, cy = W / 2, H / 2
+    r = np.sqrt(((xx - cx) / cx) ** 2 + ((yy - cy) / cy) ** 2)
+    vig = np.clip(1.1 - 0.5 * r ** 2, 0.25, 1.0)[..., None]
+    arr *= vig
+    out = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    # bloom: blurred bright copy added back
+    from PIL import ImageFilter
+    glow = out.filter(ImageFilter.GaussianBlur(3))
+    return Image.blend(out, glow, 0.35)
+
+
+def scene_monitor(W, H, N):
+    s = W / 1280.0
+    # derelict room backdrop
+    room = vgrad(W, H, (26, 28, 24), (10, 12, 9))
+    ra = np.asarray(room).astype(np.int16)
+    ra = np.clip(ra + RNG.normal(0, 9, (H, W, 1)).astype(np.int16), 0, 255).astype(np.uint8)
+    room = Image.fromarray(ra)
+
+    # CRT geometry (centered, 4:3 screen)
+    mw, mh = int(W * 0.62), int(H * 0.80)
+    mx, my = (W - mw) // 2, (H - mh) // 2
+    sw, sh = int(mw * 0.80), int(mh * 0.78)
+    sx, sy = mx + (mw - sw) // 2, my + int(mh * 0.07)
+    poster = _phosphor(_poster(sw, sh))
+
+    frames = []
+    for i in range(N):
+        t = i / FPS
+        img = room.copy().convert("RGBA")
+        # zoom push-in toward the monitor
+        z = 1.0 + 0.06 * (t / (N / FPS))
+        d = ImageDraw.Draw(img)
+        # beige CRT bezel + dark inner
+        d.rounded_rectangle([mx, my, mx + mw, my + mh], radius=int(28 * s),
+                            fill=(176, 170, 150, 255))
+        d.rounded_rectangle([mx + int(14 * s), my + int(14 * s),
+                             mx + mw - int(14 * s), my + mh - int(14 * s)],
+                            radius=int(20 * s), fill=(150, 145, 126, 255))
+        d.rounded_rectangle([sx - int(10 * s), sy - int(10 * s),
+                             sx + sw + int(10 * s), sy + sh + int(10 * s)],
+                            radius=int(14 * s), fill=(8, 12, 8, 255))
+        # flicker + rolling scanline offset on the poster
+        flick = 0.85 + 0.15 * RNG.random()
+        roll = int((t * 60) % sh)
+        scr = poster.copy()
+        if roll:
+            scr = Image.fromarray(np.roll(np.asarray(scr), roll, axis=0))
+        if flick < 1:
+            scr = Image.eval(scr, lambda p: int(p * flick))
+        img.paste(scr, (sx, sy))
+        # green glow halo around the screen
+        halo = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        hd = ImageDraw.Draw(halo)
+        hd.rounded_rectangle([sx - int(18 * s), sy - int(18 * s),
+                              sx + sw + int(18 * s), sy + sh + int(18 * s)],
+                             radius=int(18 * s), outline=(*C_ACID, 120), width=int(10 * s))
+        from PIL import ImageFilter
+        halo = halo.filter(ImageFilter.GaussianBlur(8))
+        img.alpha_composite(halo)
+        # occasional glitch line
+        if RNG.random() < 0.12:
+            gy = sy + RNG.integers(0, sh)
+            ImageDraw.Draw(img).rectangle([sx, gy, sx + sw, gy + int(3 * s)],
+                                          fill=(200, 255, 200, 180))
+        img = img.convert("RGB")
+        # apply zoom by cropping centered then resizing back
+        cw, ch = int(W / z), int(H / z)
+        img = img.crop(((W - cw) // 2, (H - ch) // 2, (W + cw) // 2, (H + ch) // 2)).resize((W, H), Image.LANCZOS)
+        frames.append(grain_scan(img, amt=10))
+    return frames
+
+
 def main():
     args = sys.argv[1:]
     if not args:
@@ -268,6 +379,8 @@ def main():
         frames = scene_dissolve(W, H, N)
     elif scene == "jug":
         frames = scene_jug(W, H, N)
+    elif scene == "monitor":
+        frames = scene_monitor(W, H, N)
     else:
         raise SystemExit(f"unknown scene: {scene}")
 
