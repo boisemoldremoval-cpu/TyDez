@@ -31,7 +31,7 @@ import subprocess
 import imageio_ffmpeg
 
 # reuse the music-bed synth from add_music.py
-from add_music import synth_bed, write_wav
+from add_music import synth_bed, synth_hardcore, write_wav
 
 FF = imageio_ffmpeg.get_ffmpeg_exe()
 
@@ -75,6 +75,10 @@ def main():
     fps_override = take("--fps", None)
     endcard = take("--endcard", None)        # PNG/JPG or MP4 appended at the end
     endcard_dur = float(take("--endcard-dur", "3.5"))
+    style = take("--style", "uplifting")     # uplifting | hardcore (for synth bed)
+    clip_start = float(take("--clip-start", "0"))   # in-point into each clip
+    cl = take("--clip-len", None)                   # trim each clip to N seconds
+    clip_len = float(cl) if cl else None
     no_music = "--no-music" in args
     if no_music:
         args.remove("--no-music")
@@ -94,7 +98,17 @@ def main():
     n_clips = len(files)
 
     # segments = real clips (+ optional end card appended last)
-    durs = [m[0] for m in metas]
+    # optionally trim each clip [clip_start, clip_start+clip_len] for tighter pacing
+    trims = []
+    durs = []
+    for m in metas:
+        if clip_len:
+            length = min(clip_len, max(0.5, m[0] - clip_start))
+            trims.append((clip_start, length))
+            durs.append(length)
+        else:
+            trims.append(None)
+            durs.append(m[0])
     seg_audio = [m[4] for m in metas]
     seg_grade = [grade] * n_clips        # end card is never graded
     if endcard:
@@ -144,8 +158,9 @@ def main():
         bed_path = music
         if bed_path is None:
             bed_path = "/tmp/_tie_bed.wav"
-            write_wav(bed_path, synth_bed(total))
-            print(f"synthesized bed -> {bed_path}")
+            bed = synth_hardcore(total) if style == "hardcore" else synth_bed(total)
+            write_wav(bed_path, bed)
+            print(f"synthesized {style} bed -> {bed_path}")
         cmd += ["-i", bed_path]
         bed_idx = next_idx
         next_idx += 1
@@ -154,17 +169,29 @@ def main():
     # clean, punchy grade for a 'fresh & restored' look
     grade_f = ("eq=contrast=1.10:saturation=1.18:brightness=0.012:gamma=0.98,"
                "unsharp=5:5:0.5:5:5:0.0")
-    # normalize video to common canvas/fps (+ optional grade)
+    # normalize video to common canvas/fps (+ optional trim/grade)
     for i in range(n):
-        chain = (f"[{i}:v]scale={W}:{H}:force_original_aspect_ratio=decrease,"
+        pre = ""
+        if i < n_clips and trims[i]:
+            cs, cl = trims[i]
+            pre = f"trim=start={cs:.3f}:end={cs + cl:.3f},setpts=PTS-STARTPTS,"
+        chain = (f"[{i}:v]{pre}scale={W}:{H}:force_original_aspect_ratio=decrease,"
                  f"pad={W}:{H}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={FPS}")
         if seg_grade[i]:
             chain += "," + grade_f
         fc.append(chain + f",format=yuv420p[v{i}]")
     # normalize audio
     for i in range(n):
-        src = f"[{i}:a]" if seg_audio[i] else f"[{silent_idx[i]}:a]"
-        fc.append(f"{src}aresample=48000,aformat=channel_layouts=stereo[a{i}]")
+        if seg_audio[i]:
+            pre = ""
+            if i < n_clips and trims[i]:
+                cs, cl = trims[i]
+                pre = f"atrim=start={cs:.3f}:end={cs + cl:.3f},asetpts=N/SR/TB,"
+            fc.append(f"[{i}:a]{pre}aresample=48000,"
+                      f"aformat=channel_layouts=stereo[a{i}]")
+        else:
+            fc.append(f"[{silent_idx[i]}:a]aresample=48000,"
+                      f"aformat=channel_layouts=stereo[a{i}]")
 
     if n == 1:
         vfinal, afinal = "v0", "a0"

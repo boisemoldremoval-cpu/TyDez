@@ -1,37 +1,33 @@
 #!/usr/bin/env python3
 """
-Render a branded Boise Mold Removal end-card PNG (call-to-action).
+Render the DesilFuel product end-card PNG (call-to-action).
 
     python3 gen_endcard.py                 # -> endcard.png (1280x720)
     python3 gen_endcard.py out.png --size 1920x1080
 
-Brand colors/fonts mirror make_promo.py. Edit CONFIG to change the copy.
+Edgy, product-forward card: DesilFuel wordmark, tagline, and phone number.
+Edit CONFIG to change the copy.
 """
 
 import sys
 from PIL import Image, ImageDraw, ImageFont
 
 CONFIG = {
-    "brand": "TyDez",
-    "subtitle": "BOISE MOLD REMOVAL",
-    "headline": "Breathe Easy Again",
+    "name_a": "Desil",                              # white half of wordmark
+    "name_b": "Fuel",                               # accent half
+    "tagline": "THE CHEMICAL THAT PUTS MOLD TO SHAME",
     "phone": "(208) 495-5959",
-    "email": "boisemoldremoval@gmail.com",
-    "region": "Serving Boise & the Treasure Valley",
-    "cta": "Call today for a free inspection",
 }
 
 FD = "/mnt/skills/examples/canvas-design/canvas-fonts"
 F_DISPLAY = f"{FD}/BigShoulders-Bold.ttf"
 F_BOLD = f"{FD}/Outfit-Bold.ttf"
-F_REG = f"{FD}/Outfit-Regular.ttf"
 
-C_TOP = (8, 58, 60)
-C_BOTTOM = (4, 26, 40)
-C_WHITE = (240, 250, 249)
-C_MUTE = (150, 196, 196)
-C_ACCENT = (86, 214, 165)
-C_ACCENT2 = (120, 224, 232)
+C_TOP = (12, 14, 11)        # near-black
+C_BOTTOM = (3, 20, 9)       # dark toxic green
+C_WHITE = (236, 255, 240)
+C_ACID = (126, 240, 70)     # acid green accent
+C_DIM = (150, 196, 168)
 
 
 def font(path, size):
@@ -39,15 +35,25 @@ def font(path, size):
 
 
 def vgrad(w, h, top, bottom):
-    base = Image.new("RGB", (w, h), top)
-    top = bytes(top); bottom = bytes(bottom)
+    base = Image.new("RGBA", (w, h))
     grad = Image.new("RGB", (1, h))
     for y in range(h):
         t = y / max(1, h - 1)
         grad.putpixel((0, y), tuple(int(top[i] + (bottom[i] - top[i]) * t)
                                     for i in range(3)))
-    return Image.alpha_composite(base.convert("RGBA"),
-                                 grad.resize((w, h)).convert("RGBA"))
+    base.alpha_composite(grad.resize((w, h)).convert("RGBA"))
+    return base
+
+
+def fit_font(d, text, path, max_w, start):
+    """Largest font size whose text width fits within max_w."""
+    size = start
+    while size > 10:
+        f = font(path, size)
+        if d.textlength(text, font=f) <= max_w:
+            return f
+        size -= 2
+    return font(path, 10)
 
 
 def main():
@@ -60,52 +66,41 @@ def main():
     if args:
         out = args[0]
 
-    s = W / 1280.0  # scale relative to 720p design
+    s = W / 1280.0
     img = vgrad(W, H, C_TOP, C_BOTTOM)
     d = ImageDraw.Draw(img)
-
     cx = W // 2
 
-    # accent rule above the wordmark
-    rw = int(120 * s)
-    d.rounded_rectangle([cx - rw, int(118 * s), cx + rw, int(126 * s)],
-                        radius=int(4 * s), fill=C_ACCENT)
+    # top accent rule
+    rw = int(150 * s)
+    d.rounded_rectangle([cx - rw, int(150 * s), cx + rw, int(158 * s)],
+                        radius=int(4 * s), fill=C_ACID)
 
-    # brand wordmark
-    f_word = font(F_DISPLAY, int(150 * s))
-    d.text((cx, int(210 * s)), CONFIG["brand"], font=f_word, fill=C_WHITE,
-           anchor="mm")
-    # subtitle (letter-spaced look via spacing)
-    f_sub = font(F_BOLD, int(40 * s))
-    d.text((cx, int(300 * s)), CONFIG["subtitle"], font=f_sub, fill=C_ACCENT2,
+    # DesilFuel wordmark (two-tone), centered
+    fw = font(F_DISPLAY, int(168 * s))
+    wa = d.textlength(CONFIG["name_a"], font=fw)
+    wb = d.textlength(CONFIG["name_b"], font=fw)
+    x0 = cx - (wa + wb) / 2
+    ymid = int(285 * s)
+    d.text((x0, ymid), CONFIG["name_a"], font=fw, fill=C_WHITE, anchor="lm")
+    d.text((x0 + wa, ymid), CONFIG["name_b"], font=fw, fill=C_ACID, anchor="lm")
+
+    # tagline (auto-fit to width, letter-spaced feel)
+    f_tag = fit_font(d, CONFIG["tagline"], F_BOLD, int(W * 0.86), int(46 * s))
+    d.text((cx, int(420 * s)), CONFIG["tagline"], font=f_tag, fill=C_WHITE,
            anchor="mm")
 
-    # headline
-    f_head = font(F_BOLD, int(56 * s))
-    d.text((cx, int(380 * s)), CONFIG["headline"], font=f_head, fill=C_WHITE,
-           anchor="mm")
-
-    # phone pill (the call-to-action hero)
-    f_phone = font(F_DISPLAY, int(72 * s))
-    pad_x, pad_y = int(46 * s), int(20 * s)
+    # phone pill (hero CTA)
+    f_phone = font(F_DISPLAY, int(78 * s))
+    pad_x, pad_y = int(50 * s), int(22 * s)
     bbox = d.textbbox((0, 0), CONFIG["phone"], font=f_phone)
     pw, ph = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    py = int(470 * s)
+    py = int(520 * s)
     box = [cx - pw // 2 - pad_x, py - pad_y,
            cx + pw // 2 + pad_x, py + ph + pad_y]
-    d.rounded_rectangle(box, radius=int((ph + 2 * pad_y) / 2), fill=C_ACCENT)
+    d.rounded_rectangle(box, radius=int((ph + 2 * pad_y) / 2), fill=C_ACID)
     d.text((cx, py + ph // 2), CONFIG["phone"], font=f_phone,
-           fill=C_BOTTOM, anchor="mm")
-
-    # cta line
-    f_cta = font(F_BOLD, int(30 * s))
-    d.text((cx, int(588 * s)), CONFIG["cta"], font=f_cta, fill=C_WHITE,
-           anchor="mm")
-
-    # contact footer
-    f_foot = font(F_REG, int(26 * s))
-    foot = f"{CONFIG['email']}   •   {CONFIG['region']}"
-    d.text((cx, int(648 * s)), foot, font=f_foot, fill=C_MUTE, anchor="mm")
+           fill=(6, 18, 8), anchor="mm")
 
     img.convert("RGB").save(out)
     print(f"Done -> {out}  ({W}x{H})")

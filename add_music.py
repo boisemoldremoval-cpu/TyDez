@@ -128,6 +128,90 @@ def synth_bed(dur):
     return stereo
 
 
+def synth_hardcore(dur, bpm=148):
+    """Aggressive driving bed: four-on-the-floor kick, distorted bass,
+    power-chord stabs, hats + snare. E-minor riff (Em - C - G - D)."""
+    sr = SR
+    n = int(dur * sr)
+    L = np.zeros(n, dtype=np.float32)
+    R = np.zeros(n, dtype=np.float32)
+    beat = 60.0 / bpm
+    rng = np.random.default_rng(7)
+
+    roots = {"E": 82.41, "G": 98.00, "A": 110.0, "C": 130.81,
+             "D": 146.83, "B": 123.47}
+    prog = ["E", "C", "G", "D"]
+
+    def place(buf, sig, start):
+        s = int(start * sr)
+        e = min(n, s + len(sig))
+        if s < n:
+            buf[s:e] += sig[:e - s]
+
+    def kick(amp=1.0):
+        t = np.arange(int(0.20 * sr)) / sr
+        f = 120 * np.exp(-t * 30) + 48
+        ph = 2 * np.pi * np.cumsum(f) / sr
+        env = np.exp(-t * 16)
+        click = np.exp(-t * 200) * 0.4
+        return ((np.sin(ph) + click) * env * amp).astype(np.float32)
+
+    def snare():
+        t = np.arange(int(0.20 * sr)) / sr
+        noise = rng.uniform(-1, 1, len(t))
+        tone = 0.4 * np.sin(2 * np.pi * 180 * t)
+        env = np.exp(-t * 20)
+        return ((noise * 0.9 + tone) * env * 0.6).astype(np.float32)
+
+    def hat(opn=False):
+        t = np.arange(int((0.09 if opn else 0.03) * sr)) / sr
+        noise = np.diff(rng.uniform(-1, 1, len(t) + 1))  # crude high-pass
+        env = np.exp(-t * (16 if opn else 45))
+        return (noise * env * 0.35).astype(np.float32)
+
+    def bassnote(freq, d):
+        t = np.arange(int(d * sr)) / sr
+        w = np.sin(2 * np.pi * freq * t) + 0.5 * np.sin(2 * np.pi * 2 * freq * t)
+        w = np.tanh(w * 2.2)  # drive
+        env = np.minimum(1, t / 0.004) * np.exp(-t * 2.2)
+        return (w * env * 0.6).astype(np.float32)
+
+    def powerchord(freq, d):
+        t = np.arange(int(d * sr)) / sr
+        w = np.zeros(len(t))
+        for f in (freq, freq * 1.5, freq * 2.0):     # root, fifth, octave
+            for k in range(1, 7):                     # saw-ish
+                w += np.sin(2 * np.pi * f * k * t) / k
+        w = np.tanh((w / 3.0) * 3.0)                  # distortion
+        env = np.minimum(1, t / 0.005) * np.exp(-t * 0.9)
+        return (w * env * 0.45).astype(np.float32)
+
+    nbeats = int(dur / beat) + 1
+    for b in range(nbeats):
+        tb = b * beat
+        chord = prog[(b // 4) % len(prog)]
+        rf = roots[chord]
+        place(L, kick(), tb); place(R, kick(), tb)
+        if b % 2 == 1:
+            sn = snare(); place(L, sn, tb); place(R, sn, tb)
+        h = hat(); place(L, h * 1.1, tb); place(R, h * 0.9, tb)
+        h2 = hat(opn=(b % 4 == 3))
+        place(L, h2 * 0.9, tb + beat / 2); place(R, h2 * 1.1, tb + beat / 2)
+        place(L, bassnote(rf / 2, beat / 2), tb)
+        place(R, bassnote(rf / 2, beat / 2), tb)
+        place(L, bassnote(rf / 2, beat / 2), tb + beat / 2)
+        place(R, bassnote(rf / 2, beat / 2), tb + beat / 2)
+        pc = powerchord(rf, beat)
+        place(L, pc, tb); place(R, pc, tb)
+
+    stereo = np.stack([L, R], axis=1)
+    fi, fo = int(0.04 * sr), int(0.8 * sr)
+    stereo[:fi] *= np.linspace(0, 1, fi)[:, None]
+    stereo[-fo:] *= np.linspace(1, 0, fo)[:, None]
+    peak = np.max(np.abs(stereo)) or 1.0
+    return stereo / peak * 0.9
+
+
 def write_wav(path, stereo):
     data = np.clip(stereo, -1, 1)
     pcm = (data * 32767).astype("<i2")
