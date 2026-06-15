@@ -1,0 +1,33 @@
+{
+  "title": "TyGuy & Kelliee \u2014 Bible Adventures",
+  "aspect_ratio": "16:9",
+  "model_hint": "veo-3.0-generate-001",
+  "style": {
+    "name": "Pixar/Disney-style 3D animation",
+    "description": "warm, wholesome Christian kids' cartoon, soft rounded shapes, big expressive friendly faces, gentle and reverent, family-friendly",
+    "rendering": "high-detail subsurface skin, soft cinematic global illumination, shallow depth of field, 24fps feature-film feel",
+    "palette": "brand royal-blue, sunny gold, warm cream, soft heavenly light",
+    "audio": "gentle uplifting orchestral score, soft acoustic guitar, light playful percussion, warm natural ambience; reverent and never scary",
+    "negative": "subtitles, captions, on-screen text, watermark, logo text, distorted face, extra fingers, extra limbs, deformed hands, warped anatomy, flickering, morphing character, inconsistent character design, low quality, blurry, jpeg artifacts, duplicate characters, extra people, scary imagery, violence, blood, dark or frightening tone"
+  },
+  "characters": [
+    {
+      "name": "TyGuy",
+      "role": "host / big-brother mentor (consistent lead, every episode)",
+      "appearance": "a cheerful 3D cartoon young man, early 20s, warm tan skin, short dark-brown hair, big friendly brown eyes, bright kind smile",
+      "wardrobe": "royal-blue hoodie with a white letter 'T' on the chest, dark jeans, white sneakers",
+      "voice": "warm, upbeat, encouraging young-adult male voice",
+      "personality": "kind, patient, joyful, gently teaches Scripture by example",
+      "consistent": "ALWAYS the same: face shape, dark-brown hair, royal-blue 'T' hoodie, brown eyes \u2014 never change his design or outfit"
+    },
+    {
+      "name": "Kelliee",
+      "role": "sidekick (consistent, every episode)",
+      "appearance": "a bright, bubbly 3D cartoon girl, age 10, light-brown skin, curly auburn hair in two puff pigtails, big hazel eyes, freckles",
+      "wardrobe": "sunny-yellow hoodie with a small white cross on the chest, teal leggings, white-and-pink sneakers",
+      "voice": "cheerful, curious, slightly higher-energy young girl voice",
+      "personality": "eager and warm-hearted, asks the questions kids are thinking, sometimes reacts first and learns the lesson",
+      "consistent": "ALWAYS the same: auburn puff pigtails, yellow cross hoodie, freckles, hazel eyes \u2014 never change her design or outfit"
+    }
+  ]
+}

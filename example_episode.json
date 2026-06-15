@@ -1,0 +1,161 @@
+{
+  "number": 1,
+  "title": "Taking Turns",
+  "logline": "Kelliee's turn on the swing gets taken, and she wants to shout \u2014 until TyGuy shows her what God's Word says about kindness and forgiveness, and the playground becomes peaceful again.",
+  "bible_verse": "Ephesians 4:32 \u2014 \"Be kind to one another, tender-hearted, forgiving one another, as God in Christ forgave you.\"",
+  "life_lesson": "When someone is unfair to us, Jesus helps us choose kindness and forgiveness instead of anger.",
+  "call_to_jesus": "Jesus forgives us, so we can forgive others. Ask Him into your heart and let Him help you be kind every day.",
+  "characters": [
+    {
+      "name": "Ben",
+      "role": "guest kid (this episode only)",
+      "appearance": "a 3D cartoon boy, age 9, short sandy-blond hair, light skin, round cheeks",
+      "wardrobe": "green-striped t-shirt, grey shorts, red sneakers",
+      "voice": "energetic young boy, a little impatient at first",
+      "personality": "excitable, doesn't realize he cut in line, quick to say sorry",
+      "consistent": "sandy-blond hair and green-striped shirt in every shot he appears in"
+    }
+  ],
+  "voiceover": {
+    "tone": "warm, gentle picture-book storyteller for young children",
+    "lines": [
+      "God's Word gives us a special rule for our hearts...",
+      "...be kind, and forgive one another.",
+      "But being kind is hard when something feels unfair.",
+      "When we're hurt, our first feeling can be anger.",
+      "Jesus shows us a better way \u2014 to forgive.",
+      "And when we forgive, peace comes back.",
+      "Will you follow Jesus and let Him make your heart kind?"
+    ]
+  },
+  "scenes": [
+    {
+      "beat": "verse",
+      "characters": [
+        "TyGuy",
+        "Kelliee"
+      ],
+      "location": "a sunny cartoon neighborhood park with a swing set, green grass, and a big leafy tree",
+      "action": "TyGuy waves warmly to camera while Kelliee bounces beside him holding an open kids' Bible; he gestures to the page",
+      "camera": "medium two-shot, slow gentle push-in, eye level",
+      "lighting": "bright warm morning sunlight, soft golden glow",
+      "mood": "cheerful, welcoming, reverent",
+      "dialogue": [
+        "TyGuy: Hey friends! Today's verse is Ephesians four, thirty-two.",
+        "Kelliee: \"Be kind to one another, and forgive one another!\""
+      ],
+      "ending_frame": "Kelliee proudly holds the Bible up toward camera, then looks off toward the swings \u2014 camera ready to follow her",
+      "seconds": 6
+    },
+    {
+      "beat": "lesson",
+      "characters": [
+        "TyGuy",
+        "Kelliee"
+      ],
+      "location": "the same sunny park, standing on the grass near the swing set",
+      "action": "TyGuy kneels to Kelliee's level and points to his heart, then to the swings; Kelliee nods, eager to play",
+      "camera": "two-shot, eye level, soft handheld",
+      "lighting": "warm morning sun, soft shadows",
+      "mood": "gentle, teaching, hopeful",
+      "dialogue": [
+        "TyGuy: That means: be kind, and forgive \u2014 even when it's hard.",
+        "Kelliee: Got it! Now can I swing?"
+      ],
+      "ending_frame": "Kelliee skips toward an empty swing, the swing clearly open and waiting in frame",
+      "seconds": 6
+    },
+    {
+      "beat": "problem",
+      "characters": [
+        "Kelliee",
+        "Ben"
+      ],
+      "location": "right at the swing set on the grass",
+      "action": "just as Kelliee reaches for the empty swing, Ben dashes in and hops onto it first, not noticing her",
+      "camera": "medium shot, quick gentle whip toward the swing, eye level",
+      "lighting": "bright morning sun",
+      "mood": "lighthearted but suddenly unfair",
+      "dialogue": [
+        "Ben: Woo-hoo! My turn!"
+      ],
+      "consistent": "Kelliee's reaching hand and surprised face stay clearly readable",
+      "ending_frame": "Kelliee freezes mid-reach, swing now taken, her smile dropping into a shocked frown \u2014 hold on her face",
+      "seconds": 5
+    },
+    {
+      "beat": "wrong_reaction",
+      "characters": [
+        "Kelliee"
+      ],
+      "location": "beside the swing set on the grass",
+      "action": "Kelliee crosses her arms, scrunches her face, stomps one foot, and opens her mouth as if to shout",
+      "camera": "medium close-up, slight low angle, holds steady on her",
+      "lighting": "warm sun, a touch cooler to feel her frustration",
+      "mood": "frustrated, upset (gentle and kid-appropriate, never scary)",
+      "dialogue": [
+        "Kelliee: Hey! That was MY turn! That's not fair!"
+      ],
+      "avoid": "yelling face that looks frightening, tears, anything harsh or mean",
+      "ending_frame": "Kelliee, arms crossed and pouting, as a familiar blue sleeve enters frame \u2014 TyGuy's hand resting gently on her shoulder",
+      "seconds": 6
+    },
+    {
+      "beat": "biblical_correction",
+      "characters": [
+        "TyGuy",
+        "Kelliee"
+      ],
+      "location": "kneeling together on the grass beside the swings",
+      "action": "TyGuy kneels beside Kelliee, hand on her shoulder, gently opens the Bible; Kelliee's angry face slowly softens as she listens",
+      "camera": "intimate two-shot, slow push-in, eye level",
+      "lighting": "soft warm sunbeam breaking through, a touch of heavenly glow",
+      "mood": "calm, gentle, reassuring",
+      "dialogue": [
+        "TyGuy: Remember our verse? Be kind, and forgive.",
+        "TyGuy: Jesus forgave us \u2014 we can forgive Ben too.",
+        "Kelliee: ...Okay. I can be kind."
+      ],
+      "ending_frame": "Kelliee uncrosses her arms and takes a calming breath, a small forgiving smile returning; she turns toward Ben",
+      "seconds": 8
+    },
+    {
+      "beat": "peaceful_ending",
+      "characters": [
+        "Kelliee",
+        "Ben"
+      ],
+      "location": "at the swing set on the grass",
+      "action": "Kelliee walks up kindly; Ben realizes and hops off, apologizing; they smile and Ben offers her the swing, then they take turns happily",
+      "camera": "medium two-shot, warm slow push-in, eye level",
+      "lighting": "full bright golden morning sun, warm and glowing",
+      "mood": "warm, peaceful, joyful, reconciled",
+      "dialogue": [
+        "Ben: Oh \u2014 sorry! I didn't see you. You go first!",
+        "Kelliee: Thanks, Ben! Let's take turns."
+      ],
+      "consistent": "Ben same sandy-blond hair and green-striped shirt; both genuinely happy",
+      "ending_frame": "Kelliee swings gently with Ben pushing, both laughing; TyGuy steps into frame from the side, smiling at camera",
+      "seconds": 7
+    },
+    {
+      "beat": "call_to_jesus",
+      "characters": [
+        "TyGuy",
+        "Kelliee"
+      ],
+      "location": "in front of the swing set, warm sunny park behind them",
+      "action": "TyGuy and Kelliee stand together facing camera; TyGuy places a hand on his heart, Kelliee gives a thumbs-up",
+      "camera": "medium two-shot, gentle slow push-in, eye level",
+      "lighting": "warm golden light with soft heavenly glow and floating gold sparkles",
+      "mood": "uplifting, sincere, inviting",
+      "dialogue": [
+        "TyGuy: Jesus forgives us, so we can forgive others.",
+        "TyGuy: Ask Jesus into your heart, and let Him make you kind!",
+        "Kelliee: Be kind, forgive, and follow Jesus! See you next time!"
+      ],
+      "ending_frame": "freeze on TyGuy and Kelliee waving together, golden sparkles and a soft glowing cross, brand-blue tones, clean space at top for an end card",
+      "seconds": 7
+    }
+  ]
+}

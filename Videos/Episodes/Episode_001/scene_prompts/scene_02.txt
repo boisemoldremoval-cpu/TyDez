@@ -1,0 +1,69 @@
+==============================================================================
+ EPISODE 001 — "Taking Turns"
+ SCENE 02 of 7   |   BEAT: LIFE LESSON
+ ~6s   |   16:9  ->  feeds Scene 03
+==============================================================================
+
+>>> COPY-PASTE THIS INTO VEO / GEMINI <<<
+------------------------------------------------------------------------------
+Pixar/Disney-style 3D animation, warm, wholesome Christian kids' cartoon, soft
+rounded shapes, big expressive friendly faces, gentle and reverent, family-
+friendly, high-detail subsurface skin, soft cinematic global illumination,
+shallow depth of field, 24fps feature-film feel. TyGuy (a cheerful 3D cartoon
+young man, early 20s, warm tan skin, short dark-brown hair, big friendly brown
+eyes, bright kind smile, royal-blue hoodie with a white letter 'T' on the
+chest, dark jeans, white sneakers); Kelliee (a bright, bubbly 3D cartoon girl,
+age 10, light-brown skin, curly auburn hair in two puff pigtails, big hazel
+eyes, freckles, sunny-yellow hoodie with a small white cross on the chest,
+teal leggings, white-and-pink sneakers), TyGuy kneels to Kelliee's level and
+points to his heart, then to the swings; Kelliee nods, eager to play. Setting:
+the same sunny park, standing on the grass near the swing set. Camera: two-
+shot, eye level, soft handheld. Lighting: warm morning sun, soft shadows.
+Mood: gentle, teaching, hopeful. TyGuy says, "That means: be kind, and forgive
+— even when it's hard.". Kelliee says, "Got it! Now can I swing?". Color
+palette: brand royal-blue, sunny gold, warm cream, soft heavenly light. Audio:
+gentle uplifting orchestral score, soft acoustic guitar, light playful
+percussion, warm natural ambience; reverent and never scary. Clip length about
+6 seconds, 16:9 aspect ratio.
+------------------------------------------------------------------------------
+
+NEGATIVE PROMPT (paste into the negative / 'avoid' field):
+subtitles, captions, on-screen text, watermark, logo text, distorted face,
+extra fingers, extra limbs, deformed hands, warped anatomy, flickering,
+morphing character, inconsistent character design, low quality, blurry, jpeg
+artifacts, duplicate characters, extra people, scary imagery, violence, blood,
+dark or frightening tone
+
+==============================================================================
+ SCENE BREAKDOWN (reference — not pasted into Veo)
+==============================================================================
+VIDEO STYLE:          Pixar/Disney-style 3D animation, warm, wholesome Christian kids' cartoon, soft
+                      rounded shapes, big expressive friendly faces, gentle
+                      and reverent, family-friendly, high-detail subsurface
+                      skin, soft cinematic global illumination, shallow depth
+                      of field, 24fps feature-film feel
+MAIN CHARACTER:       TyGuy (a cheerful 3D cartoon young man, early 20s, warm tan skin, short dark-
+                      brown hair, big friendly brown eyes, bright kind smile,
+                      royal-blue hoodie with a white letter 'T' on the chest,
+                      dark jeans, white sneakers); Kelliee (a bright, bubbly
+                      3D cartoon girl, age 10, light-brown skin, curly auburn
+                      hair in two puff pigtails, big hazel eyes, freckles,
+                      sunny-yellow hoodie with a small white cross on the
+                      chest, teal leggings, white-and-pink sneakers)
+LOCATION:             the same sunny park, standing on the grass near the swing set
+ACTION:               TyGuy kneels to Kelliee's level and points to his heart, then to the swings;
+                      Kelliee nods, eager to play
+CAMERA ANGLE:         two-shot, eye level, soft handheld
+LIGHTING:             warm morning sun, soft shadows
+MOOD:                 gentle, teaching, hopeful
+DIALOGUE:             TyGuy: That means: be kind, and forgive — even when it's hard. / Kelliee: Got
+                      it! Now can I swing?
+MUST STAY CONSISTENT: TyGuy: ALWAYS the same: face shape, dark-brown hair, royal-blue 'T' hoodie,
+                      brown eyes — never change his design or outfit |
+                      Kelliee: ALWAYS the same: auburn puff pigtails, yellow
+                      cross hoodie, freckles, hazel eyes — never change her
+                      design or outfit
+DO NOT SHOW:          (use the standard negative prompt above)
+ENDING FRAME:         Kelliee skips toward an empty swing, the swing clearly open and waiting in
+                      frame
+==============================================================================

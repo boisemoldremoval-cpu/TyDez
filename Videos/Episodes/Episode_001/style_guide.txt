@@ -1,0 +1,30 @@
+==============================================================================
+ VISUAL STYLE GUIDE — Episode 001
+==============================================================================
+
+STYLE NAME:           Pixar/Disney-style 3D animation
+DESCRIPTION:          warm, wholesome Christian kids' cartoon, soft rounded shapes, big expressive
+                      friendly faces, gentle and reverent, family-friendly
+RENDERING:            high-detail subsurface skin, soft cinematic global illumination, shallow depth
+                      of field, 24fps feature-film feel
+COLOR PALETTE:        brand royal-blue, sunny gold, warm cream, soft heavenly light
+AUDIO BED:            gentle uplifting orchestral score, soft acoustic guitar, light playful
+                      percussion, warm natural ambience; reverent and never
+                      scary
+ASPECT RATIO:         16:9
+MODEL:                veo-3.0-generate-001
+
+LEADING STYLE CLAUSE (stamped on every clip):
+Pixar/Disney-style 3D animation, warm, wholesome Christian kids' cartoon, soft
+rounded shapes, big expressive friendly faces, gentle and reverent, family-
+friendly, high-detail subsurface skin, soft cinematic global illumination,
+shallow depth of field, 24fps feature-film feel.
+
+GLOBAL NEGATIVE PROMPT:
+subtitles, captions, on-screen text, watermark, logo text, distorted face,
+extra fingers, extra limbs, deformed hands, warped anatomy, flickering,
+morphing character, inconsistent character design, low quality, blurry, jpeg
+artifacts, duplicate characters, extra people, scary imagery, violence, blood,
+dark or frightening tone
+
+==============================================================================

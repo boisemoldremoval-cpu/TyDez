@@ -1,0 +1,71 @@
+==============================================================================
+ EPISODE 001 — "Taking Turns"
+ SCENE 05 of 7   |   BEAT: BIBLICAL CORRECTION
+ ~8s   |   16:9  ->  feeds Scene 06
+==============================================================================
+
+>>> COPY-PASTE THIS INTO VEO / GEMINI <<<
+------------------------------------------------------------------------------
+Pixar/Disney-style 3D animation, warm, wholesome Christian kids' cartoon, soft
+rounded shapes, big expressive friendly faces, gentle and reverent, family-
+friendly, high-detail subsurface skin, soft cinematic global illumination,
+shallow depth of field, 24fps feature-film feel. TyGuy (a cheerful 3D cartoon
+young man, early 20s, warm tan skin, short dark-brown hair, big friendly brown
+eyes, bright kind smile, royal-blue hoodie with a white letter 'T' on the
+chest, dark jeans, white sneakers); Kelliee (a bright, bubbly 3D cartoon girl,
+age 10, light-brown skin, curly auburn hair in two puff pigtails, big hazel
+eyes, freckles, sunny-yellow hoodie with a small white cross on the chest,
+teal leggings, white-and-pink sneakers), TyGuy kneels beside Kelliee, hand on
+her shoulder, gently opens the Bible; Kelliee's angry face slowly softens as
+she listens. Setting: kneeling together on the grass beside the swings.
+Camera: intimate two-shot, slow push-in, eye level. Lighting: soft warm
+sunbeam breaking through, a touch of heavenly glow. Mood: calm, gentle,
+reassuring. TyGuy says, "Remember our verse? Be kind, and forgive.". TyGuy
+says, "Jesus forgave us — we can forgive Ben too.". Kelliee says, "...Okay. I
+can be kind.". Color palette: brand royal-blue, sunny gold, warm cream, soft
+heavenly light. Audio: gentle uplifting orchestral score, soft acoustic
+guitar, light playful percussion, warm natural ambience; reverent and never
+scary. Clip length about 8 seconds, 16:9 aspect ratio.
+------------------------------------------------------------------------------
+
+NEGATIVE PROMPT (paste into the negative / 'avoid' field):
+subtitles, captions, on-screen text, watermark, logo text, distorted face,
+extra fingers, extra limbs, deformed hands, warped anatomy, flickering,
+morphing character, inconsistent character design, low quality, blurry, jpeg
+artifacts, duplicate characters, extra people, scary imagery, violence, blood,
+dark or frightening tone
+
+==============================================================================
+ SCENE BREAKDOWN (reference — not pasted into Veo)
+==============================================================================
+VIDEO STYLE:          Pixar/Disney-style 3D animation, warm, wholesome Christian kids' cartoon, soft
+                      rounded shapes, big expressive friendly faces, gentle
+                      and reverent, family-friendly, high-detail subsurface
+                      skin, soft cinematic global illumination, shallow depth
+                      of field, 24fps feature-film feel
+MAIN CHARACTER:       TyGuy (a cheerful 3D cartoon young man, early 20s, warm tan skin, short dark-
+                      brown hair, big friendly brown eyes, bright kind smile,
+                      royal-blue hoodie with a white letter 'T' on the chest,
+                      dark jeans, white sneakers); Kelliee (a bright, bubbly
+                      3D cartoon girl, age 10, light-brown skin, curly auburn
+                      hair in two puff pigtails, big hazel eyes, freckles,
+                      sunny-yellow hoodie with a small white cross on the
+                      chest, teal leggings, white-and-pink sneakers)
+LOCATION:             kneeling together on the grass beside the swings
+ACTION:               TyGuy kneels beside Kelliee, hand on her shoulder, gently opens the Bible;
+                      Kelliee's angry face slowly softens as she listens
+CAMERA ANGLE:         intimate two-shot, slow push-in, eye level
+LIGHTING:             soft warm sunbeam breaking through, a touch of heavenly glow
+MOOD:                 calm, gentle, reassuring
+DIALOGUE:             TyGuy: Remember our verse? Be kind, and forgive. / TyGuy: Jesus forgave us —
+                      we can forgive Ben too. / Kelliee: ...Okay. I can be
+                      kind.
+MUST STAY CONSISTENT: TyGuy: ALWAYS the same: face shape, dark-brown hair, royal-blue 'T' hoodie,
+                      brown eyes — never change his design or outfit |
+                      Kelliee: ALWAYS the same: auburn puff pigtails, yellow
+                      cross hoodie, freckles, hazel eyes — never change her
+                      design or outfit
+DO NOT SHOW:          (use the standard negative prompt above)
+ENDING FRAME:         Kelliee uncrosses her arms and takes a calming breath, a small forgiving smile
+                      returning; she turns toward Ben
+==============================================================================

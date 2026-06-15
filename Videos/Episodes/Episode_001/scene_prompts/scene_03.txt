@@ -1,0 +1,65 @@
+==============================================================================
+ EPISODE 001 — "Taking Turns"
+ SCENE 03 of 7   |   BEAT: THE PROBLEM
+ ~5s   |   16:9  ->  feeds Scene 04
+==============================================================================
+
+>>> COPY-PASTE THIS INTO VEO / GEMINI <<<
+------------------------------------------------------------------------------
+Pixar/Disney-style 3D animation, warm, wholesome Christian kids' cartoon, soft
+rounded shapes, big expressive friendly faces, gentle and reverent, family-
+friendly, high-detail subsurface skin, soft cinematic global illumination,
+shallow depth of field, 24fps feature-film feel. Kelliee (a bright, bubbly 3D
+cartoon girl, age 10, light-brown skin, curly auburn hair in two puff
+pigtails, big hazel eyes, freckles, sunny-yellow hoodie with a small white
+cross on the chest, teal leggings, white-and-pink sneakers); Ben (a 3D cartoon
+boy, age 9, short sandy-blond hair, light skin, round cheeks, green-striped
+t-shirt, grey shorts, red sneakers), just as Kelliee reaches for the empty
+swing, Ben dashes in and hops onto it first, not noticing her. Setting: right
+at the swing set on the grass. Camera: medium shot, quick gentle whip toward
+the swing, eye level. Lighting: bright morning sun. Mood: lighthearted but
+suddenly unfair. Ben says, "Woo-hoo! My turn!". Color palette: brand royal-
+blue, sunny gold, warm cream, soft heavenly light. Audio: gentle uplifting
+orchestral score, soft acoustic guitar, light playful percussion, warm natural
+ambience; reverent and never scary. Clip length about 5 seconds, 16:9 aspect
+ratio.
+------------------------------------------------------------------------------
+
+NEGATIVE PROMPT (paste into the negative / 'avoid' field):
+subtitles, captions, on-screen text, watermark, logo text, distorted face,
+extra fingers, extra limbs, deformed hands, warped anatomy, flickering,
+morphing character, inconsistent character design, low quality, blurry, jpeg
+artifacts, duplicate characters, extra people, scary imagery, violence, blood,
+dark or frightening tone
+
+==============================================================================
+ SCENE BREAKDOWN (reference — not pasted into Veo)
+==============================================================================
+VIDEO STYLE:          Pixar/Disney-style 3D animation, warm, wholesome Christian kids' cartoon, soft
+                      rounded shapes, big expressive friendly faces, gentle
+                      and reverent, family-friendly, high-detail subsurface
+                      skin, soft cinematic global illumination, shallow depth
+                      of field, 24fps feature-film feel
+MAIN CHARACTER:       Kelliee (a bright, bubbly 3D cartoon girl, age 10, light-brown skin, curly
+                      auburn hair in two puff pigtails, big hazel eyes,
+                      freckles, sunny-yellow hoodie with a small white cross
+                      on the chest, teal leggings, white-and-pink sneakers);
+                      Ben (a 3D cartoon boy, age 9, short sandy-blond hair,
+                      light skin, round cheeks, green-striped t-shirt, grey
+                      shorts, red sneakers)
+LOCATION:             right at the swing set on the grass
+ACTION:               just as Kelliee reaches for the empty swing, Ben dashes in and hops onto it
+                      first, not noticing her
+CAMERA ANGLE:         medium shot, quick gentle whip toward the swing, eye level
+LIGHTING:             bright morning sun
+MOOD:                 lighthearted but suddenly unfair
+DIALOGUE:             Ben: Woo-hoo! My turn!
+MUST STAY CONSISTENT: Kelliee: ALWAYS the same: auburn puff pigtails, yellow cross hoodie, freckles,
+                      hazel eyes — never change her design or outfit | Ben:
+                      sandy-blond hair and green-striped shirt in every shot
+                      he appears in | Kelliee's reaching hand and surprised
+                      face stay clearly readable
+DO NOT SHOW:          (use the standard negative prompt above)
+ENDING FRAME:         Kelliee freezes mid-reach, swing now taken, her smile dropping into a shocked
+                      frown — hold on her face
+==============================================================================
