@@ -1,0 +1,10 @@
+services:
+  claude-to-chatgpt:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Optional: set to run as a closed proxy (clients send any placeholder key).
+      # Leave unset to run as a pass-through proxy (clients send their own key).
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    restart: unless-stopped
