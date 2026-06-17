@@ -25,3 +25,21 @@ python3 make_promo.py out.mp4    # custom output path
 Edit the `CONFIG` block at the top of `make_promo.py` to change the brand,
 copy, services, badges, contact details, and colors, then re-render.
 The scene timeline and palette live just below `CONFIG`.
+
+## Open Generative AI (bundled web app)
+
+The [`open-generative-ai/`](./open-generative-ai) directory contains a ported
+copy of [Open-Generative-AI](https://github.com/Anil-matcha/Open-Generative-AI)
+— an open-source, Next.js/Electron creative studio that wraps 200+ image,
+video, and audio models through the MuAPI gateway (Image, Video, Cinema,
+Lip Sync, Workflow, and Agent studios). It is self-contained with its own
+`package.json`, build scripts, and docs. See
+[`open-generative-ai/README.md`](./open-generative-ai/README.md) for setup and
+usage.
+
+```bash
+cd open-generative-ai
+npm install
+npm run build      # build all workspace packages
+npm run dev        # run the Next.js dev server
+```
