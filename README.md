@@ -40,6 +40,10 @@ usage.
 ```bash
 cd open-generative-ai
 npm install
-npm run build      # build all workspace packages
-npm run dev        # run the Next.js dev server
+npm run build:packages   # build workspace packages (studio, agent, workflow) first
+npm run build            # build the Next.js app
+npm run dev              # or: run the Next.js dev server
 ```
+
+Generating media requires a MuAPI key — set `MU_API_KEY` (see the app's
+docs). Verified to build with Node 22 / npm 10 (Next.js 15.5).
