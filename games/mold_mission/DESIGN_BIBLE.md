@@ -380,6 +380,24 @@ weakens gas, better lighting reduces ambushes.
 **Status:** documented; the first piece of **Level 4 (Crawlspace)**. Will be
 built once the Crawlspace boss + world map arrive (the level 4 hook from V4C8).
 
+# Volume 5, Chapter 3 — Boss: Crawlor
+
+Fourth Mold General, ruler of the crawlspace. A colossal segmented mold worm
+that tunnels beneath the foundation, forcing reaction to shifting terrain.
+Armored fungal worm with stone-like plates, glowing green fissures, root
+tendrils, and jaws of broken foundation blocks. Arena: circular crawlspace under
+the home — piers, standing water, damaged vapor barrier, mud pits, support
+beams, multiple elevations. **P1:** burrows between chambers, erupts beneath the
+player. **P2 (65%):** collapses beams, floods sections, **summons Pipe
+Parasites**. **P3 (25%):** coils the arena, exposing weak points while launching
+toxic gas bursts. **Weak point:** each body segment briefly exposes a glowing
+fungal core after a charge — seal tunnels with the **Foam Cannon**, hit cores
+with the **Blaster**. Rewards: **Air Scrubber Drone**, Crawlspace Badge, 1500
+cassettes, Level 5 unlocked. Target 6–8 min.
+
+**Status:** documented; the 4th boss. Level 4 (Crawlspace) will be built once its
+world map / room layout arrives — I now have its enemy pack (V5C2) and boss.
+
 ---
 
 ## Reference images
