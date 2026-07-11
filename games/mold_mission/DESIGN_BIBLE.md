@@ -489,6 +489,24 @@ slice — HQ upgrades (Armor/Battery/Speed) with a Sample-Cassette economy, the
 core HUD (health/energy/charge/score/cassettes/boss bar), mission select, and
 per-mission unlock progression.
 
+# Volume 8, Chapter 1 — Project Architecture
+
+Modular architecture separating gameplay, UI, audio, AI, assets, save. **Core
+modules:** Gameplay, Player Controller, Enemy AI, Tool System, Mission Manager,
+Save System, UI Framework, Audio Manager, Visual Effects, Analytics, Content
+Database. **Levels** own scene/lighting/encounters/collectibles/events/hazards
+but share global systems. **Data-driven** config files for weapons/enemies/
+upgrades/achievements/collectibles (balance without touching code). **Event
+flow:** Mission Start → Exploration → Puzzle Events → Boss → Completion →
+Rewards → HQ Upgrade Loop. Subsystems talk via event messaging; stream large
+environments; pool effects/enemies; documented interfaces + automated tests.
+
+**Status:** documented as the target production architecture. The single-file
+prototype already mirrors much of it informally — the `Enemy` class is
+kind/data-driven, `build_level(mission)` holds per-level content, `Game` is the
+mission manager, and bosses/tools are modular classes. A full refactor into
+separate modules + data files is the natural step toward a production build.
+
 ---
 
 ## Reference images
