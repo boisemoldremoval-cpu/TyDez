@@ -140,6 +140,64 @@ vacuums weakened enemies, and absorbs hostile spore projectiles (small energy
 refund) — drains Weapon Energy. Not yet: vent/puzzle interactions, charge vortex,
 the Mk I–V upgrade line.
 
+# Volume 2, Chapter 5 — Enemy Pack 1
+
+- **Spore Slime** — basic melee; short hop → body slam; weak to HEPA Vacuum after
+  a stun; drops Cassettes/Health.
+- **Mold Bat** — flying harassment; circles the player then dives; weak to the
+  Blaster or a timed jump; drops Energy Cells.
+- **Toxic Drip** — ceiling hazard; drips acidic mold on a timer; Vacuum clears
+  buildup.
+Shared AI: Idle → Patrol → Detect → Attack → Recover → Stunned → Defeated (data-driven).
+
+**Implemented:** the **Mold Bat** flying enemy (circles + dives, drops energy).
+The existing Spore Bot stands in for the Spore Slime. Not yet: hop/slam + stun
+combo, Toxic Drip ceiling hazard, data-driven AI-state machine.
+
+# Volume 2, Chapter 6 — Level 1 World Layout
+
+A single-family home's flooded basement. **Rooms:** 01 Exterior Entry (movement
+tutorial) · 02 Stairwell (first Spore Slime) · 03 Utility (scan tutorial) · 04
+Laundry (water hazards, Mold Bat) · 05 Storage Maze (crate puzzle, secret room) ·
+06 Mechanical (checkpoint + rising water) · 07 Boss Arena. Collectibles: 50 Bronze
+/ 10 Silver / 1 Gold cassette + 1 hidden Blueprint (wall-slide challenge).
+Environmental storytelling: family boxes, toys, water-stained drywall, restoration
+tape.
+
+# Volume 2, Chapter 7 — Level 1 Room-by-Room
+
+Per-room beats (scan tutorial gating, melee avoidance, crate puzzle, checkpoint,
+rising-water pre-boss, auto boss-intro cutscene). Accessibility: disable-able
+tutorial prompts, colorblind-safe hazard indicators, optional aim assist. Target
+first-run time 12–18 min.
+
+**Implemented (V2C6/7):** the current single scrolling stage is the compressed
+Basement (enemies → boss). Not yet: discrete rooms, scanner tutorial, crate
+puzzle, checkpoints, rising-water event, secret/collectible tiers.
+
+# Volume 2, Chapter 8 — Cutscenes & Dialogue
+
+Opening briefing (Commander Ellis), environmental storytelling, **boss intro**
+("THIS HOME... IS MINE!"), victory cutscene, and an **HQ debrief** teasing
+**Moldius Prime**. Voice direction per character. Cinematics skippable; story
+replayable from HQ Archives.
+
+**Implemented:** Ellis briefing flavor at HQ, an in-fight **boss-intro banner**
+("THIS HOME... IS MINE!"), and a **victory tease** ("...Moldius Prime..."). Not
+yet: full scripted cutscenes, voice, Archives replay.
+
+# Volume 3, Chapter 1 — Level 2: Bathroom (planned)
+
+Persistent humidity/leaks let mold spread through bathroom walls & vents. Teaches
+Dash, steam hazards, and strategic HEPA use. Vertical level. New hazards: steam
+jets (visibility), slippery tile, electrified puddles, toxic vent bursts.
+Enemies: Steam Mite, Mold Leech, Mold Bat Mk II, Vent Spore Swarm. Puzzle: restore
+the exhaust fan via 3 breakers. **End boss: Shower Beast** → unlocks the Disinfect
+Blaster. Rewards: Bathroom Badge, 750 Cassettes, Level 3 access.
+
+**Status:** documented; not yet built. A natural next milestone once Level 1's
+rooms are fleshed out.
+
 ---
 
 ## Reference images

@@ -124,8 +124,8 @@ def glow(s, cx, cy, r, color, strength=120):
 # --------------------------------------------------------------------------- #
 ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "player_dash", "player_crouch", "player_shoot", "player_hurt",
-               "sporebot", "moldcrawler", "toxicsprayer", "boss", "shot",
-               "shot_charged", "toxic", "coin", "background", "platform")
+               "sporebot", "moldcrawler", "toxicsprayer", "moldbat", "boss",
+               "shot", "shot_charged", "toxic", "coin", "background", "platform")
 
 
 class AssetPack:
@@ -264,12 +264,19 @@ class Enemy:
         self.hit = 0.0
         self.shoot_t = random.uniform(0.8, 2.0)
         self.dead = False
+        self.t = random.uniform(0, 6.28)
+        self.home_y = float(y)
+        self.dive_t = random.uniform(1.5, 3.0)
+        self.diving = 0.0
         if kind == "sporebot":
             self.w, self.h, self.hp = 40, 40, 4
             self.vx = -70
             self.dmg = 4
         elif kind == "moldcrawler":
             self.w, self.h, self.hp = 46, 34, 9
+            self.dmg = 4
+        elif kind == "moldbat":       # flying harassment enemy (V2C5)
+            self.w, self.h, self.hp = 36, 26, 3
             self.dmg = 4
         else:  # toxicsprayer
             self.w, self.h, self.hp = 40, 48, 6
@@ -280,6 +287,7 @@ class Enemy:
 
     def update(self, dt, player, shots, parts):
         self.hit = max(0.0, self.hit - dt)
+        self.t += dt
         if self.kind == "sporebot":
             self.x += self.vx * dt
             # patrol turn-around on level edges / simple bounds
@@ -288,6 +296,20 @@ class Enemy:
         elif self.kind == "moldcrawler":
             d = player.x - self.x
             self.x += (30 if d > 0 else -30) * dt
+        elif self.kind == "moldbat":
+            # circle the player, then dive (V2C5 Mold Bat)
+            d = player.x - self.x
+            self.x += (1 if d > 0 else -1) * 80 * dt
+            self.dive_t -= dt
+            if self.dive_t <= 0 and abs(d) < 320 and self.diving <= 0:
+                self.diving = 0.6
+                self.dive_t = random.uniform(2.0, 3.5)
+            if self.diving > 0:
+                self.diving -= dt
+                self.y += (player.y - self.y) * min(1.0, dt * 4)
+            else:
+                self.y += (self.home_y + math.sin(self.t * 3) * 26 - self.y) \
+                    * min(1.0, dt * 3)
         else:  # toxicsprayer shoots
             self.shoot_t -= dt
             if self.shoot_t <= 0 and abs(player.x - self.x) < 520:
@@ -310,9 +332,20 @@ class Enemy:
         x, y = self.x - cam, self.y
         cx, cy = x + self.w / 2, y + self.h / 2
         asset = {"sporebot": "sporebot", "moldcrawler": "moldcrawler",
-                 "toxicsprayer": "toxicsprayer"}[self.kind]
+                 "toxicsprayer": "toxicsprayer", "moldbat": "moldbat"}[self.kind]
         if assets.has(asset):
             assets.blit_fit(s, asset, cx, cy, self.w * 1.5, self.h * 1.5)
+        elif self.kind == "moldbat":
+            flap = math.sin(self.t * 16) * 6
+            for wdir in (-1, 1):
+                pygame.draw.polygon(s, C_CRAWLER, [
+                    (cx, cy), (cx + wdir * 20, cy - 6 - flap),
+                    (cx + wdir * 16, cy + 8)])
+            fcircle(s, cx, cy, self.h * 0.5, C_MOLD_DK)
+            fcircle(s, cx - 5, cy - 2, 3, (200, 255, 160))
+            fcircle(s, cx + 5, cy - 2, 3, (200, 255, 160))
+            fcircle(s, cx - 5, cy - 2, 1.5, (20, 30, 20))
+            fcircle(s, cx + 5, cy - 2, 1.5, (20, 30, 20))
         elif self.kind == "sporebot":
             for a in range(8):
                 ang = a / 8 * 6.283
@@ -804,6 +837,9 @@ def build_level():
         Enemy("moldcrawler", 1900, GROUND_Y - 34),
         Enemy("toxicsprayer", 2150, GROUND_Y - 48),
         Enemy("sporebot", 2350, GROUND_Y - 40),
+        Enemy("moldbat", 1150, 280),
+        Enemy("moldbat", 1750, 260),
+        Enemy("moldbat", 2200, 280),
     ]
     coins = [Coin(x, GROUND_Y - 60) for x in range(300, 2400, 190)]
     return plats, enemies, coins
@@ -870,9 +906,11 @@ class Game:
         self.spores = 1200
         self.cassettes = 0
         self.cassettes_total = len(self.coins)
+        self.boss_intro = 0.0
 
     def spawn_boss(self):
         self.boss = Boss()
+        self.boss_intro = 3.0
         self.snd.play("boss")
 
     # -- update -------------------------------------------------------------- #
@@ -981,6 +1019,7 @@ class Game:
             self.bank += self.cassettes
             self.snd.play("hit")
 
+        self.boss_intro = max(0.0, self.boss_intro - dt)
         self.parts.update(dt)
 
     def _maybe_drop(self, e):
@@ -1029,6 +1068,14 @@ class Game:
         self._draw_world(t)
         self._hud()
 
+        # boss introduction cutscene banner (V2C8)
+        if self.boss_intro > 0 and self.boss:
+            band = pygame.Surface((WIDTH, 120), pygame.SRCALPHA)
+            band.fill((8, 12, 14, 190))
+            s.blit(band, (0, HEIGHT // 2 - 60))
+            self._center(self.big, "SLUDGE KING", HEIGHT // 2 - 24, C_DANGER)
+            self._center(self.mid, "\"THIS HOME... IS MINE!\"", HEIGHT // 2 + 22, C_TOXIC)
+
         if self.state in (STATE_WIN, STATE_OVER):
             veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             veil.fill((8, 12, 14, 190))
@@ -1041,7 +1088,10 @@ class Game:
                              HEIGHT // 2 - 8, C_TOXIC)
                 self._center(self.small,
                              f"Score {self.score}  ·  Cassettes banked: {self.bank}",
-                             HEIGHT // 2 + 20, C_TEXT)
+                             HEIGHT // 2 + 18, C_TEXT)
+                self._center(self.small, "Dr. Mira: \"These traces link the Sludge King "
+                             "to something bigger — Moldius Prime...\"",
+                             HEIGHT // 2 + 42, C_DIM)
             else:
                 self._center(self.big, "TECHNICIAN DOWN", HEIGHT // 2 - 40, C_DANGER)
                 self._center(self.mid, f"The mold won this time.  Score {self.score}",
