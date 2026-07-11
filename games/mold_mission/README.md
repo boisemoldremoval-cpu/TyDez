@@ -35,7 +35,7 @@ At **DesilPower HQ** (title screen) use ↑/↓ to select, ◀ ▶ to change mis
 Enter to Deploy or spend banked **Sample Cassettes** on Armor (+HP), Battery
 (+Energy), or Speed upgrades — they persist across runs.
 
-**Four missions** (each unlocks the next):
+**Five missions** — the full campaign (each unlocks the next):
 1. **The Basement** — Spore Bots, Mold Crawlers, Toxic Sprayers, Mold Bats; boss
    **Sludge King** (chest weak-point opens after its attacks).
 2. **The Bathroom** — Steam Mites, Mold Bat Mk II, Vent Spore Swarms (split unless
@@ -47,6 +47,9 @@ Enter to Deploy or spend banked **Sample Cassettes** on Armor (+HP), Battery
 4. **The Crawlspace** — Mud Stalkers, Mold Centipedes (split), Pipe Parasites, Gas
    Pods, Burrowing Spore Worms, **standing-water slow zones**; boss **Crawlor** (a
    segmented tunneling worm — erupts, summons Pipe Parasites, exposed segment cores).
+5. **Research Facility** *(finale)* — elite roster: Biofilm Sentinels, Vent Stalkers,
+   Culture Swarms (split), Reactor Spores, Security Mycelium; final boss **Moldius
+   Prime** (4 phases, summons elites, Purification-Node weak point) → campaign ending.
 
 ## What's in the prototype
 

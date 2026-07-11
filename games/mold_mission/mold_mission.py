@@ -84,6 +84,7 @@ SLUDGE_HP = 220
 BEAST_HP = 260
 QUEEN_HP = 280
 CRAWLOR_HP = 320
+PRIME_HP = 420
 
 # Bathroom (Level 2) palette
 C_TILE = (74, 120, 138)
@@ -98,6 +99,11 @@ C_SUN = (250, 226, 150)
 C_MUD = (86, 66, 48)
 C_MUD_DK = (44, 34, 26)
 C_GAS = (150, 200, 90)
+# Research Facility (Level 5) palette
+C_LAB = (70, 90, 110)
+C_LAB_DK = (32, 44, 58)
+C_PRIME = (150, 90, 180)
+C_PRIME_DK = (70, 40, 90)
 
 MISSIONS = {
     1: {"name": "THE BASEMENT", "boss": "SLUDGE KING",
@@ -112,6 +118,9 @@ MISSIONS = {
     4: {"name": "THE CRAWLSPACE", "boss": "CRAWLOR",
         "briefing": "Beneath the foundation — mud, flood water, and the hive's source.",
         "reward": "Air Scrubber Drone"},
+    5: {"name": "RESEARCH FACILITY", "boss": "MOLDIUS PRIME",
+        "briefing": "The source of it all. End Moldius Prime and finish the mission.",
+        "reward": "Prototype Purification Core"},
 }
 
 STATE_HQ, STATE_PLAY, STATE_WIN, STATE_OVER = "hq", "play", "win", "over"
@@ -159,10 +168,12 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "sporebot", "moldcrawler", "toxicsprayer", "moldbat",
                "steammite", "ventswarm", "sporehawk", "roofleech", "moldmite",
                "creeper", "mudstalker", "centipede", "pipeparasite", "gaspod",
-               "sporeworm", "boss", "boss2", "boss3", "boss4", "shot",
-               "shot_charged", "toxic", "coin", "background", "background2",
-               "background3", "background4", "platform", "platform2",
-               "platform3", "platform4")
+               "sporeworm", "sentinel", "ventstalker", "cultureswarm",
+               "reactorspore", "mycelium", "boss", "boss2", "boss3", "boss4",
+               "boss5", "shot", "shot_charged", "toxic", "coin",
+               "background", "background2", "background3", "background4",
+               "background5", "platform", "platform2", "platform3",
+               "platform4", "platform5")
 
 
 class AssetPack:
@@ -354,6 +365,22 @@ class Enemy:
         elif kind == "sporeworm":     # V5C2 — fast burrower
             self.w, self.h, self.hp = 38, 24, 3
             self.dmg = 4
+        elif kind == "sentinel":      # V6C2 — armored construct
+            self.w, self.h, self.hp = 44, 52, 12
+            self.dmg = 5
+        elif kind == "ventstalker":   # V6C2 — fast ceiling attacker
+            self.w, self.h, self.hp = 40, 30, 5
+            self.dmg = 5
+            self.bat_speed = 165
+        elif kind == "cultureswarm":  # V6C2 — floats, merges/splits
+            self.w, self.h, self.hp = 46, 46, 5
+            self.dmg = 4
+        elif kind == "reactorspore":  # V6C2 — stationary energy pulser
+            self.w, self.h, self.hp = 40, 44, 7
+            self.dmg = 5
+        elif kind == "mycelium":      # V6C2 — security growth shooter
+            self.w, self.h, self.hp = 36, 46, 8
+            self.dmg = 4
         else:  # toxicsprayer
             self.w, self.h, self.hp = 40, 48, 6
             self.dmg = 4
@@ -372,12 +399,12 @@ class Enemy:
         elif self.kind == "moldcrawler":
             d = player.x - self.x
             self.x += (30 if d > 0 else -30) * dt
-        elif self.kind in ("moldbat", "moldbat2"):
-            # circle the player, then dive (Mk II dives more often / faster)
+        elif self.kind in ("moldbat", "moldbat2", "ventstalker"):
+            # circle the player, then dive (Mk II / Vent Stalker dive faster)
             d = player.x - self.x
             self.x += (1 if d > 0 else -1) * self.bat_speed * dt
             self.dive_t -= dt
-            gap = 1.2 if self.kind == "moldbat2" else 2.0
+            gap = 1.2 if self.kind != "moldbat" else 2.0
             if self.dive_t <= 0 and abs(d) < 340 and self.diving <= 0:
                 self.diving = 0.6
                 self.dive_t = random.uniform(gap, gap + 1.4)
@@ -388,24 +415,25 @@ class Enemy:
                 self.y += (self.home_y + math.sin(self.t * 3) * 26 - self.y) \
                     * min(1.0, dt * 3)
         elif self.kind in ("steammite", "moldmite", "mudstalker", "centipede",
-                            "sporeworm"):
+                            "sporeworm", "sentinel"):
             d = player.x - self.x
             sp = {"steammite": 165, "moldmite": 190, "mudstalker": 90,
-                  "centipede": 85, "sporeworm": 155}[self.kind]
+                  "centipede": 85, "sporeworm": 155, "sentinel": 60}[self.kind]
             self.x += (1 if d > 0 else -1) * sp * dt
         elif self.kind == "creeper":
             d = player.x - self.x
             self.x += (1 if d > 0 else -1) * 45 * dt
-        elif self.kind == "gaspod":
-            # stationary; puffs a slow gas cloud when the player is near
+        elif self.kind in ("gaspod", "reactorspore"):
+            # stationary; puffs a spread when the player is near
             self.shoot_t -= dt
-            if self.shoot_t <= 0 and abs(player.x - self.x) < 260:
+            rng = 320 if self.kind == "reactorspore" else 260
+            if self.shoot_t <= 0 and abs(player.x - self.x) < rng:
                 self.shoot_t = random.uniform(1.6, 2.6)
                 for dvx in (-90, 90):
                     sh = Shot(self.x + self.w / 2, self.y, dvx, 4, -1, hostile=True)
                     sh.vy = -40
                     shots.append(sh)
-        elif self.kind == "ventswarm":
+        elif self.kind in ("ventswarm", "cultureswarm"):
             d = player.x - self.x
             self.x += (1 if d > 0 else -1) * 55 * dt
             self.y = self.home_y + math.sin(self.t * 2) * 30
@@ -429,12 +457,12 @@ class Enemy:
                 sh = Shot(self.x + self.w / 2, self.y + self.h, 0, 4, -1, hostile=True)
                 sh.vy = 300
                 shots.append(sh)
-        elif self.kind == "pipeparasite":     # clings, sprays water horizontally
+        elif self.kind in ("pipeparasite", "mycelium"):   # horizontal shooter
             self.shoot_t -= dt
-            if self.shoot_t <= 0 and abs(player.x - self.x) < 460:
-                self.shoot_t = random.uniform(1.6, 2.6)
+            if self.shoot_t <= 0 and abs(player.x - self.x) < 480:
+                self.shoot_t = random.uniform(1.5, 2.5)
                 face = 1 if player.x > self.x else -1
-                shots.append(Shot(self.x + self.w / 2, self.y + 18, face * 260,
+                shots.append(Shot(self.x + self.w / 2, self.y + 18, face * 270,
                                   4, -1, hostile=True))
         else:  # toxicsprayer shoots
             self.shoot_t -= dt
@@ -464,9 +492,40 @@ class Enemy:
                  "roofleech": "roofleech", "moldmite": "moldmite",
                  "creeper": "creeper", "mudstalker": "mudstalker",
                  "centipede": "centipede", "pipeparasite": "pipeparasite",
-                 "gaspod": "gaspod", "sporeworm": "sporeworm"}[self.kind]
+                 "gaspod": "gaspod", "sporeworm": "sporeworm",
+                 "sentinel": "sentinel", "ventstalker": "ventstalker",
+                 "cultureswarm": "cultureswarm", "reactorspore": "reactorspore",
+                 "mycelium": "mycelium"}[self.kind]
         if assets.has(asset):
             assets.blit_fit(s, asset, cx, cy, self.w * 1.5, self.h * 1.5)
+        elif self.kind == "sentinel":
+            orrect(s, (x + 4, y + 8, self.w - 8, self.h - 8), C_LAB_DK, 6)
+            orrect(s, (x + 8, y + 12, self.w - 16, 12), C_LAB, 4)
+            fcircle(s, cx, y + 8, 9, (90, 110, 130))
+            fcircle(s, cx, y + 8, 4, (150, 240, 160))
+        elif self.kind in ("ventstalker",):
+            flap = math.sin(self.t * 14) * 6
+            for wdir in (-1, 1):
+                pygame.draw.polygon(s, C_LAB_DK, [
+                    (cx, cy), (cx + wdir * 22, cy - 8 - flap), (cx + wdir * 18, cy + 8)])
+            fcircle(s, cx, cy, self.h * 0.42, (80, 100, 120))
+            fcircle(s, cx - 5, cy - 2, 3, (170, 255, 180))
+            fcircle(s, cx + 5, cy - 2, 3, (170, 255, 180))
+        elif self.kind == "cultureswarm":
+            for k in range(8):
+                ang = self.t * 2 + k * 0.8
+                rr = self.w * (0.18 + 0.16 * (k % 3))
+                fcircle(s, cx + math.cos(ang) * rr, cy + math.sin(ang) * rr, 6,
+                        C_PRIME if k % 2 else (120, 200, 140))
+            fcircle(s, cx, cy, 7, C_PRIME_DK)
+        elif self.kind == "reactorspore":
+            glow(s, cx, cy, self.w * 0.9, (150, 120, 200), 70)
+            fcircle(s, cx, cy, self.w * 0.4, C_PRIME_DK)
+            fcircle(s, cx, cy, self.w * 0.24, C_PRIME)
+        elif self.kind == "mycelium":
+            orrect(s, (x + 6, y, self.w - 12, self.h), C_LAB_DK, 4)
+            for k in range(3):
+                fcircle(s, cx, y + 8 + k * 14, 6, (120, 200, 150))
         elif self.kind in ("mudstalker", "sporeworm"):
             pygame.draw.ellipse(s, C_MUD_DK, (int(x), int(y + 6), self.w, self.h))
             fcircle(s, cx, cy + 4, self.h * 0.34, (100, 130, 70))
@@ -1040,6 +1099,124 @@ class CrawlorBoss:
 
 
 # --------------------------------------------------------------------------- #
+# Final Boss — MOLDIUS PRIME (Level 5, V6C6)
+# --------------------------------------------------------------------------- #
+class MoldiusPrime:
+    """The hive mind. Shifts form, commands elites + reactor hazards. Purification
+    Nodes expose after major attacks. 4 escalating phases."""
+    NAME = "MOLDIUS PRIME"
+
+    def __init__(self):
+        self.w, self.h = 300, 300
+        self.home_x = LEVEL_W - self.w - 70
+        self.x = self.home_x
+        self.y = GROUND_Y - self.h
+        self.hp = self.maxhp = PRIME_HP
+        self.hit = 0.0
+        self.t = 0.0
+        self.attack_t = 1.2
+        self.weak_open = 0.0
+        self.summon_t = 3.0
+        self.slam = 0.0
+        self.dead = False
+        self.bob = 0.0
+
+    def phase(self):
+        f = self.hp / self.maxhp
+        if f <= 0.15:
+            return 4
+        return 3 if f <= 0.35 else (2 if f <= 0.7 else 1)
+
+    def rect(self):
+        return (self.x + 30, self.y + 40 + self.bob, self.w - 60, self.h - 60)
+
+    def weak_rect(self):
+        return (self.x + self.w * 0.36, self.y + self.h * 0.4 + self.bob,
+                self.w * 0.28, self.h * 0.24)
+
+    def update(self, dt, player, shots, parts, enemies):
+        self.t += dt
+        self.hit = max(0.0, self.hit - dt)
+        self.weak_open = max(0.0, self.weak_open - dt)
+        self.slam = max(0.0, self.slam - dt)
+        ph = self.phase()
+        self.bob = math.sin(self.t * 1.8) * 12
+        self.attack_t -= dt
+        if self.attack_t <= 0:
+            self.attack_t = max(0.5, 1.4 - ph * 0.22)
+            mx, my = self.x + 40, self.y + self.h * 0.45 + self.bob
+            mode = int(self.t) % 2
+            if mode == 0:                            # contamination beam volley
+                n = 2 + ph
+                for i in range(n):
+                    ang = math.atan2((player.y + 20) - my, player.x - mx)
+                    ang += (i - (n - 1) / 2) * 0.24
+                    sp = 300 + ph * 20
+                    sh = Shot(mx, my, math.cos(ang) * sp, 5, -1, hostile=True)
+                    sh.vy = math.sin(ang) * sp
+                    shots.append(sh)
+            else:                                    # hive tendril slam
+                self.slam = 0.3
+                parts.splat(player.x + player.w / 2, GROUND_Y, C_PRIME, 20)
+                sh = Shot(player.x + player.w / 2, GROUND_Y - 10, 0, 5, -1, hostile=True)
+                sh.vy = -280
+                shots.append(sh)
+            self.weak_open = 1.6                     # Purification Node exposes
+        # commands elite enemies
+        self.summon_t -= dt
+        if self.summon_t <= 0 and len([e for e in enemies if not e.dead]) < 6:
+            self.summon_t = 3.4 - ph * 0.4
+            px = max(CAM_BOSS + 40, player.x + random.choice([-170, 170]))
+            kind = random.choice(["cultureswarm", "ventstalker", "sentinel"])
+            e = Enemy(kind, px, 200 if kind != "sentinel" else GROUND_Y - 52)
+            e.home_y = 200
+            enemies.append(e)
+
+    def hurt(self, dmg, parts):
+        self.hp -= dmg
+        self.hit = 0.1
+        parts.spark(self.x + self.w * 0.5, self.y + self.h * 0.5, (210, 160, 255), 8, 260)
+        if self.hp <= 0:
+            self.dead = True
+            return True
+        return False
+
+    def draw(self, s, cam, assets):
+        x, y = self.x - cam, self.y + self.bob
+        cx, cy = x + self.w / 2, y + self.h / 2
+        glow(s, cx, cy, self.w * 0.6, C_PRIME, 90)
+        if self.slam > 0:
+            pygame.draw.rect(s, C_PRIME, (0, GROUND_Y - 4, WIDTH, 4))
+        if assets.has("boss5"):
+            assets.blit_fit(s, "boss5", cx, cy, self.w * 1.15, self.h * 1.15)
+        else:
+            pygame.draw.ellipse(s, C_PRIME_DK, (int(x), int(y + 20), self.w, self.h - 20))
+            pygame.draw.ellipse(s, (100, 66, 130), (int(x + 20), int(y + 34),
+                                self.w - 40, self.h - 64))
+            random.seed(5)
+            for i in range(16):
+                bx = x + 30 + random.random() * (self.w - 60)
+                by = y + 44 + random.random() * (self.h - 90)
+                fcircle(s, bx, by, random.randint(8, 20), C_PRIME_DK)
+                fcircle(s, bx, by, 5, (200, 150, 240))
+            for ex in (cx - 44, cx + 44):
+                fcircle(s, ex, cy - 30, 16, (220, 180, 255))
+                fcircle(s, ex, cy - 30, 8, (40, 20, 50))
+        wx, wy, ww, wh = self.weak_rect()
+        wx -= cam
+        if self.weak_open > 0:
+            glow(s, wx + ww / 2, wy + wh / 2, ww, (230, 200, 255), 180)
+            fcircle(s, wx + ww / 2, wy + wh / 2, ww * 0.4, (240, 210, 255))
+            fcircle(s, wx + ww / 2, wy + wh / 2, ww * 0.2, (90, 50, 120))
+        else:
+            fcircle(s, wx + ww / 2, wy + wh / 2, ww * 0.3, (70, 50, 90))
+        if self.hit > 0:
+            fl = pygame.Surface((self.w * 2, self.h * 2), pygame.SRCALPHA)
+            fcircle(fl, self.w, self.h, self.w * 0.55, (255, 255, 255, 90))
+            s.blit(fl, (cx - self.w, cy - self.h))
+
+
+# --------------------------------------------------------------------------- #
 # Coin
 # --------------------------------------------------------------------------- #
 class Coin:
@@ -1473,7 +1650,7 @@ def build_level(mission=1):
             Enemy("moldmite", 2300, GROUND_Y - 18), Enemy("moldmite", 2324, GROUND_Y - 18),
         ]
         hazards = [Hazard(x, GROUND_Y, "updraft", h=260) for x in (700, 1250, 1750, 2250)]
-    else:  # Level 4 — Crawlspace: low piers/beams, standing water, mud roster
+    elif mission == 4:  # Level 4 — Crawlspace: piers/beams, standing water
         for (x, y, w) in [(360, 440, 120), (640, 430, 110), (900, 400, 120),
                           (1180, 440, 120), (1460, 410, 120), (1740, 440, 130),
                           (2020, 420, 120), (2280, 440, 130)]:
@@ -1489,8 +1666,24 @@ def build_level(mission=1):
             Enemy("mudstalker", 2180, GROUND_Y - 30),
             Enemy("gaspod", 2360, GROUND_Y - 40),
         ]
-        # standing water = slow zones
         hazards = [Hazard(x, GROUND_Y, "water", h=30) for x in (560, 1080, 1600, 2100)]
+    else:  # Level 5 — Research Facility: elite roster, lab platforms
+        for (x, y, w) in [(340, 400, 130), (620, 320, 120), (900, 400, 130),
+                          (1180, 300, 120), (1460, 400, 140), (1740, 320, 120),
+                          (2020, 400, 140), (2300, 320, 130)]:
+            plats.append((x, y, w, 22))
+        enemies = [
+            Enemy("sentinel", 470, GROUND_Y - 52),
+            Enemy("ventstalker", 720, 220),
+            Enemy("cultureswarm", 980, 300),
+            Enemy("mycelium", 1220, GROUND_Y - 46),
+            Enemy("reactorspore", 1450, GROUND_Y - 44),
+            Enemy("sentinel", 1700, GROUND_Y - 52),
+            Enemy("ventstalker", 1950, 210),
+            Enemy("cultureswarm", 2180, 300),
+            Enemy("reactorspore", 2360, GROUND_Y - 44),
+        ]
+        hazards = []
     coins = [Coin(x, GROUND_Y - 60) for x in range(300, 2400, 190)]
     return plats, enemies, coins, hazards
 
@@ -1529,14 +1722,15 @@ class Game:
 
     def _make_bg(self, mission):
         key = {1: "background", 2: "background2", 3: "background3",
-               4: "background4"}[mission]
+               4: "background4", 5: "background5"}[mission]
         if self.assets.has(key):
             return pygame.transform.smoothscale(
                 self.assets.imgs[key], (WIDTH, HEIGHT)).convert()
         top, bot = {1: ((26, 40, 38), (12, 20, 22)),
                     2: ((20, 34, 44), (8, 16, 22)),
                     3: ((44, 40, 34), (20, 16, 14)),
-                    4: ((30, 24, 20), (10, 8, 8))}[mission]
+                    4: ((30, 24, 20), (10, 8, 8)),
+                    5: ((30, 30, 46), (12, 12, 22))}[mission]
         bg = pygame.Surface((WIDTH, HEIGHT))
         for y in range(HEIGHT):
             f = y / HEIGHT
@@ -1579,12 +1773,13 @@ class Game:
     BOSS_QUOTE = {1: "\"THIS HOME... IS MINE!\"",
                   2: "\"YOU CANNOT WASH AWAY PERFECTION.\"",
                   3: "\"THE SKY BELONGS TO THE HIVE.\"",
-                  4: "\"THE FOUNDATION ROTS WITH ME.\""}
-    REWARD_CASSETTES = {1: 500, 2: 750, 3: 1000, 4: 1500}
+                  4: "\"THE FOUNDATION ROTS WITH ME.\"",
+                  5: "\"I AM EVERY SPORE YOU HAVE EVER FOUGHT.\""}
+    REWARD_CASSETTES = {1: 500, 2: 750, 3: 1000, 4: 1500, 5: 2500}
 
     def spawn_boss(self):
         self.boss = {1: Boss, 2: ShowerBeast, 3: SporeQueen,
-                     4: CrawlorBoss}[self.mission]()
+                     4: CrawlorBoss, 5: MoldiusPrime}[self.mission]()
         self.boss_intro = 3.0
         self.snd.play("boss")
 
@@ -1724,8 +1919,9 @@ class Game:
             self.pickups.append(Pickup(e.x + e.w / 2, e.y, "energy"))
 
     def _split(self, e, charged):
-        # Vent Spore Swarm / Mold Centipede split unless killed by a charged hit
-        if e.kind not in ("ventswarm", "centipede") or charged or e.gen >= 2:
+        # Swarms / Centipede split unless killed by a charged hit
+        if e.kind not in ("ventswarm", "centipede", "cultureswarm") \
+                or charged or e.gen >= 2:
             return
         for d in (-1, 1):
             child = Enemy(e.kind, e.x + d * 24, e.y)
@@ -1789,22 +1985,36 @@ class Game:
             veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             veil.fill((8, 12, 14, 190))
             s.blit(veil, (0, 0))
-            if self.state == STATE_WIN:
+            if self.state == STATE_WIN and self.mission == 5:
+                # campaign finale
+                self._center(self.big, "MISSION COMPLETE", HEIGHT // 2 - 96, C_TEAL_LT)
+                self._center(self.mid, "MOLDIUS PRIME purified. The outbreak is over.",
+                             HEIGHT // 2 - 44, C_TEXT)
+                for i, ln in enumerate([
+                        "Clean air returns. Ty is recognized as the Master Remediator.",
+                        "Every home, business, and community is restored.",
+                        f"Final score {self.score}  ·  Cassettes banked: {self.bank}"]):
+                    self._center(self.small, ln, HEIGHT // 2 - 8 + i * 24, C_DIM)
+                self._center(self.small,
+                             "...a remote sensor detects a faint signal in an "
+                             "unexplored region.", HEIGHT // 2 + 74, C_TOXIC)
+            elif self.state == STATE_WIN:
                 m = MISSIONS[self.mission]
-                title = "BASEMENT RESTORED" if self.mission == 1 else "BATHROOM RESTORED"
-                reward = 500 if self.mission == 1 else 750
-                self._center(self.big, title, HEIGHT // 2 - 92, C_TEAL_LT)
+                self._center(self.big, m["name"] + " RESTORED", HEIGHT // 2 - 92, C_TEAL_LT)
                 self._center(self.mid, f"{m['boss']} defeated!", HEIGHT // 2 - 40, C_TEXT)
                 self._center(self.small, f"NEW TOOL UNLOCKED:  {m['reward']}  ·  "
-                             f"+{reward} Sample Cassettes  ·  Restoration Badge",
-                             HEIGHT // 2 - 8, C_TOXIC)
+                             f"+{self.REWARD_CASSETTES[self.mission]} Sample Cassettes  ·  "
+                             "Restoration Badge", HEIGHT // 2 - 8, C_TOXIC)
                 self._center(self.small,
                              f"Score {self.score}  ·  Cassettes banked: {self.bank}",
                              HEIGHT // 2 + 18, C_TEXT)
-                tease = ("Dr. Mira: \"These traces link the Sludge King to something "
-                         "bigger — Moldius Prime...\"" if self.mission == 1 else
-                         "Commander Ellis: \"Two Generals down. The outbreak runs "
-                         "deeper than we feared.\"")
+                tease = {1: "Dr. Mira: \"These traces link the Sludge King to "
+                            "something bigger — Moldius Prime...\"",
+                         2: "Commander Ellis: \"The attic is next.\"",
+                         3: "Ellis: \"The next mission takes us beneath the home — "
+                            "the crawlspace.\"",
+                         4: "Ellis: \"Every sample traces to an abandoned research "
+                            "facility. That's the source.\""}[self.mission]
                 self._center(self.small, tease, HEIGHT // 2 + 42, C_DIM)
             else:
                 self._center(self.big, "TECHNICIAN DOWN", HEIGHT // 2 - 40, C_DANGER)
@@ -1820,7 +2030,7 @@ class Game:
             if sx + w < 0 or sx > WIDTH:
                 continue
             pkey = {1: "platform", 2: "platform2", 3: "platform3",
-                    4: "platform4"}[self.mission]
+                    4: "platform4", 5: "platform5"}[self.mission]
             if self.assets.has(pkey):
                 s.blit(pygame.transform.smoothscale(
                     self.assets.imgs[pkey], (int(w), int(h))), (int(sx), int(y)))
@@ -1833,6 +2043,9 @@ class Game:
             elif self.mission == 4:
                 pygame.draw.rect(s, C_MUD_DK, (int(sx), int(y), int(w), int(h)))
                 pygame.draw.rect(s, C_MUD, (int(sx), int(y), int(w), 6))
+            elif self.mission == 5:
+                pygame.draw.rect(s, C_LAB_DK, (int(sx), int(y), int(w), int(h)))
+                pygame.draw.rect(s, C_LAB, (int(sx), int(y), int(w), 6))
             else:
                 pygame.draw.rect(s, (46, 40, 34), (int(sx), int(y), int(w), int(h)))
                 pygame.draw.rect(s, (70, 104, 52), (int(sx), int(y), int(w), 6))
@@ -1887,7 +2100,8 @@ class Game:
                 hint = {1: "WEAK POINT OPEN — hit the chest valve!",
                         2: "WEAK POINT OPEN — dash behind and hit the regulator!",
                         3: "WEAK POINT OPEN — hit the Queen's exposed core!",
-                        4: "WEAK POINT OPEN — hit the exposed segment core!"}[self.mission]
+                        4: "WEAK POINT OPEN — hit the exposed segment core!",
+                        5: "PURIFICATION NODE EXPOSED — hit the core!"}[self.mission]
                 self._center(self.small, hint, HEIGHT - 90, C_TEAL_LT)
 
     def _t(self, font, msg, pos, col):
@@ -1970,7 +2184,7 @@ def run(selftest=False):
                      game.boss.NAME if game.boss else "-", game.score))
             return game.state
 
-        results = [play_mission(m) for m in (1, 2, 3, 4)]
+        results = [play_mission(m) for m in (1, 2, 3, 4, 5)]
         pygame.quit()
         return tuple(results)
 
