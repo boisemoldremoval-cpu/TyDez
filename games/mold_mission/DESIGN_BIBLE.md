@@ -558,6 +558,26 @@ each `Enemy` kind is a small behavior with a kind key + tunables; each boss has 
 "cores expose after an attack" pattern). Formalizing FSM/BT modules + an event
 bus is the production step.
 
+# Volume 8, Chapter 5 — QA & Testing Pipeline
+
+Repeatable QA before every milestone. **Levels:** unit (core systems),
+integration (features), level validation, regression, performance benchmarking,
+certification. **Gameplay validation:** objectives, collectibles, enemy behavior,
+boss phases, upgrade progression, save/load, achievements. **Performance:** FPS,
+memory, load times, particle budgets, AI scalability per platform. **Bug
+workflow:** unique ID, severity, repro steps, expected/actual, media, owner,
+verification. **Automation:** smoke tests after every major build; validate asset
+refs, save compat, localization keys, missing content. **Release gates:** no
+critical/blocker bugs, stable saves, complete localization, accessibility
+verified, and a **successful full-campaign playthrough**.
+
+**Status:** documented as the target. The prototype already ships a **matching
+smoke test** — `python3 mold_mission.py --selftest` plays **all five missions to
+a boss kill** headlessly and asserts each completes; it's run after every code
+change here and is exactly the "automated smoke test + full-campaign playthrough"
+gate this chapter calls for. Production would add unit tests, perf benchmarks, and
+a bug tracker around it.
+
 ---
 
 ## Reference images
