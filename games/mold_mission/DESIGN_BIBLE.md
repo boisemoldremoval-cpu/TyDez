@@ -738,6 +738,98 @@ that the UI reads by key. The good news: text is already centralized in a few
 places (the `MISSIONS`/`BOSS_QUOTE` dicts, the HUD/menu draw code), so pulling it
 into a localization table is a contained change.
 
+# Volume 8, Chapter 14 — Mod Support & Expansion Planning
+
+Optional, isolated modding + future content without core changes. **Expansion:**
+new campaigns/environments/tools/enemy factions/cosmetics/challenge modes without
+major engine work. **Mod scope:** custom levels, localized text packs, cosmetic/
+audio replacements, community challenge missions via documented interfaces.
+**Security:** mods can't touch protected saves/achievements/leaderboards; separate
+trusted vs user content. **Packaging:** standardized manifests (metadata, deps,
+supported version, author, assets). **Compatibility:** version checking, dependency
+validation, graceful errors, auto-disable incompatible mods after updates.
+**Toolkit:** templates, sample assets, docs, validation, debugging. Roadmap hooks
+for seasonal events, DLC campaigns, more languages, co-op.
+
+**Status:** documented as the target. The prototype already has two natural
+modding seams: the drop-in **`AssetPack`** (any correctly-named PNG in `assets/`
+replaces art — cosmetic mods with zero code), and the **data-driven level/enemy
+definitions** (`build_level(mission)` + the kind-based `Enemy`/`MISSIONS` tables),
+which a mod could extend into custom levels. Manifests, sandboxing, version
+checks, and a creator toolkit are the production adds.
+
+# Volume 8, Chapter 15 — Final Production Reference: Asset Library
+
+Master catalog shared across disciplines. **Characters:** hero, Commander Ellis,
+Dr. Mira, NPCs, civilian variants, rigs, expressions, cosmetics. **Enemies:**
+standard/elite/bosses, hazards, destruction states, VFX, audio, AI configs.
+**Environments:** the five stages (home/attic/bathroom/basement/crawlspace/
+research facility), props, decals, lighting, modular pieces. **Gameplay:** tools,
+upgrades, collectibles, cassettes, objectives, UI icons, checkpoints, puzzle
+objects. **Technical:** materials, shaders, textures, prefabs, scripts,
+localization tables, save schemas, audio banks, build configs. Every asset gets a
+unique ID, category, owner, version, source, deps, and implementation status;
+IDs sync with the Game/Art Bibles.
+
+**Status:** documented as the target production catalog. This prototype's
+concrete asset surface is the drop-in list in `assets/README`-style keys (player
++ animation frames, the five enemy rosters, `boss`..`boss5`, projectiles, coin,
+per-level `background`/`platform`), each currently satisfied by procedural vector
+fallbacks with the 3D TyGuy as the one real character asset.
+
+# Volume 8, Chapter 16 — Final Production Reference: Animation & Cinematics
+
+Standards for animation, cutscenes, camera, facial anim, visual storytelling.
+**Character anim** for Ty/Ellis/Mira/civilians/NPCs (idle, locomotion,
+interaction, combat, per-tool, emotes, cinematic poses). **Enemy/boss anim:**
+spawn, idle, patrol, attack, damage, stun, defeat, dissolve, environment; bosses
+add phase transitions, intros, finishers. **Tool anim:** first/third-person sets
+(startup, active, recharge, maintenance, upgrade). **Cinematics:** storyboard each
+cutscene with camera paths, dialogue timing, environmental events, subtitles,
+music cues, gameplay transitions. **Camera:** readable gameplay cams; controlled
+cinematic framing (avoid motion sickness). **Pipeline:** Storyboard → Blockout →
+Review → Mocap/Keyframe → Cleanup → Integration → QA → Approval. Shared rigs +
+state machines for reuse.
+
+**Status:** documented as the target. The prototype's animation is code-driven
+and light — a TyGuy walk-cycle/leg-swing + squash on the vector player, drop-in
+**state sprites** (`player_run/jump/fall/dash/crouch/shoot/hurt`) the loader
+selects by player state, per-boss bob/telegraph + weak-point flashes, and
+particle FX (muzzle, sparks, splat, dust). "Cinematics" are the in-engine
+boss-intro banners + victory/ending text screens. Full skeletal animation, mocap,
+and storyboarded camera cutscenes are the production tier. **This closes Volume 8
+(Technical/Production) in the bible.**
+
+# Volume 8, Chapter 17 — Master Production Index & Final Development Checklist
+
+The master index of the complete Game Bible. **Volume index:** V1 Core Game · V2
+Basement · V3 Bathroom · V4 Attic · V5 Crawlspace · V6 Research Facility · V7 Core
+Game Systems · V8 Developer Documentation. **Asset cross-reference:** one
+authoritative table linking Character/Enemy/Boss/Tool/Level/UI/FX/Audio/Doc IDs +
+Art Bible refs. **Milestones:** Pre-production → Prototype → Vertical Slice →
+Alpha → Beta → RC → Gold → Live (sign-off each). **Final checklist:** gameplay
+complete, assets approved, cinematics finalized, accessibility, localization,
+saves, achievements, performance, docs current, release build archived.
+**Recommended order:** core systems → vertical slice → full level production →
+art → audio → optimization → QA → certification → launch → post-launch. *"Upon
+completion of this chapter, the written Game Bible is considered complete."*
+
+**Status: the written Game Bible (Volumes 1–8) is fully transcribed here.** Where
+this prototype stands on the milestone ladder: it is a **Prototype/Vertical-Slice+**
+— the entire 5-mission campaign with all five bosses is playable and self-tested,
+core systems (movement, tools, enemies, bosses, HQ upgrades, progression) are in,
+and every chapter is documented with built-vs-planned notes. The remaining road to
+Gold is production polish: real art/audio, discrete-room level production with the
+puzzles, save/achievements/localization systems, and the QA/certification gates.
+
+---
+
+## Bible completeness
+
+This document transcribes **every chapter the design bible defines, Volumes 1–8**,
+each with an implemented-vs-planned note tying it to the playable prototype in
+`mold_mission.py`. Future design docs beyond Volume 8 would be appended below.
+
 ---
 
 ## Reference images
