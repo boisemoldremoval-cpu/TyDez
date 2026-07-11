@@ -94,7 +94,7 @@ MISSIONS = {
         "briefing": "Damp, dark, and full of spores.",
         "reward": "HEPA Vacuum Module"},
     2: {"name": "THE BATHROOM", "boss": "SHOWER BEAST",
-        "briefing": "Humidity heaven — steam, slick tile, and vent spores.",
+        "briefing": "The infestation spread upward — clear it before it reaches the attic.",
         "reward": "Disinfect Blaster"},
 }
 
@@ -1142,7 +1142,8 @@ class Game:
         self.cassettes_total = len(self.coins)
         self.boss_intro = 0.0
 
-    BOSS_QUOTE = {1: "\"THIS HOME... IS MINE!\"", 2: "\"YOU'LL DROWN IN SPORES!\""}
+    BOSS_QUOTE = {1: "\"THIS HOME... IS MINE!\"",
+                  2: "\"YOU CANNOT WASH AWAY PERFECTION.\""}
 
     def spawn_boss(self):
         self.boss = Boss() if self.mission == 1 else ShowerBeast()

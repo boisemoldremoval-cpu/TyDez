@@ -221,6 +221,84 @@ hum, spore bursts, wet footsteps, enclosed-room echo.
 unless killed with a charged shot) are in Level 2. Mold Leech (wall-cling + DoT /
 shake-off) is still planned.
 
+# Volume 3, Chapter 4 — Disinfect Blaster
+
+Second permanent tool (Bathroom reward). **Primary:** continuous short-range
+spray. **Charged:** penetrating burst vs hardened mold. **Alt mode:** wide mist
+that clears airborne spores (extra energy). Puzzle uses: clean biofilm switches,
+sterilize vents, purify valves. **Upgrades Mk I–V:** range, energy cost,
+Corrosion Breaker (armored enemies), Purification Pulse (area cleanse).
+Balancing: 100 energy; spray 1/s, charged 15, Energy Cell +25.
+
+**Implemented:** the blaster is the game's default weapon (tap + 3-level charge).
+Not yet: alt mist mode, puzzle interactions, Mk I–V tree.
+
+# Volume 3, Chapter 5 — Bathroom World Map
+
+Looping, upward-then-down route. Rooms: 01 Hallway (briefing) · 02 Vanity
+(mirror puzzle) · 03 Shower (steam tutorial) · 04 Linen Closet (secret) · 05
+Ceiling Vent Network (vertical) · 06 Maintenance Crawlspace (breaker puzzle) ·
+07 Master Bath Arena. Checkpoints A (Vanity exit) + B (before final door).
+Hidden: Gold cassette above the mirror, lore/cosmetic behind the tub. Puzzle:
+3 breakers restore the exhaust fan → steam clears → boss route opens.
+
+# Volume 3, Chapter 6 — Bathroom Room-by-Room
+
+Per-room beats: dash reminder, HEPA mirror-clean keypad puzzle (Steam Mites),
+timed steam vents + Mold Leeches, optional Linen Closet, vent-shaft dash
+platforming (Vent Swarms), breaker room, boss arena. Accessibility: puzzle hints,
+reduced steam opacity, colorblind-safe indicators. Target 15–20 min.
+
+**Implemented (V3C5/6):** the compressed single scrolling Bathroom with steam-vent
+hazards, the new roster, and the Shower Beast. Not yet: discrete rooms, mirror/
+breaker puzzles, checkpoints, secret tiers.
+
+# Volume 3, Chapter 7 — Bathroom Cutscenes & Dialogue
+
+Ellis briefing ("...the infestation has spread upward... Clear the bathroom
+before it reaches the attic"), mid-level Dr. Mira (restore the exhaust fan), boss
+intro (**"YOU CANNOT WASH AWAY PERFECTION."**), victory (installs the Disinfect
+Blaster), HQ debrief ("The attic is next"; every General links to **Moldius
+Prime**).
+
+**Implemented:** the boss-intro banner uses the canonical Shower Beast line;
+briefing + victory tease reflect this dialogue. Not yet: full scripted scenes.
+
+# Volume 3, Chapter 8 — Bathroom Technical Spec & QA
+
+60 FPS target, dynamic steam scaling, <5s load. Reusable enemy state machines
+(configurable detection/cooldown/retreat); deterministic boss phases with small
+randomized attack selection. Accessibility: hints, steam opacity, remap,
+subtitles, colorblind indicators, camera-shake slider. QA: collectibles
+obtainable, no soft-locks after breaker puzzle, checkpoint state, boss
+transitions, skippable cutscenes, hidden-area completion. Hooks: moisture spread
+to the attic → Level 3.
+
+# Volume 4, Chapter 2 — Enemy Pack 3: Attic Infestation (Level 3)
+
+Emphasize vertical movement + combining all tools; more flyers in coordinated
+patterns. **Insulation Creeper** (burrows, ambushes; weak to Blaster after
+surfacing). **Spore Hawk** (rides air currents, circles then dives; interrupt
+with a charged HEPA pull). **Mold Mite Cluster** (weak singly, dangerous in
+groups; area attacks disperse). **Roof Leech** (drips corrosive mold; clear roof
+leaks to stop spawns). Enemies react to restored ventilation.
+
+**Status:** documented; ships with Level 3 (Attic), not yet built.
+
+# Volume 4, Chapter 3 — Boss: Spore Queen (Level 3)
+
+Third Mold General; controls airborne spores + wind. Regal fungal creature with
+spore-membrane wings, tendrils, amber eyes, a truss-and-mold crown; hovers,
+shedding spores. Arena: attic under a broken roof — rotating fans change wind,
+rafters are platforms, sections collapse. **P1:** guided spore projectiles +
+Mold Mite Clusters. **P2 (70%):** wind manipulation moves platforms, spawns
+Spore Hawks. **P3 (30%):** breaks the roof for updrafts + rapid aerial attacks.
+**Weak point:** the fungal core under the crown, exposed after a wind channel —
+disrupt the wind with the **HEPA Vacuum**, then hit with the **Disinfect
+Blaster**. Rewards: **Seal Foam Cannon**, Attic Badge, 1000 cassettes, Level 4.
+
+**Status:** documented; the third boss for the upcoming Level 3 (Attic).
+
 ---
 
 ## Reference images
