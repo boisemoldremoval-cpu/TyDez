@@ -683,6 +683,43 @@ vector art when absent (so art can be integrated one asset at a time with no cod
 change). Concept/production art already lives under `art_reference/`. Formal
 approval gates, import-validation scripts, and dashboards are the production adds.
 
+# Volume 8, Chapter 11 — Version Control Standards
+
+Consistent VCS for safe collaboration + traceability. **Repo:** separate source/
+assets/docs/build-scripts/tools with protected main. **Branching:** `main`
+(stable) · `develop` (integration) · `feature/*` · `hotfix/*` · `release/*`.
+**Commits:** descriptive, single-purpose, reference issue IDs, avoid committing
+generated files. **PRs:** peer review + automated validation + build verification
+before merging protected branches. **Binaries:** large-file support (LFS) for
+art/audio/cinematics, versions tracked with Bible asset IDs. Resolve conflicts
+promptly; prefer communication over force-push. **Release tagging:** semantic
+versions + changelogs; archive major releases.
+
+**Status:** documented as the target. This repo's own workflow already follows
+the spirit — development on a **feature branch** (`claude/install-repository-
+xlm50f`), **focused, descriptive commits per chapter/feature** (this bible + the
+code committed together with clear messages), and generated media kept out via
+`.gitignore` (with the games' `assets/` explicitly un-ignored). Production would
+add protected branches, PR review + CI, LFS for large art, and semver tags.
+
+# Volume 8, Chapter 12 — Release Management
+
+Plan/approve/release/support/improve each public version. **Cadence:** internal
+milestones → alpha → closed beta → open beta → launch candidate → full release →
+post-launch updates. **Milestone reviews:** design/eng/art/audio/QA/production
+sign-off to advance. **Release checklist:** gameplay stability, save compat,
+localization, storefront assets, legal, accessibility, crash reporting, analytics,
+backups. **Patch management:** hotfix / minor / major, each with release notes +
+regression + rollback validation. **Community:** update summaries, known issues,
+roadmap. **Metrics:** crash rates, progression, completion, perf, bug reports,
+feedback. Archive release manifests/changelogs/approvals alongside the Bible.
+
+**Status:** documented as the target production process. The prototype sits at an
+early internal-milestone stage — a stable, self-tested playable campaign — with
+this Game Bible serving as the living design + changelog record. Formal release
+cadence, storefront/legal/analytics, and patch management come with an actual
+launch.
+
 ---
 
 ## Reference images
