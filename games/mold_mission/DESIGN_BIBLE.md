@@ -578,6 +578,34 @@ change here and is exactly the "automated smoke test + full-campaign playthrough
 gate this chapter calls for. Production would add unit tests, perf benchmarks, and
 a bug tracker around it.
 
+# Volume 8, Chapter 6 — Production Checklist
+
+Release-ready checklist per discipline: **Design** (systems, balance,
+progression, tutorials, collectibles, bosses, accessibility). **Art** (character/
+enemy/boss/environment/UI/icons/anim/VFX/marketing finalized). **Audio**
+(soundtrack, ambient, dialogue, SFX, mixing, subtitles). **Programming** (systems,
+AI, save/load, achievements, optimization, localization, analytics, platform).
+**QA** (no critical defects, regression, certification, perf). **Documentation**
+(Game/Art Bible, tech docs, changelog, release notes). **Launch** (storefront,
+trailers, screenshots, ratings, privacy, support, crash reporting, backups).
+Living document; each milestone ends with a design/eng/art/audio/QA sign-off.
+
+**Prototype status against it:**
+- **Design** — the full 5-mission campaign, bosses with phases/weak points,
+  progression (HQ upgrades + unlock chain), and collectibles are playable. ✅ core
+- **Art** — the player uses the 3D TyGuy; all enemies/bosses/environments are
+  procedural placeholders awaiting real sprites. ⏳
+- **Audio** — procedural SFX (shots/jump/hit/win); no music yet. ⏳
+- **Programming** — gameplay, kind-driven AI, mission manager, drop-in asset
+  loader, and per-boss logic done; save/achievements/localization/analytics not
+  built. ◑
+- **QA** — the `--selftest` full-campaign smoke test passes. ✅ (unit/perf pending)
+- **Documentation** — this Game Bible tracks every chapter with built-vs-planned
+  notes. ✅
+
+**Status:** documented; a snapshot of where the prototype sits on the road to a
+production release.
+
 ---
 
 ## Reference images
