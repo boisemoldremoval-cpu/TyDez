@@ -625,6 +625,46 @@ from source via `python3 mold_mission.py`, and its `--selftest` is the smoke-tes
 step of the pipeline. A production build would wrap it with packaging (e.g.
 PyInstaller per-OS), version stamping, and the staged release gates above.
 
+# Volume 8, Chapter 8 — Coding Standards
+
+Consistent practices for readability/maintainability. **Principles:** clear
+modular code, descriptive names, single-responsibility classes, reusable
+components, minimal duplication, **composition over inheritance**. **Style:**
+consistent formatting, meaningful comments, documented public APIs, no dead code.
+**Architecture:** keep gameplay/rendering/UI/audio/AI/persistence loosely coupled
+via events/interfaces; no circular deps. **Error handling:** log, validate inputs,
+fail gracefully, recovery paths for save + asset loading. **Testing:** automated
+tests + manual checklists. **Reviews:** peer review for correctness/readability/
+perf/standards. Doc public classes with notes + Bible links. Enforce with
+formatting/linting.
+
+**Status:** documented as the target. The prototype already follows much of it —
+PEP 8 style, small single-purpose classes (`Player`/`Enemy`/`Boss*`/`Particles`/
+`AssetPack`/`Game`), a data-driven `Enemy` kind system over a big inheritance
+tree, and **graceful degradation** (audio init, asset loading, and gfxdraw all
+`try/except` into vector/no-sound fallbacks). A production move would add module
+separation, docstrings/type hints, and CI lint + tests.
+
+# Volume 8, Chapter 9 — Performance Optimization Guide
+
+Keep the game responsive without sacrificing clarity. **CPU:** object pooling,
+efficient AI scheduling, event-driven logic, threading where useful, minimal
+per-frame allocations/polling. **GPU:** optimize materials/shaders/lighting/
+particles/overdraw/post; LOD + occlusion culling. **Memory:** load on demand,
+unload unused, compress textures/audio, per-platform budgets. **Streaming:** load
+environments in zones. **Profiling:** CPU/GPU/memory/load/AI/render regularly.
+**Scalability:** graphics presets, dynamic resolution, particle-quality settings,
+performance modes. Checklist: FPS, load times, memory, draw calls, particle
+budgets, save/load before every milestone.
+
+**Status:** documented as the target. The prototype is lightweight (2D, native
+960×600, capped particle lists, on-demand + cached scaled sprite blits in
+`AssetPack`) and holds 60 FPS on normal hardware; asset scaling is memoized and
+off-screen platforms are culled during draw. Deeper pooling, dynamic-resolution/
+particle presets, and profiling instrumentation are the production steps — and,
+unlike the cinematic Mold & Blob renderer, this game deliberately skips heavy
+per-frame post-processing to stay fast on modest machines.
+
 ---
 
 ## Reference images
