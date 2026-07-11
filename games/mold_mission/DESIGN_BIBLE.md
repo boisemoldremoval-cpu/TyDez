@@ -357,6 +357,29 @@ ventilation completes, collectibles reachable, boss transitions, post-boss
 shortcuts, no platforming soft-locks. Target 18–24 min. Hook: samples point
 **beneath the foundation → the Crawlspace (Level 4)**.
 
+# Volume 5, Chapter 2 — Enemy Pack: Crawlspace (Level 4)
+
+Confined-space tension; combine every unlocked tool. Enemies use darkness, mud,
+and structure.
+
+- **Mud Stalker (ENM-301)** — ambush predator under mud; detects footstep
+  vibration, bursts up; vulnerable right after surfacing.
+- **Mold Centipede (ENM-302)** — segmented joist/wall crawler; **splits into
+  segments if defeated incorrectly**.
+- **Pipe Parasite (ENM-303)** — clings to plumbing, sprays contaminated water;
+  **spreads contamination if ignored**.
+- **Toxic Gas Pod (ENM-304)** — stationary; releases poison spores when
+  disturbed; **best countered with the Seal Foam Cannon**.
+- **Burrowing Spore Worm (ENM-305)** — fast tunneler; **telegraphs with shaking
+  dirt** then erupts.
+
+Shared AI: Idle → Patrol → Detect Vibration → Ambush → Attack → Recover →
+Retreat → Defeated. Environment: standing water slows, restored ventilation
+weakens gas, better lighting reduces ambushes.
+
+**Status:** documented; the first piece of **Level 4 (Crawlspace)**. Will be
+built once the Crawlspace boss + world map arrive (the level 4 hook from V4C8).
+
 ---
 
 ## Reference images
