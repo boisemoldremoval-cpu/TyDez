@@ -35,7 +35,7 @@ At **DesilPower HQ** (title screen) use ↑/↓ to select, ◀ ▶ to change mis
 Enter to Deploy or spend banked **Sample Cassettes** on Armor (+HP), Battery
 (+Energy), or Speed upgrades — they persist across runs.
 
-**Three missions** (each unlocks the next):
+**Four missions** (each unlocks the next):
 1. **The Basement** — Spore Bots, Mold Crawlers, Toxic Sprayers, Mold Bats; boss
    **Sludge King** (chest weak-point opens after its attacks).
 2. **The Bathroom** — Steam Mites, Mold Bat Mk II, Vent Spore Swarms (split unless
@@ -44,6 +44,9 @@ Enter to Deploy or spend banked **Sample Cassettes** on Armor (+HP), Battery
 3. **The Attic** — Insulation Creepers, Spore Hawks, Mold Mite clusters, Roof
    Leeches, **air-current updrafts** to ride upward; boss **Spore Queen** (hovering,
    summons mites/hawks, exposed core weak-point).
+4. **The Crawlspace** — Mud Stalkers, Mold Centipedes (split), Pipe Parasites, Gas
+   Pods, Burrowing Spore Worms, **standing-water slow zones**; boss **Crawlor** (a
+   segmented tunneling worm — erupts, summons Pipe Parasites, exposed segment cores).
 
 ## What's in the prototype
 
