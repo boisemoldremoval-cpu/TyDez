@@ -720,6 +720,24 @@ this Game Bible serving as the living design + changelog record. Formal release
 cadence, storefront/legal/analytics, and patch management come with an actual
 launch.
 
+# Volume 8, Chapter 13 — Localization Guide
+
+Translate for global audiences without code changes. **Text standards:** no
+hard-coded strings — store UI/dialogue/tutorials/achievements/objectives/item
+text in **localization tables with stable string IDs**. **Terminology glossary**
+for remediation terms (HEPA Vacuum, Sample Cassette, Purification Core, Moldius
+Prime) for translator consistency. **UI:** allow text expansion, RTL support,
+scalable fonts, Unicode, dynamic layout. **Audio:** subtitle timing independent
+of spoken language; dialogue IDs map to localized voice. QA every language for
+overflow/missing/format/timing/font rendering.
+
+**Status:** documented as the target. The prototype currently uses **hard-coded
+English strings** (HUD labels, boss quotes, briefings, menus) — fine for a
+prototype, but the localization step would extract them into a string-ID table
+that the UI reads by key. The good news: text is already centralized in a few
+places (the `MISSIONS`/`BOSS_QUOTE` dicts, the HUD/menu draw code), so pulling it
+into a localization table is a contained change.
+
 ---
 
 ## Reference images
