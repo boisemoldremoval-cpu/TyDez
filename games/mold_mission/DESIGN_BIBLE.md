@@ -524,6 +524,21 @@ lighter version — `games/mold_mission/` with `mold_mission.py`, `assets/` (dro
 in art), `art_reference/` (design sheets, concept art, build overview), and this
 `DESIGN_BIBLE.md`. It would map onto the full structure during a modular refactor.
 
+# Volume 8, Chapter 3 — Asset Naming Standards
+
+Consistent naming for locating/automating/maintaining assets. PascalCase folders,
+snake_case/descriptive file IDs, no spaces, category prefixes. **Prefixes:** CHR
+(Characters), ENM (Enemies), BOS (Bosses), WPN (Tools), LVL (Levels), UI, FX
+(Effects), AUD (Audio), MAT (Materials), TEX (Textures), ANM (Animations), DOC.
+Examples: `CHR_Ty_Idle.anim`, `ENM_MudStalker.prefab`, `BOS_MoldiusPrime.mat`,
+`WPN_HEPAVacuum.asset`. Version majors; archive (don't delete) deprecated assets;
+track creator/date/version/deps/Bible-ID; support build scripts + validation
+(duplicate names, missing prefixes, broken refs).
+
+**Status:** documented as the target convention. The prototype's drop-in `assets/`
+filenames (`sentinel.png`, `boss5.png`, `platform4.png`, …) are the gameplay-
+facing keys the loader reads; production ENM/BOS/LVL IDs would map onto them.
+
 ---
 
 ## Reference images
