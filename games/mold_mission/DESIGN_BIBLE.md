@@ -195,8 +195,9 @@ Enemies: Steam Mite, Mold Leech, Mold Bat Mk II, Vent Spore Swarm. Puzzle: resto
 the exhaust fan via 3 breakers. **End boss: Shower Beast** → unlocks the Disinfect
 Blaster. Rewards: Bathroom Badge, 750 Cassettes, Level 3 access.
 
-**Status:** documented; not yet built. A natural next milestone once Level 1's
-rooms are fleshed out.
+**Status: BUILT.** Level 2 (Bathroom) is playable — selectable from HQ Mission
+Command after clearing Mission 1, with the blue-tile stage, steam-vent hazards,
+the new enemy roster, and the Shower Beast boss.
 
 # Volume 3, Chapter 2 — Enemy Pack 2: Bathroom Infestation
 
@@ -216,9 +217,9 @@ Shared AI: Idle → Patrol → Investigate Sound → Detect → Attack → Retre
 Stunned → Defeated (data-driven). Audio/FX: steam hiss, dripping, ventilation
 hum, spore bursts, wet footsteps, enclosed-room echo.
 
-**Status:** documented; ships with **Level 2 (Bathroom)**. Mold Bat Mk II reuses
-the current Mold Bat with higher speed + chained dives; Vent Spore Swarm needs the
-charged-vacuum split mechanic; Mold Leech needs the DoT/shake-off system.
+**Status: mostly BUILT.** Steam Mite, Mold Bat Mk II, and Vent Spore Swarm (splits
+unless killed with a charged shot) are in Level 2. Mold Leech (wall-cling + DoT /
+shake-off) is still planned.
 
 ---
 

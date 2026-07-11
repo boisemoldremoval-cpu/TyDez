@@ -31,10 +31,16 @@ python3 mold_mission.py
 | **L / Shift** | Dash (quick, briefly invulnerable) |
 | Enter | HQ: select / deploy / buy · **M** sound · **Esc** quit |
 
-At **DesilPower HQ** (title screen) use ↑/↓ and Enter to Deploy or spend banked
-**Sample Cassettes** on Armor (+HP), Battery (+Energy), or Speed upgrades — they
-persist across runs. Beat the **Sludge King** (chest weak-point opens after its
-attacks) to restore the Basement.
+At **DesilPower HQ** (title screen) use ↑/↓ to select, ◀ ▶ to change mission, and
+Enter to Deploy or spend banked **Sample Cassettes** on Armor (+HP), Battery
+(+Energy), or Speed upgrades — they persist across runs.
+
+**Two missions:**
+1. **The Basement** — Spore Bots, Mold Crawlers, Toxic Sprayers, Mold Bats; boss
+   **Sludge King** (chest weak-point opens after its attacks).
+2. **The Bathroom** *(unlocks after Mission 1)* — Steam Mites, Mold Bat Mk II,
+   Vent Spore Swarms (they split unless killed with a charged shot), steam-vent
+   hazards; boss **Shower Beast** (back regulator opens after slams — dash behind).
 
 ## What's in the prototype
 
