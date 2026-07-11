@@ -677,6 +677,8 @@ class Game:
         self.cam = 0.0
         self.score = 0
         self.spores = 1200
+        self.cassettes = 0
+        self.cassettes_total = len(self.coins)
 
     def spawn_boss(self):
         self.boss = Boss()
@@ -743,6 +745,7 @@ class Game:
             if not c.got and overlap(c.x - 12, c.y - 12, 24, 24, *p.rect()):
                 c.got = True
                 self.score += 50
+                self.cassettes += 1
                 self.snd.play("coin")
         self.coins = [c for c in self.coins if not c.got]
 
@@ -760,15 +763,20 @@ class Game:
 
         if self.state == STATE_MENU:
             self._draw_world(t)
-            self._center(self.big, "MOLD MISSION", HEIGHT // 2 - 110, C_TEAL_LT)
+            self._center(self.big, "MOLD MISSION", HEIGHT // 2 - 150, C_TEAL_LT)
             self._center(self.mid, "Clean it. Seal it. Protect it.",
-                         HEIGHT // 2 - 58, C_TEXT)
+                         HEIGHT // 2 - 100, C_TEXT)
+            # mission briefing
+            self._center(self.small, "MISSION 1  —  THE BASEMENT", HEIGHT // 2 - 60, C_TOXIC)
             for i, ln in enumerate([
-                    "Move: Arrows / A D     Jump: Up / W / Space",
-                    "Fire blaster: J  (hold to CHARGE a big shot)",
-                    "Dash: L / Shift     Clear the mold, then beat MOLDTIUS."]):
-                self._center(self.small, ln, HEIGHT // 2 - 12 + i * 26, C_DIM)
-            self._center(self.mid, "Press Enter to start", HEIGHT // 2 + 96, C_TEAL_LT)
+                    "Damp, dark, and full of spores. Clear the contamination,",
+                    "collect Sample Cassettes, and shut down MOLDTIUS at the source."]):
+                self._center(self.small, ln, HEIGHT // 2 - 34 + i * 22, C_DIM)
+            for i, ln in enumerate([
+                    "Move: Arrows / A D      Jump: Up / W / Space",
+                    "Fire blaster: J  (hold to CHARGE)      Dash: L / Shift"]):
+                self._center(self.small, ln, HEIGHT // 2 + 20 + i * 24, C_DIM)
+            self._center(self.mid, "Press Enter to deploy", HEIGHT // 2 + 96, C_TEAL_LT)
             return
 
         self._draw_world(t)
@@ -779,9 +787,15 @@ class Game:
             veil.fill((8, 12, 14, 190))
             s.blit(veil, (0, 0))
             if self.state == STATE_WIN:
-                self._center(self.big, "CONTAINMENT COMPLETE", HEIGHT // 2 - 40, C_TEAL_LT)
-                self._center(self.mid, f"MOLDTIUS defeated!  Score {self.score}",
-                             HEIGHT // 2 + 16, C_TEXT)
+                self._center(self.big, "CONTAINMENT COMPLETE", HEIGHT // 2 - 80, C_TEAL_LT)
+                self._center(self.mid, "NEW TOOL UNLOCKED:  HEPA Vac Dash",
+                             HEIGHT // 2 - 26, C_TOXIC)
+                self._center(self.small,
+                             f"MOLDTIUS defeated  ·  Score {self.score}  ·  "
+                             f"Cassettes {self.cassettes}/{self.cassettes_total}",
+                             HEIGHT // 2 + 14, C_TEXT)
+                self._center(self.small, "Return to DesilPower HQ to upgrade, then on to the Attic.",
+                             HEIGHT // 2 + 40, C_DIM)
             else:
                 self._center(self.big, "TECHNICIAN DOWN", HEIGHT // 2 - 40, C_DANGER)
                 self._center(self.mid, f"The mold won this time.  Score {self.score}",
@@ -825,8 +839,10 @@ class Game:
         ch = min(1.0, self.player.charge / 0.9) if self.player.charging else 0
         pygame.draw.rect(s, C_SHOT, (20, 68, int(220 * ch), 10), border_radius=4)
         # score / spores
-        self._t(self.mid, f"SCORE {self.score}", (WIDTH - 210, 16), C_TEXT)
-        self._t(self.small, f"SPORES {self.spores}", (WIDTH - 210, 48), C_TOXIC)
+        self._t(self.mid, f"SCORE {self.score}", (WIDTH - 230, 16), C_TEXT)
+        self._t(self.small, f"SPORE COUNT {self.spores}", (WIDTH - 230, 48), C_TOXIC)
+        self._t(self.small, f"CASSETTES {self.cassettes}/{self.cassettes_total}",
+                (WIDTH - 230, 70), C_COIN)
         # boss bar
         if self.boss:
             bw = 460
