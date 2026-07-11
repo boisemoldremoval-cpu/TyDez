@@ -507,9 +507,29 @@ kind/data-driven, `build_level(mission)` holds per-level content, `Game` is the
 mission manager, and bosses/tools are modular classes. A full refactor into
 separate modules + data files is the natural step toward a production build.
 
+# Volume 8, Chapter 2 — Folder Structure
+
+Consistent layout as the project grows. **Top-level:** Assets/, Audio/,
+Characters/, Environments/, Enemies/, Levels/, Materials/, Prefabs/, Scripts/,
+Shaders/, Sprites/, UI/, VFX/, Documentation/, Saves/, Tools/. **Scripts by:**
+Gameplay, Player, Enemies, Bosses, Tools, UI, Audio, SaveSystem, Missions,
+Utilities, Editor. **Art:** separate concept/production/textures/icons/
+animations/marketing with matching IDs. **Levels** own maps/lighting/encounters/
+collectibles/dialogue/cinematics/QA. **Docs:** Game Bible, Art Bible, Technical
+Guide, changelogs together with version history. Descriptive names, no spaces,
+IDs synced with the Game Bible.
+
+**Status:** documented as the target production layout. This prototype keeps a
+lighter version — `games/mold_mission/` with `mold_mission.py`, `assets/` (drop-
+in art), `art_reference/` (design sheets, concept art, build overview), and this
+`DESIGN_BIBLE.md`. It would map onto the full structure during a modular refactor.
+
 ---
 
 ## Reference images
+
+- `art_reference/build_overview.png` — a 3×3 snapshot of the current build (HQ,
+  two gameplay stages, all five bosses, and the ending).
 
 - `art_reference/mold_mission_designsheet.png` — the full design sheet.
 - `art_reference/player_character_concept.png` — main player character concept.
