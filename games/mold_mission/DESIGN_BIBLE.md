@@ -83,6 +83,65 @@ full weapon upgrade tree.
 
 ---
 
+# Volume 1, Chapter 3 — DesilPower Headquarters
+
+Central hub between missions: upgrade equipment, accept missions, train, customize
+cosmetics, review lore, save. **Areas:** Mission Command, Research Lab (tool
+upgrades), Engineering Bay (movement upgrades), Training Simulator, Locker Room,
+Archives, Garage. **NPCs:** Commander Ellis (briefings), Engineer Nova (builds
+gear), Dr. Mira (lore/biology), Quartermaster Jax (sells upgrades for Sample
+Cassettes). **Systems:** manual save, fast travel, achievement wall, collectible
+cases, hidden practice room after Level 3.
+
+**Implemented:** an HQ hub screen (the title screen) — Deploy Mission plus
+Research Lab (Armor → +HP) and Engineering Bay (Battery → +Energy, Speed Module)
+upgrades bought with banked Sample Cassettes; Commander Ellis flavor. Not yet:
+the fully explorable 2D HQ, other NPCs, cosmetics, archives.
+
+# Volume 1, Chapter 4 — Player Systems & Controls
+
+Move / Jump / Interact / Primary Tool / Tool Wheel / Pause. Base run medium-fast,
+responsive accel, jump clears one story. **Dash unlocks after L1, Double Jump
+after L3, Wall Slide** enables wall jumps. **Health 100 HP**; Health Packs +25.
+**Weapon Energy** powers advanced tools, refilled by **Energy Cells** from enemies.
+**Checkpoints** save + refill + set respawn. **Upgrade tree:** Armor Mk I–V,
+Battery Capacity I–V, Tool Efficiency, Movement Module. Dev note: prioritize
+responsiveness — input buffering + **coyote time**, data-driven values.
+
+**Implemented:** 100 HP, Weapon Energy meter + regen, coyote-time jumps,
+enemy-dropped Health/Energy pickups, and the Armor/Battery/Speed upgrade tree via
+HQ. Not yet: tool wheel, pause/inventory, checkpoints, Tool Efficiency.
+
+# Volume 2, Chapter 2 — Boss: Sludge King
+
+First Mold General; teaches pattern-recognition and weak-point play. A towering
+humanoid of mud/fungal growth/pipes with a **cracked chest water-valve weak
+point**. Arena: flooded basement with moving platforms and hazards. **Phase 1:**
+punches, spore projectiles, ground slams. **Phase 2 (70% HP):** flood rises,
+pipes burst. **Phase 3 (30% HP):** enrages, faster, **summons Mold Slimes**. The
+chest valve opens briefly after heavy attacks. Rewards: HEPA Vacuum + Dash + 500
+Sample Cassettes + Basement Restoration Badge.
+
+**Implemented:** the Sludge King replaces the Basement boss — 3 HP-based phases,
+a chest weak-point that opens after each attack (2× damage), spore-spread + ground
+slam attacks, and Mold Slime summons in Phase 3. Reward text + 500-cassette bank
+on victory. Not yet: the reactive flooding arena, moving platforms, cutscene.
+
+# Volume 2, Chapter 3 — HEPA Vacuum Module
+
+First permanent tool — clean rather than destroy. Removes spore clouds, vacuums
+weakened small enemies, reveals hidden vents/cassettes, opens HEPA vents, clears
+fungal blockages. **Tap:** suction burst · **Hold:** continuous beam · **Charge:**
+vortex. Mk I–V upgrades (range, heavy pull, energy regen, air barrier). Blue/white
+canister, hose, turbine, airflow particles.
+
+**Implemented:** hold **K** for a suction beam that pulls enemies in, instantly
+vacuums weakened enemies, and absorbs hostile spore projectiles (small energy
+refund) — drains Weapon Energy. Not yet: vent/puzzle interactions, charge vortex,
+the Mk I–V upgrade line.
+
+---
+
 ## Reference images
 
 - `art_reference/mold_mission_designsheet.png` — the full design sheet.

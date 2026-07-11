@@ -74,11 +74,16 @@ DASH_SPEED = 620.0
 DASH_TIME = 0.22
 DASH_CD = 0.55
 
-PLAYER_HP = 28
+PLAYER_HP = 100
 IFRAMES = 1.0
-BOSS_HP = 140
+MAX_ENERGY = 100
+HP_PACK = 25
+ENERGY_CELL = 30
+COYOTE = 0.10
+SLUDGE_HP = 220
 
-STATE_MENU, STATE_PLAY, STATE_WIN, STATE_OVER = "menu", "play", "win", "over"
+STATE_HQ, STATE_PLAY, STATE_WIN, STATE_OVER = "hq", "play", "win", "over"
+STATE_MENU = STATE_HQ  # menu screen is the DesilPower HQ hub
 
 
 def overlap(ax, ay, aw, ah, bx, by, bw, bh):
@@ -337,44 +342,81 @@ class Enemy:
 # Boss — MOLDTIUS
 # --------------------------------------------------------------------------- #
 class Boss:
+    """The Sludge King — first Mold General. 3 phases, chest-valve weak point."""
+    NAME = "SLUDGE KING"
+
     def __init__(self):
         self.w, self.h = 260, 300
         self.x = LEVEL_W - self.w - 40
         self.y = GROUND_Y - self.h
-        self.hp = BOSS_HP
-        self.maxhp = BOSS_HP
+        self.hp = self.maxhp = SLUDGE_HP
         self.hit = 0.0
         self.t = 0.0
-        self.shoot_t = 1.5
+        self.attack_t = 1.6
+        self.weak_open = 0.0     # chest valve open window
+        self.summon_t = 4.0
+        self.slam = 0.0
+        self.mode = 0
         self.dead = False
         self.bob = 0.0
 
-    def rect(self):
-        return (self.x + 30, self.y + 40, self.w - 60, self.h - 60)
+    def phase(self):
+        f = self.hp / self.maxhp
+        return 3 if f <= 0.3 else (2 if f <= 0.7 else 1)
 
-    def update(self, dt, player, shots, parts):
+    def rect(self):
+        return (self.x + 30, self.y + 40 + self.bob, self.w - 60, self.h - 70)
+
+    def weak_rect(self):
+        return (self.x + self.w * 0.34, self.y + self.h * 0.42 + self.bob,
+                self.w * 0.30, self.h * 0.20)
+
+    def update(self, dt, player, shots, parts, enemies):
         self.t += dt
         self.hit = max(0.0, self.hit - dt)
-        self.bob = math.sin(self.t * 1.4) * 14
-        self.shoot_t -= dt
-        if self.shoot_t <= 0:
-            phase2 = self.hp < self.maxhp * 0.5
-            self.shoot_t = 1.1 if phase2 else 1.7
-            n = 3 if phase2 else 2
-            mx, my = self.x + 40, self.y + self.h * 0.4 + self.bob
-            for i in range(n):
-                ang = math.atan2((player.y + 20) - my, (player.x) - mx)
-                ang += (i - (n - 1) / 2) * 0.28
-                sp = 300
-                sh = Shot(mx, my, math.cos(ang) * sp, 4, -1, hostile=True)
-                sh.vy = math.sin(ang) * sp
-                shots.append(sh)
-        parts.spark(self.x + 40, self.y + self.h * 0.4 + self.bob, C_TOXIC, 1, 60)
+        self.weak_open = max(0.0, self.weak_open - dt)
+        self.slam = max(0.0, self.slam - dt)
+        ph = self.phase()
+        self.bob = math.sin(self.t * (1.3 + 0.35 * ph)) * 12
+        self.attack_t -= dt
+        if self.attack_t <= 0:
+            self.attack_t = 0.9 if ph == 3 else (1.3 if ph == 2 else 1.7)
+            self.mode ^= 1
+            mx, my = self.x + 50, self.y + self.h * 0.42 + self.bob
+            if self.mode == 0:                      # spore spread
+                n = 3 if ph >= 2 else 2
+                for i in range(n):
+                    ang = math.atan2((player.y + 20) - my, player.x - mx)
+                    ang += (i - (n - 1) / 2) * 0.30
+                    sp = 300 + ph * 20
+                    sh = Shot(mx, my, math.cos(ang) * sp, 4, -1, hostile=True)
+                    sh.vy = math.sin(ang) * sp
+                    shots.append(sh)
+            else:                                   # ground slam
+                self.slam = 0.3
+                parts.splat(self.x + 40, GROUND_Y, C_MOLD, 22)
+                for d in (-1, 1):
+                    sh = Shot(self.x + self.w * 0.4, GROUND_Y - 14, d * 260,
+                              4, -1, hostile=True)
+                    sh.vy = 0
+                    shots.append(sh)
+            self.weak_open = 1.8                     # valve opens after each attack
+        if ph == 3:                                  # enrage: summon Mold Slimes
+            self.summon_t -= dt
+            live = len([e for e in enemies if not e.dead])
+            if self.summon_t <= 0 and live < 6:
+                self.summon_t = 3.0
+                sx = max(CAM_BOSS + 40, min(LEVEL_W - 90,
+                         player.x + random.choice([-170, 170])))
+                enemies.append(Enemy("sporebot", sx, GROUND_Y - 40))
+        if self.weak_open > 0:
+            parts.spark(self.x + self.w * 0.5, self.y + self.h * 0.52 + self.bob,
+                        C_TEAL_LT, 1, 50)
 
     def hurt(self, dmg, parts):
         self.hp -= dmg
         self.hit = 0.1
-        parts.spark(self.x + 50, self.y + self.h * 0.4, C_TEAL_LT, 8, 240)
+        parts.spark(self.x + self.w * 0.5, self.y + self.h * 0.5, C_TEAL_LT, 8, 240)
         if self.hp <= 0:
             self.dead = True
             return True
@@ -384,25 +426,34 @@ class Boss:
         x, y = self.x - cam, self.y + self.bob
         cx, cy = x + self.w / 2, y + self.h / 2
         glow(s, cx, cy, self.w * 0.6, (60, 90, 40), 70)
+        if self.slam > 0:
+            pygame.draw.rect(s, (180, 220, 120), (0, GROUND_Y - 4, WIDTH, 4))
         if assets.has("boss"):
-            assets.blit_fit(s, "boss", cx, cy, self.w * 1.15, self.h * 1.15)
+            assets.blit_fit(s, "boss", cx, cy, self.w * 1.15, self.h * 1.15,
+                            flip=True)
         else:
-            pygame.draw.ellipse(s, C_BOSS_DK, (int(x), int(y + 20),
-                                self.w, self.h - 20))
+            pygame.draw.ellipse(s, C_BOSS_DK, (int(x), int(y + 20), self.w, self.h - 20))
             pygame.draw.ellipse(s, C_BOSS, (int(x + 16), int(y + 30),
                                 self.w - 32, self.h - 60))
-            for _ in range(0):
-                pass
             random.seed(1)
             for i in range(14):
                 bx = x + 30 + random.random() * (self.w - 60)
                 by = y + 40 + random.random() * (self.h - 90)
                 fcircle(s, bx, by, random.randint(10, 22), C_BOSS_DK)
                 fcircle(s, bx, by, 5, (40, 60, 30))
-            # eyes
             for ex in (cx - 40, cx + 40):
-                fcircle(s, ex, cy - 20, 16, (180, 255, 140))
-                fcircle(s, ex, cy - 20, 8, (20, 40, 20))
+                fcircle(s, ex, cy - 40, 16, (180, 255, 140))
+                fcircle(s, ex, cy - 40, 8, (20, 40, 20))
+        # chest valve weak point
+        wx, wy, ww, wh = self.weak_rect()
+        wx -= cam
+        if self.weak_open > 0:
+            glow(s, wx + ww / 2, wy + wh / 2, ww * 0.9, (120, 255, 160), 160)
+            fcircle(s, wx + ww / 2, wy + wh / 2, ww * 0.4, (150, 255, 180))
+            fcircle(s, wx + ww / 2, wy + wh / 2, ww * 0.22, (40, 90, 50))
+        else:
+            fcircle(s, wx + ww / 2, wy + wh / 2, ww * 0.36, (60, 50, 40))
+            fcircle(s, wx + ww / 2, wy + wh / 2, ww * 0.2, (30, 26, 22))
         if self.hit > 0:
             fl = pygame.Surface((self.w * 2, self.h * 2), pygame.SRCALPHA)
             fcircle(fl, self.w, self.h, self.w * 0.55, (255, 255, 255, 90))
@@ -432,6 +483,26 @@ class Coin:
                 s.blit(g, g.get_rect(center=(sx, yy)))
 
 
+class Pickup:
+    """Dropped by enemies: 'health' restores HP, 'energy' refills weapon energy."""
+    def __init__(self, x, y, kind):
+        self.x, self.y, self.kind = float(x), float(y), kind
+        self.got = False
+        self.t = random.uniform(0, 6.28)
+
+    def draw(self, s, cam, t):
+        sx = self.x - cam
+        yy = self.y + math.sin(t * 4 + self.t) * 3
+        if self.kind == "health":
+            col = (232, 96, 92)
+            pygame.draw.circle(s, col, (int(sx - 5), int(yy - 2)), 6)
+            pygame.draw.circle(s, col, (int(sx + 5), int(yy - 2)), 6)
+            pygame.draw.polygon(s, col, [(sx - 11, yy), (sx + 11, yy), (sx, yy + 12)])
+        else:
+            orrect(s, (sx - 8, yy - 9, 16, 18), (110, 180, 240), radius=3)
+            pygame.draw.rect(s, (210, 240, 255), (int(sx - 3), int(yy - 12), 6, 4))
+
+
 # --------------------------------------------------------------------------- #
 # Player
 # --------------------------------------------------------------------------- #
@@ -445,7 +516,13 @@ class Player:
         self.vx = self.vy = 0.0
         self.facing = 1
         self.on_ground = False
-        self.hp = PLAYER_HP
+        self.maxhp = getattr(self, "maxhp", PLAYER_HP)
+        self.maxenergy = getattr(self, "maxenergy", MAX_ENERGY)
+        self.speed_mult = getattr(self, "speed_mult", 1.0)
+        self.hp = self.maxhp
+        self.energy = self.maxenergy
+        self.coyote = 0.0
+        self.vacuuming = False
         self.iframe = 0.0
         self.fire_prev = False
         self.charge = 0.0
@@ -464,6 +541,12 @@ class Player:
 
     def rect(self):
         return (self.x, self.y, self.w, self.h)
+
+    def vacuum_rect(self):
+        reach = 200
+        if self.facing >= 0:
+            return (self.x + self.w, self.y - 12, reach, self.h + 24)
+        return (self.x - reach, self.y - 12, reach, self.h + 24)
 
     def hurt(self, dmg, parts):
         if self.iframe > 0 or self.dash_t > 0:
@@ -496,11 +579,11 @@ class Player:
             self.dash_t -= dt
             self.vx = self.facing * DASH_SPEED
         elif self.wj_lock > 0:
-            self.vx = self.wj_dir * MOVE_SPEED
+            self.vx = self.wj_dir * MOVE_SPEED * self.speed_mult
         elif self.crouching:
             self.vx = 0.0
         else:
-            self.vx = (right - left) * MOVE_SPEED
+            self.vx = (right - left) * MOVE_SPEED * self.speed_mult
             if right:
                 self.facing = 1
             elif left:
@@ -526,13 +609,14 @@ class Player:
         if self.sliding:
             self.vy = min(self.vy, 130)
 
-        # jump: edge-triggered — ground, wall, or air (double) jump
+        # jump: edge-triggered — ground (with coyote time), wall, or air jump
         jump_edge = up and not self.jump_prev
         self.jump_prev = up
         if jump_edge and self.dash_t <= 0:
-            if self.on_ground:
+            if self.on_ground or self.coyote > 0:
                 self.vy = -JUMP_V
                 self.jumps = 1
+                self.coyote = 0.0
                 snd.play("jump")
             elif self.wall != 0:
                 self.vy = -JUMP_V
@@ -560,8 +644,19 @@ class Player:
                     self.vy = 0
         if self.on_ground:
             self.jumps = 2
+            self.coyote = COYOTE
+        else:
+            self.coyote = max(0.0, self.coyote - dt)
         if abs(self.vx) > 1 and self.on_ground:
             self.anim += dt
+
+        # HEPA Vacuum (hold K) — drains energy; Game applies the suction.
+        self.vacuuming = (keys[pygame.K_k] and self.energy > 0
+                          and self.dash_t <= 0)
+        if self.vacuuming:
+            self.energy = max(0.0, self.energy - 26 * dt)
+        else:
+            self.energy = min(self.maxenergy, self.energy + 9 * dt)
 
         # shooting (edge-triggered; hold to charge)
         fire = keys[pygame.K_j] or keys[pygame.K_x]
@@ -591,6 +686,20 @@ class Player:
     def draw(self, s, cam, assets, t):
         x, y = self.x - cam, self.y
         cx = x + self.w / 2
+        # HEPA vacuum suction cone
+        if self.vacuuming:
+            vx, vy, vw, vh = self.vacuum_rect()
+            vx -= cam
+            cone = pygame.Surface((int(vw), int(vh)), pygame.SRCALPHA)
+            tip = (0 if self.facing > 0 else vw)
+            far = (vw if self.facing > 0 else 0)
+            pygame.draw.polygon(cone, (150, 220, 255, 60),
+                                [(tip, vh / 2), (far, 0), (far, vh)])
+            s.blit(cone, (int(vx), int(vy)))
+            for _ in range(4):
+                px = vx + random.uniform(0, vw)
+                py = vy + random.uniform(0, vh)
+                fcircle(s, px, py, random.uniform(1, 3), (200, 240, 255, 160))
         blink = self.iframe > 0 and int(self.iframe * 20) % 2 == 0
         if not blink:
             if self.charging and self.charge > 0.4:
@@ -713,8 +822,23 @@ class Game:
         here = os.path.dirname(os.path.abspath(__file__))
         self.assets = AssetPack(os.path.join(here, "assets"))
         self.bg = self._make_bg()
+        # persistent between missions (DesilPower HQ upgrades — Ch 3/4)
+        self.armor = 0
+        self.battery = 0
+        self.speed = 0
+        self.bank = 0            # Sample Cassettes banked at HQ
+        self.cursor = 0
+        self.shake = 0.0
         self.reset()
         self.state = STATE_MENU
+
+    HQ_ITEMS = ["Deploy Mission", "Research Lab: Armor  (+20 HP)",
+                "Engineering Bay: Battery  (+20 Energy)",
+                "Engineering Bay: Speed Module  (+10%)"]
+
+    def hq_cost(self, i):
+        lvl = (0, self.armor, self.battery, self.speed)[i]
+        return 5 + lvl * 4
 
     def _make_bg(self):
         if self.assets.has("background"):
@@ -731,7 +855,14 @@ class Game:
     def reset(self):
         self.plats, self.enemies, self.coins = build_level()
         self.player = Player()
+        # apply persistent HQ upgrades
+        self.player.maxhp = PLAYER_HP + self.armor * 20
+        self.player.maxenergy = MAX_ENERGY + self.battery * 20
+        self.player.speed_mult = 1.0 + self.speed * 0.10
+        self.player.hp = self.player.maxhp
+        self.player.energy = self.player.maxenergy
         self.shots = []
+        self.pickups = []
         self.parts = Particles()
         self.boss = None
         self.cam = 0.0
@@ -762,11 +893,30 @@ class Game:
         for e in self.enemies:
             e.update(dt, p, self.shots, self.parts)
         if self.boss:
-            self.boss.update(dt, p, self.shots, self.parts)
+            self.boss.update(dt, p, self.shots, self.parts, self.enemies)
+
+        # HEPA Vacuum (V2C3): pull enemies in, finish weakened ones, eat spores
+        if p.vacuuming:
+            vr = p.vacuum_rect()
+            pcx = p.x + p.w / 2
+            for e in self.enemies:
+                if not e.dead and overlap(*vr, *e.rect()):
+                    e.x += (1 if pcx > e.x else -1) * 150 * dt
+                    if e.hp <= 3:
+                        e.dead = True
+                        self.parts.splat(e.x + e.w / 2, e.y + e.h / 2, C_TEAL_LT, 12)
+                        self.score += 120
+                        self._maybe_drop(e)
+            for sh in self.shots:
+                if sh.hostile and overlap(*vr, *sh.rect()):
+                    sh.dead = True
+                    p.energy = min(p.maxenergy, p.energy + 4)
+                    self.parts.spark(sh.x, sh.y, C_SHOT, 4, 120)
+            if random.random() < 0.6:
+                self.parts.spark(pcx + p.facing * 60, p.y + 24, (200, 240, 255), 1, 60)
 
         # shots
         for sh in self.shots:
-            sh.x += getattr(sh, "vy", 0.0) * 0 + 0  # keep attr access cheap
             sh.update(dt)
             vy = getattr(sh, "vy", None)
             if vy is not None:
@@ -782,11 +932,17 @@ class Game:
                         if e.hurt(sh.dmg, self.parts):
                             self.score += 100
                             self.spores = max(0, self.spores - 50)
+                            self._maybe_drop(e)
                         sh.dead = True
                         break
                 if not sh.dead and self.boss and overlap(*sh.rect(), *self.boss.rect()):
-                    if self.boss.hurt(sh.dmg, self.parts):
+                    dmg = sh.dmg
+                    if self.boss.weak_open > 0 and overlap(*sh.rect(), *self.boss.weak_rect()):
+                        dmg *= 2
+                        self.parts.spark(sh.x, sh.y, (150, 255, 180), 8, 260)
+                    if self.boss.hurt(dmg, self.parts):
                         self.state = STATE_WIN
+                        self.bank += self.cassettes + 500     # boss reward
                         self.snd.play("win")
                     sh.dead = True
         self.shots = [s for s in self.shots if not s.dead]
@@ -800,7 +956,7 @@ class Game:
         if self.boss and overlap(*self.boss.rect(), *p.rect()):
             p.hurt(6, self.parts)
 
-        # coins
+        # coins (Sample Cassettes)
         for c in self.coins:
             if not c.got and overlap(c.x - 12, c.y - 12, 24, 24, *p.rect()):
                 c.got = True
@@ -809,11 +965,30 @@ class Game:
                 self.snd.play("coin")
         self.coins = [c for c in self.coins if not c.got]
 
+        # pickups (health / energy)
+        for pk in self.pickups:
+            if not pk.got and overlap(pk.x - 12, pk.y - 12, 24, 24, *p.rect()):
+                pk.got = True
+                if pk.kind == "health":
+                    p.hp = min(p.maxhp, p.hp + HP_PACK)
+                else:
+                    p.energy = min(p.maxenergy, p.energy + ENERGY_CELL)
+                self.snd.play("coin")
+        self.pickups = [pk for pk in self.pickups if not pk.got]
+
         if p.dead:
             self.state = STATE_OVER
+            self.bank += self.cassettes
             self.snd.play("hit")
 
         self.parts.update(dt)
+
+    def _maybe_drop(self, e):
+        r = random.random()
+        if r < 0.22:
+            self.pickups.append(Pickup(e.x + e.w / 2, e.y, "health"))
+        elif r < 0.44:
+            self.pickups.append(Pickup(e.x + e.w / 2, e.y, "energy"))
 
     # -- draw ---------------------------------------------------------------- #
     def draw(self, t):
@@ -822,22 +997,33 @@ class Game:
         cam = self.cam
 
         if self.state == STATE_MENU:
-            self._draw_world(t)
-            self._center(self.big, "MOLD MISSION", HEIGHT // 2 - 150, C_TEAL_LT)
-            self._center(self.mid, "Clean it. Seal it. Protect it.",
-                         HEIGHT // 2 - 100, C_TEXT)
-            # mission briefing
-            self._center(self.small, "MISSION 1  —  THE BASEMENT", HEIGHT // 2 - 60, C_TOXIC)
-            for i, ln in enumerate([
-                    "Damp, dark, and full of spores. Clear the contamination,",
-                    "collect Sample Cassettes, and shut down MOLDTIUS at the source."]):
-                self._center(self.small, ln, HEIGHT // 2 - 34 + i * 22, C_DIM)
-            for i, ln in enumerate([
-                    "Move: Arrows / A D    Jump: Up  (again in air = double jump)",
-                    "Crouch: Down    Wall-slide + wall-jump on walls",
-                    "Fire blaster: J  (hold to CHARGE)      Dash: L / Shift"]):
-                self._center(self.small, ln, HEIGHT // 2 + 18 + i * 22, C_DIM)
-            self._center(self.mid, "Press Enter to deploy", HEIGHT // 2 + 100, C_TEAL_LT)
+            # DesilPower HQ hub (Ch 3)
+            self._center(self.big, "DESILPOWER HQ", 92, C_TEAL_LT)
+            self._center(self.small,
+                         "Mission Command · Research Lab · Engineering Bay",
+                         132, C_DIM)
+            self._center(self.mid, f"Sample Cassettes banked: {self.bank}", 172, C_COIN)
+            for i, label in enumerate(self.HQ_ITEMS):
+                y = 230 + i * 44
+                sel = (i == self.cursor)
+                if i == 0:
+                    txt = label
+                else:
+                    lvl = (0, self.armor, self.battery, self.speed)[i]
+                    txt = f"{label}   Mk{lvl} → {lvl + 1}   [{self.hq_cost(i)} cassettes]"
+                col = C_TEAL_LT if sel else C_TEXT
+                if sel:
+                    pygame.draw.rect(s, (24, 44, 42),
+                                     (WIDTH // 2 - 330, y - 16, 660, 34), border_radius=8)
+                self._center(self.small if i else self.mid, txt, y, col)
+            self._center(self.small, "↑/↓ select    Enter: deploy / buy    "
+                         "Commander Ellis: \"Clear the Basement, technician.\"",
+                         HEIGHT - 108, C_DIM)
+            self._center(self.small,
+                         "In-mission:  Move A/D · Jump (double) · Crouch · "
+                         "J blaster (charge) · K HEPA vacuum · L dash",
+                         HEIGHT - 78, C_DIM)
+            self._center(self.mid, "MISSION 1 — THE BASEMENT", HEIGHT - 44, C_TOXIC)
             return
 
         self._draw_world(t)
@@ -848,20 +1034,19 @@ class Game:
             veil.fill((8, 12, 14, 190))
             s.blit(veil, (0, 0))
             if self.state == STATE_WIN:
-                self._center(self.big, "CONTAINMENT COMPLETE", HEIGHT // 2 - 80, C_TEAL_LT)
-                self._center(self.mid, "NEW TOOL UNLOCKED:  HEPA Vac Dash",
-                             HEIGHT // 2 - 26, C_TOXIC)
+                self._center(self.big, "BASEMENT RESTORED", HEIGHT // 2 - 92, C_TEAL_LT)
+                self._center(self.mid, "SLUDGE KING defeated!", HEIGHT // 2 - 40, C_TEXT)
+                self._center(self.small, "NEW TOOL UNLOCKED:  HEPA Vacuum Module  ·  "
+                             "+500 Sample Cassettes  ·  Basement Restoration Badge",
+                             HEIGHT // 2 - 8, C_TOXIC)
                 self._center(self.small,
-                             f"MOLDTIUS defeated  ·  Score {self.score}  ·  "
-                             f"Cassettes {self.cassettes}/{self.cassettes_total}",
-                             HEIGHT // 2 + 14, C_TEXT)
-                self._center(self.small, "Return to DesilPower HQ to upgrade, then on to the Attic.",
-                             HEIGHT // 2 + 40, C_DIM)
+                             f"Score {self.score}  ·  Cassettes banked: {self.bank}",
+                             HEIGHT // 2 + 20, C_TEXT)
             else:
                 self._center(self.big, "TECHNICIAN DOWN", HEIGHT // 2 - 40, C_DANGER)
                 self._center(self.mid, f"The mold won this time.  Score {self.score}",
                              HEIGHT // 2 + 16, C_TEXT)
-            self._center(self.mid, "Press Enter to retry", HEIGHT // 2 + 70, C_TEAL_LT)
+            self._center(self.mid, "Press Enter — return to DesilPower HQ", HEIGHT // 2 + 66, C_TEAL_LT)
 
     def _draw_world(self, t):
         s, cam = self.screen, self.cam
@@ -878,6 +1063,8 @@ class Game:
                 pygame.draw.rect(s, (70, 104, 52), (int(sx), int(y), int(w), 6))
         for c in self.coins:
             c.draw(s, cam, self.assets, t)
+        for pk in self.pickups:
+            pk.draw(s, cam, t)
         for e in self.enemies:
             e.draw(s, cam, self.assets)
         if self.boss:
@@ -889,17 +1076,22 @@ class Game:
 
     def _hud(self):
         s = self.screen
-        # health bar
-        pygame.draw.rect(s, (10, 16, 16), (18, 16, 224, 26), border_radius=6)
-        seg = 200 / PLAYER_HP
-        for i in range(self.player.hp):
-            pygame.draw.rect(s, C_HP, (24 + i * seg, 22, max(2, seg - 1), 14))
-        self._t(self.small, "HEALTH", (26, 44), C_DIM)
+        p = self.player
+        # health bar (0..maxhp)
+        pygame.draw.rect(s, (10, 16, 16), (18, 16, 244, 20), border_radius=6)
+        hf = max(0.0, p.hp / p.maxhp)
+        pygame.draw.rect(s, C_HP, (21, 19, int(238 * hf), 14), border_radius=5)
+        self._t(self.small, f"HP {int(p.hp)}/{p.maxhp}", (270, 15), C_DIM)
+        # weapon energy bar
+        pygame.draw.rect(s, (10, 16, 16), (18, 42, 244, 14), border_radius=5)
+        ef = max(0.0, p.energy / p.maxenergy)
+        pygame.draw.rect(s, (110, 180, 240), (21, 44, int(238 * ef), 9), border_radius=4)
+        self._t(self.small, "ENERGY", (270, 40), C_DIM)
         # charge meter
-        pygame.draw.rect(s, (10, 16, 16), (18, 66, 224, 14), border_radius=4)
-        ch = min(1.0, self.player.charge / 0.9) if self.player.charging else 0
-        pygame.draw.rect(s, C_SHOT, (20, 68, int(220 * ch), 10), border_radius=4)
-        # score / spores
+        pygame.draw.rect(s, (10, 16, 16), (18, 62, 244, 10), border_radius=4)
+        ch = min(1.0, p.charge / 0.9) if p.charging else 0
+        pygame.draw.rect(s, C_SHOT, (20, 63, int(240 * ch), 7), border_radius=4)
+        # score / spores / cassettes
         self._t(self.mid, f"SCORE {self.score}", (WIDTH - 230, 16), C_TEXT)
         self._t(self.small, f"SPORE COUNT {self.spores}", (WIDTH - 230, 48), C_TOXIC)
         self._t(self.small, f"CASSETTES {self.cassettes}/{self.cassettes_total}",
@@ -912,7 +1104,11 @@ class Game:
                              border_radius=6)
             frac = max(0, self.boss.hp / self.boss.maxhp)
             pygame.draw.rect(s, C_DANGER, (bx, HEIGHT - 41, int(bw * frac), 16))
-            self._t(self.small, "MOLDTIUS", (bx, HEIGHT - 66), C_DANGER)
+            self._t(self.small, self.boss.NAME + "   (Phase %d)" % self.boss.phase(),
+                    (bx, HEIGHT - 66), C_DANGER)
+            if self.boss.weak_open > 0:
+                self._center(self.small, "WEAK POINT OPEN — hit the chest valve!",
+                             HEIGHT - 90, C_TEAL_LT)
 
     def _t(self, font, msg, pos, col):
         self.screen.blit(font.render(msg, True, col), pos)
@@ -922,11 +1118,32 @@ class Game:
         self.screen.blit(img, img.get_rect(center=(WIDTH // 2, y)))
 
     def on_key(self, key):
-        if key == pygame.K_RETURN and self.state in (STATE_MENU, STATE_WIN, STATE_OVER):
-            self.reset()
-            self.state = STATE_PLAY
-        elif key == pygame.K_m:
+        if key == pygame.K_m:
             self.snd.on = not self.snd.on
+            return
+        if self.state == STATE_HQ:
+            if key in (pygame.K_UP, pygame.K_w):
+                self.cursor = (self.cursor - 1) % len(self.HQ_ITEMS)
+            elif key in (pygame.K_DOWN, pygame.K_s):
+                self.cursor = (self.cursor + 1) % len(self.HQ_ITEMS)
+            elif key == pygame.K_RETURN:
+                if self.cursor == 0:
+                    self.reset()
+                    self.state = STATE_PLAY
+                else:
+                    cost = self.hq_cost(self.cursor)
+                    if self.bank >= cost:
+                        self.bank -= cost
+                        if self.cursor == 1:
+                            self.armor += 1
+                        elif self.cursor == 2:
+                            self.battery += 1
+                        elif self.cursor == 3:
+                            self.speed += 1
+                        self.snd.play("coin")
+        elif self.state in (STATE_WIN, STATE_OVER) and key == pygame.K_RETURN:
+            self.cursor = 0
+            self.state = STATE_HQ
 
 
 # --------------------------------------------------------------------------- #

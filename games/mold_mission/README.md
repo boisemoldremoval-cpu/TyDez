@@ -25,10 +25,16 @@ python3 mold_mission.py
 | ↑ / W / Space | Jump — press again in the air for a **double jump** |
 | ↓ / S | Crouch |
 | (into a wall, airborne) | **Wall slide**; jump to **wall-jump** off it |
-| **J** (tap) | Fire a shot |
+| **J** (tap) | Fire the Disinfect Blaster |
 | **J** (hold, release) | **Charge shot** — bigger, more damage |
-| **L / Shift** | HEPA Vac Dash (quick dash, briefly invulnerable) |
-| Enter | Start / restart · **M** sound · **Esc** quit |
+| **K** (hold) | **HEPA Vacuum** — suction beam: pull enemies in, finish weakened ones, eat spore shots (uses Energy) |
+| **L / Shift** | Dash (quick, briefly invulnerable) |
+| Enter | HQ: select / deploy / buy · **M** sound · **Esc** quit |
+
+At **DesilPower HQ** (title screen) use ↑/↓ and Enter to Deploy or spend banked
+**Sample Cassettes** on Armor (+HP), Battery (+Energy), or Speed upgrades — they
+persist across runs. Beat the **Sludge King** (chest weak-point opens after its
+attacks) to restore the Basement.
 
 ## What's in the prototype
 
