@@ -414,6 +414,81 @@ canisters.
 **Status:** documented; unlocks after Crawlor. A companion-drone entity fits the
 engine as a follower that auto-clears nearby hostile projectiles/spores.
 
+# Volume 5, Chapters 6–8 — Crawlspace rooms / cutscenes / QA
+
+**Rooms:** Access Hatch → Vapor Barrier Corridor (foam repairs) → Flooded Utility
+Bay (water + Pipe Parasites, checkpoint) → Foundation Tunnel (Mud Stalker
+ambushes) → Pipe Junction (valve puzzle) → Fungal Hive (destroy nodes) → Crawlor
+Arena. **Dialogue:** Ellis briefing (structural instability), Dr. Mira (destroy
+hive nodes), boss intro (Crawlor erupts), victory (deploy Air Scrubber Drone).
+**QA:** 60 FPS with mud/water/drone FX; telegraphed Crawlor emergences; modular
+behavior trees; reduced-darkness mode; 20–25 min target.
+
+**Built:** the compressed Crawlspace stage + Crawlor. Planned: discrete rooms,
+foam/valve puzzles, checkpoints, hive-node objective.
+
+# Volume 6 — Research Facility (Level 5, the finale)
+
+**Ch1 Overview:** contamination traced to an abandoned research facility where
+experimental fungal samples escaped; Moldius Prime originated from a cleanup
+experiment that became a hive mind. Zones: Reception/Security, Research Labs,
+Clean Rooms, Specimen Vault, Mechanical Plant, Server Core, Containment Reactor.
+Hazards: containment doors, laser grids, contaminated vents, chemical spills,
+sterilization cycles.
+**Ch2 Enemies:** Biofilm Sentinel (armor — Blaster then Vacuum), Vent Stalker
+(ceiling quadruped, retreats from the Drone), Culture Swarm (merges/splits —
+Drone + Vacuum), Reactor Spore (buffs nearby enemies), Security Mycelium (locks
+routes/alarms).
+**Ch3 Prototype Purification Core:** final tool — pulses that empower all tools,
+break elite defenses, expose weak points; Stage I–V; charges via objectives +
+Purification Cells.
+**Ch4/5 Map/Rooms:** 7 zones, checkpoints A/B/C, Prototype Cells + research logs,
+power/quarantine/vent/reactor puzzles.
+**Ch6 Moldius Prime:** the hive mind that absorbed every prior boss. 4 phases
+(commands elites + reactor hazards → contamination beams + tendrils → reactor
+destabilizes, use the Core → exposed-core battle). Purification-Node weak points
+after major attacks; 8–10 min.
+**Ch7 Ending:** Core purifies the facility; epilogues (Ty = Master Remediator);
+HQ celebration; credits over restored communities; post-credits faint signal in
+an unexplored region.
+**Ch8 QA:** stable 60 FPS in the finale; each phase adds one mechanic; 30–40 min.
+
+**Built:** Mission 5 (Research Facility) with the elite roster, the **Moldius
+Prime** 4-phase final boss, and a campaign-complete ending. Planned: the 7
+distinct zones, security/laser/reactor puzzles, the Purification Core as a
+usable ability, and full scripted cinematics.
+
+# Volume 7 — Meta Systems (post-campaign design, documented)
+
+- **Ch1 Skill Tree:** XP-driven permanent upgrades across Movement, Scanner, each
+  tool, and Restoration Mastery; each tool has a signature end-tier upgrade.
+- **Ch2 Upgrade Economy:** currencies — Sample Cassettes (primary), Research
+  Tokens, Restoration Badges, Purification Cells; rewards for time/coverage/
+  collectibles/optional objectives, not grinding.
+- **Ch3 HUD/UI:** health, energy, active tool, cassettes, objective, minimap,
+  contamination meter, boss bar; a **tool wheel** (radial switch across all
+  tools + scanner); consistent menus.
+- **Ch4 Save/Progression:** auto-checkpoints + HQ manual slots + cloud; tracks
+  missions, coverage, collectibles, ratings, unlockables; mission replay.
+- **Ch5 Audio/Music:** restoration-themed; per-level identities that intensify
+  with contamination; phase-evolving boss music; unique tool sound signatures;
+  telegraph cues.
+- **Ch6 Achievements:** campaign, restoration quality (100%/perfect/no-damage),
+  tool mastery, challenges (speedrun/no-hit/limited-upgrade); cosmetic rewards.
+- **Ch7 Difficulty:** Story / Standard / Expert / **Master Remediator** (post-
+  campaign remix) + optional adaptive assist; same story/levels.
+- **Ch8 Accessibility:** scalable UI, high-contrast, colorblind-safe, reduced
+  flashing; remappable + toggle/hold + aim assist; separate audio sliders +
+  subtitles; objective reminders, hints, nav markers.
+- **Ch9 New Game+ / Post-Game:** carry tools/cosmetics/lore/most skills; elite
+  variants + remixed encounters; Boss Rush, Time Trials, Daily Contracts,
+  Challenge Missions, Free Exploration, Gallery; leaderboards.
+
+**Status:** documented as the design target. The prototype already implements a
+slice — HQ upgrades (Armor/Battery/Speed) with a Sample-Cassette economy, the
+core HUD (health/energy/charge/score/cassettes/boss bar), mission select, and
+per-mission unlock progression.
+
 ---
 
 ## Reference images
