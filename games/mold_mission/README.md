@@ -22,7 +22,9 @@ python3 mold_mission.py
 | Key | Action |
 |-----|--------|
 | ← → / A D | Move |
-| ↑ / W / Space | Jump |
+| ↑ / W / Space | Jump — press again in the air for a **double jump** |
+| ↓ / S | Crouch |
+| (into a wall, airborne) | **Wall slide**; jump to **wall-jump** off it |
 | **J** (tap) | Fire a shot |
 | **J** (hold, release) | **Charge shot** — bigger, more damage |
 | **L / Shift** | HEPA Vac Dash (quick dash, briefly invulnerable) |
@@ -51,8 +53,10 @@ python3 mold_mission.py --selftest   # -> selftest: state=win ...
 Put transparent PNGs in **`assets/`** and they replace the vector art. Missing
 names fall back automatically. Recognized names:
 
-`player`, `player_shoot`, `sporebot`, `moldcrawler`, `toxicsprayer`, `boss`,
-`shot`, `shot_charged`, `toxic`, `coin`, `background`, `platform`.
+`player` (idle) and optional state frames `player_run`, `player_jump`,
+`player_fall`, `player_dash`, `player_crouch`, `player_shoot`, `player_hurt`;
+`sporebot`, `moldcrawler`, `toxicsprayer`, `boss`, `shot`, `shot_charged`,
+`toxic`, `coin`, `background`, `platform`.
 
 The art direction is the **Mold Mission design sheet** in `art_reference/`.
 See the game's tuning constants at the top of `mold_mission.py`.

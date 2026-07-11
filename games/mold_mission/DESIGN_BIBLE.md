@@ -48,6 +48,41 @@ Not yet built: the 4 separate stages + stage select, puzzles, the DesilPower HQ
 upgrade tree, power-up pickups, and Sealant Shot / weapon switching. See the
 game's `README.md` for the drop-in art asset names.
 
+---
+
+# Volume 1, Chapter 2 — Elite Mold Technician (Player Character)
+
+**Codename:** Ty (working name) · **Role:** Elite DesilPower Mold Technician ·
+**Mission:** eliminate intelligent mold infestations while restoring buildings ·
+**Personality:** courageous, optimistic, calm under pressure, problem solver.
+
+**Starting equipment:** HEPA Backpack Unit, Digital Mold Scanner, Utility Belt,
+Inspection Flashlight, Sample Cassette Holder, Protective Visor & Respirator.
+
+**Player abilities:** run, jump, crouch, interact, climb ladders, wall slide,
+dash *(unlock)*, double jump *(unlock)*, use remediation tools, deploy drones,
+collect Sample Cassettes, scan hidden mold colonies.
+
+**Upgrade path:** L1 HEPA Vacuum → L2 Disinfect Blaster → L3 Seal Foam Cannon →
+L4 Air Scrubber Drone → L5 UV Pulse Emitter.
+
+**Animation checklist:** Idle, Walk, Run, Sprint, Jump, Fall, Land, Crouch,
+Ladder Climb, Dash, Hurt, Victory, Scan, Vacuum, Spray, Deploy Drone, Boss
+Introduction, Game Over.
+
+**Asset IDs:** PLY-001 Main Character, PLY-002 HEPA Backpack, PLY-003 Scanner,
+PLY-004 Utility Belt, PLY-005 Helmet, PLY-006 Visor, PLY-007 Gloves,
+PLY-008 Boots.
+
+**Implemented in prototype:** run, jump, **double jump**, **crouch**, **wall
+slide + wall jump**, dash, charged blaster, Sample Cassette pickups. State-based
+player sprites are supported via drop-in art (`player_run`, `player_jump`,
+`player_fall`, `player_dash`, `player_crouch`, `player_shoot`, `player_hurt`;
+`player` is the idle fallback). Not yet: ladder climb, scan, drones, and the
+full weapon upgrade tree.
+
+---
+
 ## Reference images
 
 - `art_reference/mold_mission_designsheet.png` — the full design sheet.

@@ -117,9 +117,10 @@ def glow(s, cx, cy, r, color, strength=120):
 # --------------------------------------------------------------------------- #
 # Assets (drop-in PNGs override the vector art)
 # --------------------------------------------------------------------------- #
-ASSET_NAMES = ("player", "player_shoot", "sporebot", "moldcrawler",
-               "toxicsprayer", "boss", "shot", "shot_charged", "toxic",
-               "coin", "background", "platform")
+ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
+               "player_dash", "player_crouch", "player_shoot", "player_hurt",
+               "sporebot", "moldcrawler", "toxicsprayer", "boss", "shot",
+               "shot_charged", "toxic", "coin", "background", "platform")
 
 
 class AssetPack:
@@ -453,6 +454,13 @@ class Player:
         self.dash_cd = 0.0
         self.anim = 0.0
         self.dead = False
+        self.jump_prev = False
+        self.jumps = 2          # ground jump + one air (double) jump
+        self.wall = 0           # -1 wall on left, 1 wall on right, 0 none
+        self.wj_lock = 0.0      # wall-jump horizontal lockout
+        self.wj_dir = 0
+        self.crouching = False
+        self.sliding = False
 
     def rect(self):
         return (self.x, self.y, self.w, self.h)
@@ -473,6 +481,8 @@ class Player:
         left = keys[pygame.K_LEFT] or keys[pygame.K_a]
         right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
         up = keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]
+        down = keys[pygame.K_DOWN] or keys[pygame.K_s]
+        self.wj_lock = max(0.0, self.wj_lock - dt)
 
         # dash
         if (keys[pygame.K_l] or keys[pygame.K_LSHIFT]) and self.dash_cd <= 0 \
@@ -480,9 +490,15 @@ class Player:
             self.dash_t = DASH_TIME
             self.dash_cd = DASH_CD
             snd.play("dash")
+
+        self.crouching = down and self.on_ground and self.dash_t <= 0
         if self.dash_t > 0:
             self.dash_t -= dt
             self.vx = self.facing * DASH_SPEED
+        elif self.wj_lock > 0:
+            self.vx = self.wj_dir * MOVE_SPEED
+        elif self.crouching:
+            self.vx = 0.0
         else:
             self.vx = (right - left) * MOVE_SPEED
             if right:
@@ -490,21 +506,47 @@ class Player:
             elif left:
                 self.facing = -1
 
-        self.vy += GRAVITY * dt
-        if up and self.on_ground and self.dash_t <= 0:
-            self.vy = -JUMP_V
-            self.on_ground = False
-            snd.play("jump")
-
-        # move + collide
+        # -- horizontal move + resolve (records wall contact) --
+        self.wall = 0
         self.x += self.vx * dt
         self.x = max(0, min(LEVEL_W - self.w, self.x))
         for (px, py, pw, ph) in plats:
             if overlap(self.x, self.y, self.w, self.h, px, py, pw, ph):
                 if self.vx > 0:
                     self.x = px - self.w
+                    self.wall = 1
                 elif self.vx < 0:
                     self.x = px + pw
+                    self.wall = -1
+
+        self.vy += GRAVITY * dt
+        # wall slide: cling and fall slowly when pressing into a wall
+        self.sliding = (not self.on_ground and self.wall != 0 and self.vy > 0
+                        and ((right and self.wall == 1) or (left and self.wall == -1)))
+        if self.sliding:
+            self.vy = min(self.vy, 130)
+
+        # jump: edge-triggered — ground, wall, or air (double) jump
+        jump_edge = up and not self.jump_prev
+        self.jump_prev = up
+        if jump_edge and self.dash_t <= 0:
+            if self.on_ground:
+                self.vy = -JUMP_V
+                self.jumps = 1
+                snd.play("jump")
+            elif self.wall != 0:
+                self.vy = -JUMP_V
+                self.wj_dir = -self.wall
+                self.wj_lock = 0.18
+                self.facing = -self.wall
+                self.jumps = 1
+                snd.play("jump")
+            elif self.jumps > 0:
+                self.vy = -JUMP_V * 0.92
+                self.jumps -= 1
+                snd.play("jump")
+
+        # -- vertical move + resolve --
         self.y += self.vy * dt
         self.on_ground = False
         for (px, py, pw, ph) in plats:
@@ -516,6 +558,8 @@ class Player:
                 elif self.vy < 0:
                     self.y = py + ph
                     self.vy = 0
+        if self.on_ground:
+            self.jumps = 2
         if abs(self.vx) > 1 and self.on_ground:
             self.anim += dt
 
@@ -558,7 +602,23 @@ class Player:
                     fcircle(s, cx - self.facing * k * 12, y + self.h / 2,
                             8 - k * 2, (*C_TEAL_LT, 90))
             if assets.has("player"):
-                assets.blit_fit(s, "player", cx, y + self.h / 2,
+                # pick an animation sprite by state, fall back to 'player'
+                if self.iframe > 0:
+                    want = "player_hurt"
+                elif self.dash_t > 0:
+                    want = "player_dash"
+                elif self.crouching:
+                    want = "player_crouch"
+                elif not self.on_ground:
+                    want = "player_fall" if self.vy > 0 else "player_jump"
+                elif self.charging or self.fire_prev:
+                    want = "player_shoot"
+                elif abs(self.vx) > 1:
+                    want = "player_run"
+                else:
+                    want = "player"
+                name = want if assets.has(want) else "player"
+                assets.blit_fit(s, name, cx, y + self.h / 2,
                                 self.w * 2.1, self.h * 1.25, flip=self.facing < 0)
             else:
                 bob = abs(math.sin(self.anim * 9)) * 3 if self.on_ground else 0
@@ -773,10 +833,11 @@ class Game:
                     "collect Sample Cassettes, and shut down MOLDTIUS at the source."]):
                 self._center(self.small, ln, HEIGHT // 2 - 34 + i * 22, C_DIM)
             for i, ln in enumerate([
-                    "Move: Arrows / A D      Jump: Up / W / Space",
+                    "Move: Arrows / A D    Jump: Up  (again in air = double jump)",
+                    "Crouch: Down    Wall-slide + wall-jump on walls",
                     "Fire blaster: J  (hold to CHARGE)      Dash: L / Shift"]):
-                self._center(self.small, ln, HEIGHT // 2 + 20 + i * 24, C_DIM)
-            self._center(self.mid, "Press Enter to deploy", HEIGHT // 2 + 96, C_TEAL_LT)
+                self._center(self.small, ln, HEIGHT // 2 + 18 + i * 22, C_DIM)
+            self._center(self.mid, "Press Enter to deploy", HEIGHT // 2 + 100, C_TEAL_LT)
             return
 
         self._draw_world(t)
