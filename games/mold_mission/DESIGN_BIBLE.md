@@ -539,6 +539,25 @@ track creator/date/version/deps/Bible-ID; support build scripts + validation
 filenames (`sentinel.png`, `boss5.png`, `platform4.png`, …) are the gameplay-
 facing keys the loader reads; production ENM/BOS/LVL IDs would map onto them.
 
+# Volume 8, Chapter 4 — AI Implementation Guide
+
+Modular, data-driven AI for enemies, bosses, companions, NPCs, environment.
+**Core:** FSMs/behavior trees with shared perception/navigation/combat/recovery
+modules. **Enemy states:** Idle → Patrol → Investigate → Alert → Attack →
+Recover → Retreat → Defeated (data-configured). **Boss framework:** phase
+controllers, scripted events, attack selectors, cooldown management,
+vulnerability windows, cinematic triggers, per-phase tuning. **Companion AI:**
+the Air Scrubber Drone prioritizes nearby contamination, follows commands, avoids
+hazards, returns when idle/low. **Difficulty** scales reaction time / aggression
+/ coordination, not just health. Debug overlays (perception, paths, state,
+cooldowns); event-bus integration with missions/audio/anim/UI/save.
+
+**Status:** documented as the target. The prototype already reflects the shape —
+each `Enemy` kind is a small behavior with a kind key + tunables; each boss has a
+`phase()`, an attack timer/selector, and a `weak_open` vulnerability window (the
+"cores expose after an attack" pattern). Formalizing FSM/BT modules + an event
+bus is the production step.
+
 ---
 
 ## Reference images
