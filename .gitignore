@@ -17,6 +17,6 @@ cartoon2d.mp4
 # third-party installed skills
 .agents/
 
-# keep the Mold & Blob game's drop-in art folder (overrides the generic assets/ rule)
-!games/mold_and_blob/assets/
-!games/mold_and_blob/assets/**
+# keep the games' drop-in art folders (overrides the generic assets/ rule)
+!games/*/assets/
+!games/*/assets/**
