@@ -198,6 +198,28 @@ Blaster. Rewards: Bathroom Badge, 750 Cassettes, Level 3 access.
 **Status:** documented; not yet built. A natural next milestone once Level 1's
 rooms are fleshed out.
 
+# Volume 3, Chapter 2 — Enemy Pack 2: Bathroom Infestation
+
+Level 2 roster; emphasizes positioning + combining movement, HEPA Vacuum, and
+Dash (not swarms).
+
+- **ENM-101 Steam Mite** — small, hides in steam clouds, ambushes when visibility
+  is low; fast, low HP; weak to HEPA suction after exposure.
+- **ENM-102 Mold Leech** — clings to walls/ceilings, drops onto the player, deals
+  **damage-over-time** until shaken off by **dashing** or the HEPA Vacuum.
+- **ENM-103 Vent Spore Swarm** — floating spore cluster patrolling vents; **splits
+  into smaller spores when damaged** unless finished with a **charged vacuum**.
+- **ENM-104 Mold Bat Mk II** — faster Basement bat; **chained dive attacks**,
+  retreats into ceiling vents between strikes.
+
+Shared AI: Idle → Patrol → Investigate Sound → Detect → Attack → Retreat →
+Stunned → Defeated (data-driven). Audio/FX: steam hiss, dripping, ventilation
+hum, spore bursts, wet footsteps, enclosed-room echo.
+
+**Status:** documented; ships with **Level 2 (Bathroom)**. Mold Bat Mk II reuses
+the current Mold Bat with higher speed + chained dives; Vent Spore Swarm needs the
+charged-vacuum split mechanic; Mold Leech needs the DoT/shake-off system.
+
 ---
 
 ## Reference images
