@@ -606,6 +606,25 @@ Living document; each milestone ends with a design/eng/art/audio/QA sign-off.
 **Status:** documented; a snapshot of where the prototype sits on the road to a
 production release.
 
+# Volume 8, Chapter 7 — Build & Deployment Guide
+
+Repeatable build/test/package/deploy across platforms. **Targets:** Windows,
+macOS, Linux, Steam Deck, modern consoles (mobile later with a reduced UI).
+**Build pipeline:** automated builds validate integrity, compile, package
+assets, run smoke tests, generate version numbers, archive artifacts. **Stages:**
+Development → Internal QA → Beta Candidate → Release Candidate → Gold Master →
+Public Release (approval-gated). **Release verification:** save compat,
+localization, achievements, perf, accessibility, storefront assets, crash
+reporting. **Rollback:** keep previous stable builds + save-compat data +
+deployment scripts. Every release ships changelogs/versions/known-issues/
+migration notes.
+
+**Status:** documented as the target. The prototype is **pure Python + pygame in
+one file**, so it already runs cross-platform (Windows/macOS/Linux/Steam Deck)
+from source via `python3 mold_mission.py`, and its `--selftest` is the smoke-test
+step of the pipeline. A production build would wrap it with packaging (e.g.
+PyInstaller per-OS), version stamping, and the staged release gates above.
+
 ---
 
 ## Reference images
