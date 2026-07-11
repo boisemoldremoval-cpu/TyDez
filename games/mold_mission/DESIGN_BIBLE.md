@@ -316,6 +316,47 @@ deterministic, dissolve on timer/replace).
 **Status:** documented; unlocks after the Spore Queen. Foam-platform placement is
 a natural fit for the existing platform engine when Level 3 is built.
 
+# Volume 4, Chapter 5 — Attic World Map
+
+Looping multi-level, vertical-exploration attic. Rooms: 01 Access Hatch · 02
+Storage Loft · 03 Insulation Field · 04 HVAC Junction · 05 Broken Skylight · 06
+Roof Vent Network · 07 Queen's Nest. Checkpoints A (after Storage Loft) + B
+(before the Nest). Secrets: rafter-tunnel Gold cassette, chimney cosmetic, seal
+all roof leaks for a lore entry. Puzzle: seal roof leaks (Foam Cannon), restore
+ventilation, redirect air with fans, clear spores (HEPA) before opening the Nest.
+
+# Volume 4, Chapter 6 — Attic Room-by-Room
+
+Access Hatch (dust visibility + dash across joists) → Storage Loft (foam
+platforms to shelving) → Insulation Field (Creepers, slow footing) → HVAC
+Junction (rotate duct valves; ventilation weakens flyers) → Broken Skylight (wind
+alters jumps; Roof Leeches) → Roof Vent Network (seal leaks + Spore Hawks; Gold
+cassette) → Queen's Nest (checkpoint + cinematic). Accessibility: nav markers,
+reduced wind.
+
+**Implemented (V4C5/6):** the compressed single scrolling Attic with updraft air
+currents and the full roster. Not yet: discrete rooms, foam/valve/leak puzzles,
+checkpoints.
+
+# Volume 4, Chapter 7 — Attic Cutscenes & Dialogue
+
+Ellis briefing (spores could reach neighboring homes), Dr. Mira (restore
+ventilation), boss intro (**"THE SKY BELONGS TO THE HIVE."**), victory (installs
+the Seal Foam Cannon), HQ debrief teasing the **Crawlspace** as the next mission
+and the source of remaining contamination.
+
+**Implemented:** boss-intro banner uses the canonical Spore Queen line.
+
+# Volume 4, Chapter 8 — Attic Technical Spec & QA
+
+60 FPS with dynamic wind/particles/lighting (auto-scaled). Flyers pressure
+movement without unavoidable damage; Spore Queen phases escalate with clean
+telegraphs. Common wind-aware deterministic state machine. Accessibility: reduced
+wind/shake, subtitles, hints, remap, colorblind indicators. QA: seal all leaks,
+ventilation completes, collectibles reachable, boss transitions, post-boss
+shortcuts, no platforming soft-locks. Target 18–24 min. Hook: samples point
+**beneath the foundation → the Crawlspace (Level 4)**.
+
 ---
 
 ## Reference images

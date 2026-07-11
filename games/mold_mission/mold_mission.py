@@ -1369,7 +1369,7 @@ class Game:
 
     BOSS_QUOTE = {1: "\"THIS HOME... IS MINE!\"",
                   2: "\"YOU CANNOT WASH AWAY PERFECTION.\"",
-                  3: "\"THE SPORES ANSWER TO ME ALONE.\""}
+                  3: "\"THE SKY BELONGS TO THE HIVE.\""}
     REWARD_CASSETTES = {1: 500, 2: 750, 3: 1000}
 
     def spawn_boss(self):
