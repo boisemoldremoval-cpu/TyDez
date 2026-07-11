@@ -398,6 +398,22 @@ cassettes, Level 5 unlocked. Target 6–8 min.
 **Status:** documented; the 4th boss. Level 4 (Crawlspace) will be built once its
 world map / room layout arrives — I now have its enemy pack (V5C2) and boss.
 
+# Volume 5, Chapter 4 — Air Scrubber Drone
+
+Fourth permanent tool (Crawlor / Crawlspace reward) — an autonomous companion.
+**Abilities:** auto-filters nearby airborne spores, highlights hidden
+contamination, temporarily weakens flying enemies, powers purification beacons.
+**Commands (radial):** Deploy, Recall, Hold, Follow, Focus Clean, Beacon Mode.
+**Combat:** disrupts spore projectiles, briefly stuns airborne enemies, creates
+safe zones. **Environment:** purifies sealed rooms, restores breathable air,
+activates air-quality sensors, opens clean-air-threshold doors. **Upgrades Mk
+I–V:** radius, battery, dual filter, adaptive-AI targeting. Battery recharges
+docked; Emergency Recall before depletion. Compact quad-rotor with HEPA
+canisters.
+
+**Status:** documented; unlocks after Crawlor. A companion-drone entity fits the
+engine as a follower that auto-clears nearby hostile projectiles/spores.
+
 ---
 
 ## Reference images
