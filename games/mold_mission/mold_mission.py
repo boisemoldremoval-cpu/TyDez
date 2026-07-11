@@ -152,11 +152,21 @@ def orrect(s, rect, color, radius=4, ol=2):
     pygame.draw.rect(s, color, (x, y, w, h), border_radius=radius)
 
 
+_glow_cache = {}
+
+
 def glow(s, cx, cy, r, color, strength=120):
-    surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
-    for i in range(int(r), 0, -2):
-        a = int(strength * (1 - i / r) ** 2)
-        fcircle(surf, r, r, i, (color[0], color[1], color[2], a))
+    r = int(r)
+    if r < 1:
+        return
+    key = (r, color, strength)
+    surf = _glow_cache.get(key)
+    if surf is None:
+        surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+        for i in range(r, 0, -2):
+            a = int(strength * (1 - i / r) ** 2)
+            fcircle(surf, r, r, i, (color[0], color[1], color[2], a))
+        _glow_cache[key] = surf
     s.blit(surf, (cx - r, cy - r))
 
 
