@@ -11,12 +11,21 @@ to get around the level, spray every mold patch clean, then reach the exit door.
 Single file, no external art (everything is drawn procedurally), optional
 procedural sound.
 
-**Visuals** are all generated in code — a parallax hill background with a
-vignette, mossy textured platforms with drop shadows, an outlined/shaded TyGuy
-with a hard hat, backpack sprayer and a walk cycle, a glossy blinking Blob, a
-glowing/pulsing exit door, organic mold with drifting spores, and a particle
-system (spray droplets, mold-dissolve puffs, landing dust, trampoline bursts,
-door sparkles). No image files, so it stays a single portable script.
+**Visuals** are all generated in code (no image files) with a "cinematic" render
+pipeline:
+
+- **2x supersampling** — the scene is drawn at double resolution and downsampled,
+  so every edge is smooth.
+- **Bloom** — bright areas (door glow, spray, mold, highlights) bleed light.
+- **numpy noise textures** — real dirt/grime on platforms and soft clouds in the sky.
+- **Rim lighting** on TyGuy and Blob, plus drifting **mist** and floating **dust motes**.
+- **Colour grade + film grain** for a filmic finish, over the parallax hill
+  background and vignette.
+- A **particle system**: spray droplets, mold-dissolve puffs, landing dust,
+  trampoline bursts, door sparkles.
+
+Press **G** in-game to toggle the heavy effects (bloom/grain) if you want max
+frame rate on a slower machine — supersampling stays on either way.
 
 ## Run
 
@@ -37,7 +46,7 @@ python3 mold_blob.py
 | **2** | Blob → **Bridge** |
 | **3** | Blob → **Ladder** |
 | **E** / 0 | Call Blob back (follow you) |
-| Enter | Start / restart · **M** sound · **Esc** quit |
+| Enter | Start / restart · **M** sound · **G** toggle effects · **Esc** quit |
 
 ## How Blob works
 

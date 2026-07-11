@@ -17,7 +17,13 @@ Controls
     3 ......................... Blob -> Ladder (climb)
     E / 0 ..................... call Blob back (follow you)
     Enter ..................... start / restart
-    M ......................... toggle sound      Esc ... quit
+    M ......................... toggle sound
+    G ......................... toggle high-quality effects (bloom/grain)
+    Esc ...................... quit
+
+The graphics are all generated in code (no image files): the scene is rendered
+at 2x and downsampled for smooth edges, with bloom, numpy-noise textures, rim
+lighting, drifting mist + dust, and a film-grade/grain pass.
 
 Run
     pip install pygame numpy
@@ -39,16 +45,24 @@ try:
 except Exception:
     _HAS_GFX = False
 
+try:
+    import numpy as np
+    _HAS_NP = True
+except Exception:
+    _HAS_NP = False
+
 # --------------------------------------------------------------------------- #
 # Config / palette
 # --------------------------------------------------------------------------- #
 WIDTH, HEIGHT = 960, 640
+SS = 2                     # supersample factor (render at 2x, downscale)
+SW, SH = WIDTH * SS, HEIGHT * SS
 FPS = 60
 
-C_SKY_TOP = (40, 54, 66)
-C_SKY_BOT = (17, 24, 31)
-C_HILL_FAR = (30, 44, 53)
-C_HILL_NEAR = (23, 35, 43)
+C_SKY_TOP = (44, 60, 74)
+C_SKY_BOT = (16, 23, 30)
+C_HILL_FAR = (32, 47, 57)
+C_HILL_NEAR = (24, 37, 46)
 C_BRAND = (86, 214, 165)
 C_BRAND_DK = (40, 140, 104)
 C_BLOB = (104, 214, 170)
@@ -75,13 +89,13 @@ STATE_MENU, STATE_PLAY, STATE_WIN, STATE_OVER = "menu", "play", "win", "over"
 FOLLOW, TRAMPOLINE, BRIDGE, LADDER = "follow", "trampoline", "bridge", "ladder"
 
 
-# --------------------------------------------------------------------------- #
-# Drawing helpers (anti-aliased shapes, outlines, gradients, glows)
-# --------------------------------------------------------------------------- #
 def overlap(ax, ay, aw, ah, bx, by, bw, bh):
     return ax < bx + bw and ax + aw > bx and ay < by + bh and ay + ah > by
 
 
+# --------------------------------------------------------------------------- #
+# Low-level anti-aliased primitives (draw straight onto a surface, raw pixels)
+# --------------------------------------------------------------------------- #
 def fcircle(s, cx, cy, r, color):
     cx, cy, r = int(cx), int(cy), int(r)
     if r < 1:
@@ -90,27 +104,19 @@ def fcircle(s, cx, cy, r, color):
         _gfx.filled_circle(s, cx, cy, r, color)
         _gfx.aacircle(s, cx, cy, r, color)
     else:
-        pygame.draw.circle(s, color, (cx, cy), r)
+        pygame.draw.circle(s, color[:3], (cx, cy), r)
 
 
-def ocircle(s, cx, cy, r, color, ol=2):
-    fcircle(s, cx, cy, r + ol, OUTLINE)
-    fcircle(s, cx, cy, r, color)
-
-
-def orrect(s, rect, color, radius=4, ol=2):
-    x, y, w, h = [int(v) for v in rect]
-    pygame.draw.rect(s, OUTLINE, (x - ol, y - ol, w + 2 * ol, h + 2 * ol),
-                     border_radius=radius + ol)
-    pygame.draw.rect(s, color, (x, y, w, h), border_radius=radius)
-
-
-def ellipse_o(s, cx, cy, rx, ry, color, ol=2):
-    pygame.draw.ellipse(s, OUTLINE,
-                        (int(cx - rx - ol), int(cy - ry - ol),
-                         int(2 * (rx + ol)), int(2 * (ry + ol))))
-    pygame.draw.ellipse(s, color,
-                        (int(cx - rx), int(cy - ry), int(2 * rx), int(2 * ry)))
+def fellipse(s, x, y, w, h, color):
+    x, y, w, h = int(x), int(y), int(w), int(h)
+    if w < 1 or h < 1:
+        return
+    if _HAS_GFX:
+        rx, ry = max(1, w // 2), max(1, h // 2)
+        _gfx.filled_ellipse(s, x + rx, y + ry, rx, ry, color)
+        _gfx.aaellipse(s, x + rx, y + ry, rx, ry, color)
+    else:
+        pygame.draw.ellipse(s, color[:3], (x, y, w, h))
 
 
 def _lerp(a, b, f):
@@ -130,114 +136,164 @@ def vgrad(w, h, top, bot, radius=0):
     return surf
 
 
-_cache = {}
+def noise_surf(w, h, cell, seed, lo, hi):
+    """Smooth value-noise as a grayscale surface (for texture overlays)."""
+    if not _HAS_NP:
+        s = pygame.Surface((w, h))
+        s.fill((255, 255, 255))
+        return s
+    rng = np.random.default_rng(seed)
+    gw, gh = max(2, w // cell), max(2, h // cell)
+    g = rng.integers(lo, hi, (gw, gh)).astype("uint8")
+    small = pygame.surfarray.make_surface(np.repeat(g[:, :, None], 3, axis=2))
+    return pygame.transform.smoothscale(small, (w, h))
 
 
-def glow(r, color, strength=110):
-    key = ("g", r, color, strength)
-    g = _cache.get(key)
-    if g is None:
-        g = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
-        for i in range(r, 0, -2):
-            a = int(strength * (1 - i / r) ** 2)
-            fcircle(g, r, r, i, (color[0], color[1], color[2], a))
-        _cache[key] = g
-    return g
+# --------------------------------------------------------------------------- #
+# Canvas — scales logical coordinates up to the 2x render surface
+# --------------------------------------------------------------------------- #
+class Canvas:
+    def __init__(self, surf, k):
+        self.s = surf
+        self.k = k
 
+    def circle(self, cx, cy, r, color):
+        fcircle(self.s, cx * self.k, cy * self.k, r * self.k, color)
 
-def soft_shadow(w, h):
-    key = ("s", w, h)
-    g = _cache.get(key)
-    if g is None:
-        g = pygame.Surface((w, h), pygame.SRCALPHA)
+    def ocircle(self, cx, cy, r, color, ol=2):
+        k = self.k
+        fcircle(self.s, cx * k, cy * k, (r + ol) * k, OUTLINE)
+        fcircle(self.s, cx * k, cy * k, r * k, color)
+
+    def rect(self, rect, color, radius=0):
+        k = self.k
+        x, y, w, h = rect
+        pygame.draw.rect(self.s, color, (int(x * k), int(y * k),
+                         int(w * k), int(h * k)), border_radius=int(radius * k))
+
+    def orrect(self, rect, color, radius=4, ol=2):
+        k = self.k
+        x, y, w, h = rect
+        pygame.draw.rect(self.s, OUTLINE, (int((x - ol) * k), int((y - ol) * k),
+                         int((w + 2 * ol) * k), int((h + 2 * ol) * k)),
+                         border_radius=int((radius + ol) * k))
+        pygame.draw.rect(self.s, color, (int(x * k), int(y * k),
+                         int(w * k), int(h * k)), border_radius=int(radius * k))
+
+    def line(self, color, p1, p2, w=1):
+        k = self.k
+        pygame.draw.line(self.s, color, (p1[0] * k, p1[1] * k),
+                         (p2[0] * k, p2[1] * k), max(1, int(w * k)))
+
+    def ellipse_rect(self, rect, color):
+        k = self.k
+        x, y, w, h = rect
+        pygame.draw.ellipse(self.s, color,
+                            (int(x * k), int(y * k), int(w * k), int(h * k)))
+
+    def oellipse(self, cx, cy, rx, ry, color, ol=2):
+        k = self.k
+        pygame.draw.ellipse(self.s, OUTLINE,
+                            (int((cx - rx - ol) * k), int((cy - ry - ol) * k),
+                             int(2 * (rx + ol) * k), int(2 * (ry + ol) * k)))
+        pygame.draw.ellipse(self.s, color,
+                            (int((cx - rx) * k), int((cy - ry) * k),
+                             int(2 * rx * k), int(2 * ry * k)))
+
+    def arc(self, color, rect, a0, a1, w=1):
+        k = self.k
+        x, y, w0, h = rect
+        pygame.draw.arc(self.s, color, (int(x * k), int(y * k),
+                        int(w0 * k), int(h * k)), a0, a1, max(1, int(w * k)))
+
+    def glow(self, cx, cy, r, color, strength=110):
+        k = self.k
+        R = int(r * k)
+        for i in range(R, 0, -3):
+            a = int(strength * (1 - i / R) ** 2)
+            fcircle(self.s, cx * k, cy * k, i,
+                    (color[0], color[1], color[2], a))
+
+    def shadow(self, cx, cy, w, h):
+        k = self.k
         for i in (0, 2, 4):
-            pygame.draw.ellipse(g, (0, 0, 0, 42),
-                                (i, i, max(1, w - 2 * i), max(1, h - 2 * i)))
-        _cache[key] = g
-    return g
+            fellipse(self.s, (cx - w / 2 + i) * k, (cy - h / 2 + i) * k,
+                     (w - 2 * i) * k, (h - 2 * i) * k, (0, 0, 0, 42))
 
 
 # --------------------------------------------------------------------------- #
-# Character illustrations (shared so the menu can show them too)
+# Character illustrations
 # --------------------------------------------------------------------------- #
-def draw_blob(s, cx, cy, r, wobble, t):
+def draw_blob(c, cx, cy, r, wobble, t):
     sq = math.sin(wobble) * 0.12
     rx, ry = r * (1 + sq), r * (1 - sq)
-    sh = soft_shadow(int(rx * 2.4), 9)
-    s.blit(sh, (cx - sh.get_width() / 2, cy + ry - 3))
-    gl = glow(int(r * 1.7), C_BLOB, 55)
-    s.blit(gl, (cx - gl.get_width() / 2, cy - gl.get_height() / 2))
-    ellipse_o(s, cx, cy, rx, ry, C_BLOB)
-    fcircle(s, cx, cy - ry * 0.32, rx * 0.72, (150, 236, 202, 55))
-    fcircle(s, cx - rx * 0.34, cy - ry * 0.42, r * 0.28, (224, 250, 236, 165))
+    c.shadow(cx, cy + ry, rx * 2.4, 9)
+    c.glow(cx, cy, r * 1.7, C_BLOB, 55)
+    c.oellipse(cx, cy, rx, ry, C_BLOB)
+    c.circle(cx, cy - ry * 0.32, rx * 0.72, (150, 236, 202, 55))
+    c.circle(cx - rx * 0.16, cy - ry * 0.52, rx * 0.55, (215, 255, 235, 34))  # rim
+    c.circle(cx - rx * 0.34, cy - ry * 0.42, r * 0.28, (224, 250, 236, 175))
     blink = (t * 0.9 % 3.0) < 0.13
     for side in (-1, 1):
         exx, eyy = cx + side * r * 0.34, cy - 2
         if blink:
-            pygame.draw.line(s, (20, 30, 28), (exx - 3, eyy), (exx + 3, eyy), 2)
+            c.line((20, 30, 28), (exx - 3, eyy), (exx + 3, eyy), 2)
         else:
-            fcircle(s, exx, eyy, r * 0.26, (250, 252, 250))
-            fcircle(s, exx + 1, eyy + 0.5, r * 0.12, (26, 34, 30))
+            c.circle(exx, eyy, r * 0.26, (250, 252, 250))
+            c.circle(exx + 1, eyy + 0.5, r * 0.12, (26, 34, 30))
     if not blink:
-        pygame.draw.arc(s, (26, 60, 48),
-                        (int(cx - 5), int(cy + 1), 10, 7), 3.7, 5.7, 2)
+        c.arc((26, 60, 48), (cx - 5, cy + 1, 10, 7), 3.7, 5.7, 2)
 
 
-def draw_tyguy(s, x, y, w, h, facing, moving, on_ground, anim, spraying, t):
+def draw_tyguy(c, x, y, w, h, facing, moving, on_ground, anim, spraying, t):
     cx = x + w / 2
     feet = y + h
     fc = 1 if facing >= 0 else -1
     walk = math.sin(anim * 0.045) if (moving and on_ground) else 0.0
 
     if on_ground:
-        sh = soft_shadow(int(w * 1.9), 9)
-        s.blit(sh, (cx - sh.get_width() / 2, feet - 4))
+        c.shadow(cx, feet, w * 1.9, 9)
 
-    # backpack tank
-    orrect(s, (cx - fc * 13 - 5, y + 9, 11, 20), C_BRAND_DK, radius=5)
-    fcircle(s, cx - fc * 13, y + 8, 3, (30, 46, 40))
+    c.orrect((cx - fc * 13 - 5, y + 9, 11, 20), C_BRAND_DK, radius=5)
+    c.circle(cx - fc * 13, y + 8, 3, (30, 46, 40))
 
-    # legs (walk cycle)
     hip = (cx, y + 29)
     sw = 5 * walk
     for foot in ((cx - 4 + sw, feet), (cx + 4 - sw, feet)):
-        pygame.draw.line(s, OUTLINE, hip, foot, 9)
-        pygame.draw.line(s, (52, 66, 60), hip, foot, 6)
-        ocircle(s, foot[0], foot[1] - 2, 3.5, (40, 52, 48), ol=1)
+        c.line(OUTLINE, hip, foot, 9)
+        c.line((52, 66, 60), hip, foot, 6)
+        c.ocircle(foot[0], foot[1] - 2, 3.5, (40, 52, 48), ol=1)
 
-    # torso
-    orrect(s, (x + 2, y + 12, w - 4, 19), C_BRAND_DK, radius=6)
-    pygame.draw.rect(s, C_BRAND, (int(x + 4), int(y + 13), int(w - 8), 8),
-                     border_radius=5)
-    # chest "T" emblem
-    fcircle(s, cx, y + 22, 5, (22, 42, 34))
-    pygame.draw.line(s, (210, 245, 228), (cx - 3, y + 20), (cx + 3, y + 20), 2)
-    pygame.draw.line(s, (210, 245, 228), (cx, y + 20), (cx, y + 25), 2)
+    c.orrect((x + 2, y + 12, w - 4, 19), C_BRAND_DK, radius=6)
+    c.rect((x + 4, y + 13, w - 8, 8), C_BRAND, radius=5)
+    c.circle(x + 6, y + 14, 3, (190, 245, 220, 60))            # torso rim
+    c.circle(cx, y + 22, 5, (22, 42, 34))
+    c.line((210, 245, 228), (cx - 3, y + 20), (cx + 3, y + 20), 2)
+    c.line((210, 245, 228), (cx, y + 20), (cx, y + 25), 2)
 
-    # arm + spray gun (raised while spraying)
     shoulder = (cx + fc * 5, y + 17)
     gun = (cx + fc * (w / 2 + 7), y + 17 - (5 if spraying else 0))
-    pygame.draw.line(s, OUTLINE, shoulder, gun, 8)
-    pygame.draw.line(s, C_SKIN, shoulder, gun, 5)
-    orrect(s, (gun[0] - 4, gun[1] - 4, 8, 8), (70, 80, 76), radius=2)
+    c.line(OUTLINE, shoulder, gun, 8)
+    c.line(C_SKIN, shoulder, gun, 5)
+    c.orrect((gun[0] - 4, gun[1] - 4, 8, 8), (70, 80, 76), radius=2)
 
-    # head + face
     hx, hy = cx, y + 7
-    ocircle(s, hx, hy, 8, C_SKIN)
+    c.ocircle(hx, hy, 8, C_SKIN)
+    c.circle(hx - 3, hy - 3, 3, (255, 240, 215, 60))          # head rim light
     for side in (-1, 1):
-        fcircle(s, hx + fc * 2 + side * 3, hy - 1, 1.5, (30, 32, 30))
-    pygame.draw.arc(s, (150, 90, 70), (int(hx - 4), int(hy + 1), 8, 6), 3.7, 5.7, 2)
-    # hard hat
-    pygame.draw.ellipse(s, OUTLINE, (int(hx - 11), int(hy - 14), 22, 15))
-    pygame.draw.ellipse(s, C_BRAND, (int(hx - 9), int(hy - 13), 18, 12))
-    orrect(s, (hx - 12, hy - 4, 24, 4), C_BRAND, radius=2)
+        c.circle(hx + fc * 2 + side * 3, hy - 1, 1.5, (30, 32, 30))
+    c.arc((150, 90, 70), (hx - 4, hy + 1, 8, 6), 3.7, 5.7, 2)
+    c.ellipse_rect((hx - 11, hy - 14, 22, 15), OUTLINE)
+    c.ellipse_rect((hx - 9, hy - 13, 18, 12), C_BRAND)
+    c.circle(hx - 4, hy - 9, 2.5, (200, 250, 225, 70))
+    c.orrect((hx - 12, hy - 4, 24, 4), C_BRAND, radius=2)
 
     if spraying:
-        gx = gun[0] + fc * 8
+        gxx = gun[0] + fc * 8
         for _ in range(6):
-            fcircle(s, gx + random.uniform(0, fc * 20),
-                    gun[1] + random.uniform(-8, 8), random.uniform(1, 3),
-                    (*C_SPRAY, 180))
+            c.circle(gxx + random.uniform(0, fc * 20),
+                     gun[1] + random.uniform(-8, 8),
+                     random.uniform(1, 3), (*C_SPRAY, 180))
 
 
 # --------------------------------------------------------------------------- #
@@ -249,14 +305,14 @@ class Sound:
         self.on = True
         self._cache = {}
         try:
-            import numpy  # noqa: F401
+            if not _HAS_NP:
+                raise RuntimeError
             pygame.mixer.init(frequency=44100, size=-16, channels=1)
             self.ok = True
         except Exception:
             self.ok = False
 
     def _tone(self, freq, ms, vol=0.3, shape="sine"):
-        import numpy as np
         n = int(44100 * ms / 1000)
         t = np.linspace(0, ms / 1000, n, endpoint=False)
         wave = np.sign(np.sin(2 * math.pi * freq * t)) if shape == "square" \
@@ -323,6 +379,12 @@ class Particles:
                   random.uniform(-20, 20), random.uniform(-45, -10),
                   random.uniform(0.4, 0.9), random.uniform(1, 3), C_DOOR_OPEN, 0)
 
+    def mote(self):
+        self._add(random.uniform(0, WIDTH), random.uniform(120, HEIGHT),
+                  random.uniform(-12, 12), random.uniform(-22, -6),
+                  random.uniform(2.5, 5.0), random.uniform(1, 2.4),
+                  (180, 210, 200), 0)
+
     def update(self, dt):
         alive = []
         for p in self.items:
@@ -335,10 +397,10 @@ class Particles:
             alive.append(p)
         self.items = alive
 
-    def draw(self, s):
+    def draw(self, c):
         for x, y, vx, vy, life, maxlife, r, color, grav in self.items:
             a = max(0, min(255, int(255 * life / maxlife)))
-            fcircle(s, x, y, r, (color[0], color[1], color[2], a))
+            c.circle(x, y, r, (color[0], color[1], color[2], a))
 
 
 # --------------------------------------------------------------------------- #
@@ -385,37 +447,37 @@ class Blob:
             self.x += (tx - self.x) * min(1.0, dt * 7)
             self.y += (ty - self.y) * min(1.0, dt * 7)
 
-    def draw(self, s, t):
+    def draw(self, c, t):
         if self.form == FOLLOW:
-            draw_blob(s, self.x, self.y, 15, self.wobble, t)
+            draw_blob(c, self.x, self.y, 15, self.wobble, t)
             return
         x, y, w, h = self.rect
         if self.form == TRAMPOLINE:
-            orrect(s, (x, y + 9, w, h - 9), C_BLOB_DK, radius=7)
+            c.orrect((x, y + 9, w, h - 9), C_BLOB_DK, radius=7)
             for i in range(4):
                 sx = x + 12 + i * (w - 24) / 3
-                pygame.draw.line(s, C_BLOB_DK, (sx, y + 9), (sx, y + h - 2), 3)
-            orrect(s, (x, y - 2, w, 12), C_BLOB, radius=6)
+                c.line(C_BLOB_DK, (sx, y + 9), (sx, y + h - 2), 3)
+            c.orrect((x, y - 2, w, 12), C_BLOB, radius=6)
+            c.rect((x + 3, y - 1, w - 6, 3), (170, 240, 210, 90), radius=2)
             for ex in (x + 13, x + w - 13):
-                fcircle(s, ex, y + 3, 3, (250, 252, 250))
-                fcircle(s, ex, y + 3, 1.4, (26, 34, 30))
+                c.circle(ex, y + 3, 3, (250, 252, 250))
+                c.circle(ex, y + 3, 1.4, (26, 34, 30))
         elif self.form == BRIDGE:
-            orrect(s, (x, y, w, h), C_BLOB_DK, radius=7)
-            pygame.draw.rect(s, C_BLOB, (int(x + 2), int(y + 2), int(w - 4), 5),
-                             border_radius=4)
+            c.orrect((x, y, w, h), C_BLOB_DK, radius=7)
+            c.rect((x + 2, y + 2, w - 4, 5), C_BLOB, radius=4)
             for i in range(1, int(w // 26)):
                 px = x + i * 26
-                pygame.draw.line(s, C_BLOB_DK, (px, y + 3), (px, y + h - 3), 2)
+                c.line(C_BLOB_DK, (px, y + 3), (px, y + h - 3), 2)
             for ex in (x + 14, x + 25):
-                fcircle(s, ex, y + 9, 3, (250, 252, 250))
-                fcircle(s, ex, y + 9, 1.4, (26, 34, 30))
+                c.circle(ex, y + 9, 3, (250, 252, 250))
+                c.circle(ex, y + 9, 1.4, (26, 34, 30))
         elif self.form == LADDER:
-            orrect(s, (x, y, 5, h), C_BLOB_DK, radius=3)
-            orrect(s, (x + w - 5, y, 5, h), C_BLOB_DK, radius=3)
+            c.orrect((x, y, 5, h), C_BLOB_DK, radius=3)
+            c.orrect((x + w - 5, y, 5, h), C_BLOB_DK, radius=3)
             for i in range(int(h // 26) + 1):
-                ry = int(y + 12 + i * 26)
-                pygame.draw.line(s, OUTLINE, (x, ry), (x + w, ry), 7)
-                pygame.draw.line(s, C_BLOB, (x, ry), (x + w, ry), 4)
+                ry = y + 12 + i * 26
+                c.line(OUTLINE, (x, ry), (x + w, ry), 7)
+                c.line(C_BLOB, (x, ry), (x + w, ry), 4)
 
 
 # --------------------------------------------------------------------------- #
@@ -460,7 +522,6 @@ class Player:
         elif left:
             self.facing = -1
 
-        # ladder climbing overrides gravity
         on_ladder = ladder is not None and overlap(
             self.x, self.y, self.w, self.h, *ladder)
         self.on_ladder = on_ladder
@@ -469,9 +530,8 @@ class Player:
         else:
             self.vy += GRAVITY * dt
             if on_ladder and not (up or down):
-                self.vy = min(self.vy, 40)  # cling gently
+                self.vy = min(self.vy, 40)
 
-        # jump
         if up and self.on_ground and not on_ladder:
             self.vy = -JUMP_V
             self.on_ground = False
@@ -479,7 +539,6 @@ class Player:
 
         prev_bottom = self.y + self.h
 
-        # -- horizontal move + resolve (only full 'ground' blocks sideways)
         self.x += self.vx * dt
         for (sx, sy, sw, sh, kind) in solids:
             if kind != "ground":
@@ -491,13 +550,12 @@ class Player:
                     self.x = sx + sw
         self.x = max(0, min(WIDTH - self.w, self.x))
 
-        # -- vertical move + resolve
         self.y += self.vy * dt
         self.on_ground = False
         for (sx, sy, sw, sh, kind) in solids:
             if not overlap(self.x, self.y, self.w, self.h, sx, sy, sw, sh):
                 continue
-            if kind == "ground":                     # solid on every side
+            if kind == "ground":
                 if self.vy > 0:
                     pv = self.vy
                     self.y = sy - self.h
@@ -505,10 +563,10 @@ class Player:
                     self.vy = 0
                     if pv > 300:
                         self.landed = True
-                elif self.vy < 0:                    # rising: bonk head
+                elif self.vy < 0:
                     self.y = sy + sh
                     self.vy = 0
-            else:                                    # one-way: land from above
+            else:
                 if self.vy > 0 and prev_bottom <= sy + 6:
                     landing_v = self.vy
                     self.y = sy - self.h
@@ -527,8 +585,8 @@ class Player:
         self.spraying = keys[pygame.K_f]
         self.anim += abs(self.vx) * dt
 
-    def draw(self, s, t):
-        draw_tyguy(s, self.x, self.y, self.w, self.h, self.facing,
+    def draw(self, c, t):
+        draw_tyguy(c, self.x, self.y, self.w, self.h, self.facing,
                    abs(self.vx) > 1, self.on_ground, self.anim, self.spraying, t)
 
 
@@ -545,21 +603,21 @@ class Mold:
                        for _ in range(6)]
         self.phase = rng.uniform(0, 6.283)
 
-    def draw(self, s, t):
+    def draw(self, c, t):
         r = self.r
+        c.glow(self.x, self.y, r * 1.4, C_MOLD_DK, 45)
         for dx, dy, rr in self.blobs:
-            fcircle(s, self.x + dx * r * 0.55, self.y + dy * r * 0.55,
-                    r * rr, (C_MOLD_DK[0], C_MOLD_DK[1], C_MOLD_DK[2], 210))
-        ocircle(s, self.x, self.y, r, C_MOLD, ol=2)
-        fcircle(s, self.x - r * 0.3, self.y - r * 0.35, r * 0.3, (168, 208, 120, 150))
+            c.circle(self.x + dx * r * 0.55, self.y + dy * r * 0.55,
+                     r * rr, (C_MOLD_DK[0], C_MOLD_DK[1], C_MOLD_DK[2], 210))
+        c.ocircle(self.x, self.y, r, C_MOLD, ol=2)
+        c.circle(self.x - r * 0.3, self.y - r * 0.35, r * 0.3, (168, 208, 120, 150))
         for sx, sy in self.spores:
-            fcircle(s, self.x + sx * r, self.y + sy * r, max(1, r * 0.09), C_MOLD_DK)
-        # drifting spores
+            c.circle(self.x + sx * r, self.y + sy * r, max(1, r * 0.09), C_MOLD_DK)
         for k in range(3):
             ang = t * 1.1 + self.phase + k * 2.1
             px = self.x + math.cos(ang) * (r + 6)
             py = self.y + math.sin(ang * 1.3) * (r + 4) - 2
-            fcircle(s, px, py, 1.6, (150, 190, 110, 150))
+            c.circle(px, py, 1.6, (150, 190, 110, 150))
 
 
 # --------------------------------------------------------------------------- #
@@ -567,10 +625,10 @@ class Mold:
 # --------------------------------------------------------------------------- #
 def build_level():
     solids = [
-        (0, 560, 380, 80, "ground"),      # left ground
-        (560, 560, 400, 80, "ground"),    # right ground (pit between 380..560)
-        (620, 340, 340, 24, "oneway"),    # upper-right ledge
-        (300, 452, 90, 20, "oneway"),     # little floating step
+        (0, 560, 380, 80, "ground"),
+        (560, 560, 400, 80, "ground"),
+        (620, 340, 340, 24, "oneway"),
+        (300, 452, 90, 20, "oneway"),
     ]
     molds = [Mold(190, 540), Mold(690, 540), Mold(770, 320)]
     door = (904, 300, 34, 40)
@@ -589,11 +647,26 @@ class Game:
         self.mid = pygame.font.SysFont("arial", 26, bold=True)
         self.small = pygame.font.SysFont("arial", 19)
         self.tiny = pygame.font.SysFont("arial", 15, bold=True)
-        self.bg = self._make_bg()
+        self.scene = pygame.Surface((SW, SH)).convert()
+        self.cv = Canvas(self.scene, SS)
+        self.hq = True
+        self.grain = self._make_grain()
         self.particles = Particles()
         self.reset()
+        self.bg = self._make_bg()
         self.plat = self._make_platforms()
         self.state = STATE_MENU
+
+    # -- pre-rendered assets ------------------------------------------------- #
+    def _make_grain(self):
+        if not _HAS_NP:
+            return []
+        out = []
+        rng = np.random.default_rng(7)
+        for _ in range(6):
+            n = rng.integers(0, 15, (WIDTH, HEIGHT, 1)).repeat(3, 2).astype("uint8")
+            out.append(pygame.surfarray.make_surface(n).convert())
+        return out
 
     def _vignette(self):
         v = pygame.Surface((80, 80), pygame.SRCALPHA)
@@ -603,42 +676,56 @@ class Game:
                 d = math.hypot(xx - 40, yy - 40) / md
                 a = int(max(0.0, (d - 0.5) / 0.5) ** 1.5 * 150)
                 v.set_at((xx, yy), (0, 0, 0, a))
-        return pygame.transform.smoothscale(v, (WIDTH, HEIGHT))
+        return pygame.transform.smoothscale(v, (SW, SH))
 
     def _make_bg(self):
-        bg = vgrad(WIDTH, HEIGHT, C_SKY_TOP, C_SKY_BOT).convert()
-        gl = glow(360, (94, 150, 150), 55)
-        bg.blit(gl, (WIDTH // 2 - 360, -250))
+        bg = vgrad(SW, SH, C_SKY_TOP, C_SKY_BOT).convert()
+        # soft clouds from noise
+        clouds = noise_surf(SW, SH // 2, 120 * SS, 11, 150, 220)
+        clouds.set_alpha(26)
+        bg.blit(clouds, (0, 0))
+        # top light bloom source
+        gl = pygame.Surface((SW, SH), pygame.SRCALPHA)
+        fcircle(gl, SW // 2, -120 * SS, 360 * SS, (94, 150, 150, 55))
+        bg.blit(gl, (0, 0))
+        # parallax hills
         for col, amp, base, freq, ph in (
                 (C_HILL_FAR, 40, 300, 0.006, 0.0),
                 (C_HILL_NEAR, 62, 384, 0.009, 1.3)):
-            pts = [(0, HEIGHT)]
-            for x in range(0, WIDTH + 1, 10):
+            pts = [(0, SH)]
+            for x in range(0, WIDTH + 1, 8):
                 yy = base + math.sin(x * freq + ph) * amp \
                     + math.sin(x * freq * 2.3 + ph) * amp * 0.3
-                pts.append((x, yy))
-            pts.append((WIDTH, HEIGHT))
+                pts.append((x * SS, yy * SS))
+            pts.append((SW, SH))
             pygame.draw.polygon(bg, col, pts)
         bg.blit(self._vignette(), (0, 0))
         return bg
 
     def _make_platforms(self):
-        surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        surf = pygame.Surface((SW, SH), pygame.SRCALPHA)
+        c = Canvas(surf, SS)
+        dirt = noise_surf(SW, SH, 6 * SS, 21, 200, 256)
         st = random.getstate()
         for (x, y, w, h, kind) in self.solids:
-            sh = pygame.Surface((w + 26, h + 26), pygame.SRCALPHA)
-            pygame.draw.rect(sh, (0, 0, 0, 70), (0, 0, w + 26, h + 26),
-                             border_radius=16)
-            surf.blit(sh, (x - 13, y - 4))
+            sh = pygame.Surface(((w + 26) * SS, (h + 26) * SS), pygame.SRCALPHA)
+            pygame.draw.rect(sh, (0, 0, 0, 70), (0, 0, (w + 26) * SS,
+                             (h + 26) * SS), border_radius=16 * SS)
+            surf.blit(sh, ((x - 13) * SS, (y - 4) * SS))
             rad = 9 if kind == "oneway" else 4
-            surf.blit(vgrad(w, h, (98, 74, 58), (44, 32, 26), radius=rad), (x, y))
-            pygame.draw.rect(surf, C_MOSS, (x, y, w, 7), border_radius=rad)
-            pygame.draw.rect(surf, (108, 152, 80), (x, y, w, 3), border_radius=rad)
+            body = vgrad(w * SS, h * SS, (100, 76, 60), (42, 31, 25),
+                         radius=rad * SS)
+            # apply dirt texture
+            tex = dirt.subsurface((x * SS, y * SS, w * SS, h * SS)).copy()
+            body.blit(tex, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+            surf.blit(body, (x * SS, y * SS))
+            c.rect((x, y, w, 7), C_MOSS, radius=rad)
+            c.rect((x, y, w, 3), (108, 152, 80), radius=rad)
             random.seed(int(x * 7 + y))
             for _ in range(max(2, w // 55)):
                 dxp = x + random.randint(6, max(7, w - 6))
                 dl = random.randint(4, 13)
-                pygame.draw.line(surf, C_MOSS, (dxp, y + 5), (dxp, y + 5 + dl), 2)
+                c.line(C_MOSS, (dxp, y + 5), (dxp, y + 5 + dl), 2)
         random.setstate(st)
         return surf
 
@@ -670,8 +757,9 @@ class Game:
             self.particles.dust(p.x + p.w / 2, p.y + p.h)
         if p.bounced and p.bounce_pt:
             self.particles.bounce(*p.bounce_pt)
+        if random.random() < 0.16:
+            self.particles.mote()
 
-        # fell into a pit / off the world
         if p.y > HEIGHT + 60:
             self.lives -= 1
             self.snd.play("die")
@@ -681,11 +769,10 @@ class Game:
             p.reset()
             self.blob.follow()
 
-        # spraying mold
         if p.spraying:
             sr = p.spray_rect()
-            origin = (sr[0] if p.facing >= 0 else sr[0] + sr[2], sr[1] + sr[3] / 2)
-            self.particles.spray(origin[0], origin[1], p.facing)
+            ox = sr[0] if p.facing >= 0 else sr[0] + sr[2]
+            self.particles.spray(ox, sr[1] + sr[3] / 2, p.facing)
             for m in list(self.molds):
                 if overlap(*sr, m.x - m.r, m.y - m.r, m.r * 2, m.r * 2):
                     m.r -= 95 * dt
@@ -702,14 +789,45 @@ class Game:
 
         self.particles.update(dt)
 
+    # -- post-processing (numpy-free: all C-level surface blends) ------------ #
+    def _present(self, t):
+        # supersample downscale (the AA pass)
+        frame = pygame.transform.smoothscale(self.scene, (WIDTH, HEIGHT))
+        if self.hq:
+            # bloom: keep only bright pixels (subtract threshold), blur, add back
+            s = pygame.transform.smoothscale(frame, (WIDTH // 6, HEIGHT // 6))
+            s.fill((150, 150, 150), special_flags=pygame.BLEND_RGB_SUB)
+            s = pygame.transform.smoothscale(s, (WIDTH // 16, HEIGHT // 16))
+            s = pygame.transform.smoothscale(s, (WIDTH, HEIGHT))
+            frame.blit(s, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
+            # cool cinematic tint (also offsets the grain's slight brightening)
+            frame.fill((236, 246, 242), special_flags=pygame.BLEND_RGB_MULT)
+            # film grain
+            if self.grain:
+                frame.blit(self.grain[int(t * 24) % len(self.grain)], (0, 0),
+                           special_flags=pygame.BLEND_RGB_ADD)
+        self.screen.blit(frame, (0, 0))
+
+    def _mist(self, c, t):
+        for i, (by, sp, al) in enumerate(((548, 0.4, 26), (600, 0.7, 34))):
+            off = math.sin(t * sp + i) * 40
+            fellipse(self.scene, (-120 + off) * SS, (by - 24) * SS,
+                     (WIDTH + 240) * SS, 60 * SS, (150, 170, 175, al))
+
     # -- draw ---------------------------------------------------------------- #
     def draw(self, t):
-        s = self.screen
-        s.blit(self.bg, (0, 0))
+        scene = self.scene
+        c = self.cv
+        scene.blit(self.bg, (0, 0))
 
         if self.state == STATE_MENU:
+            draw_blob(c, WIDTH // 2 - 46, HEIGHT // 2 + 172, 26, t * 3, t)
+            draw_tyguy(c, WIDTH // 2 + 8, HEIGHT // 2 + 140, 26, 42, -1,
+                       False, True, 0, True, t)
+            self.particles.draw(c)
+            self._present(t)
             self._title("MOLD & BLOB", HEIGHT // 2 - 150)
-            self._c(self.mid, "TyGuy + Blob vs. the mold", HEIGHT // 2 - 92, C_TEXT)
+            self._cc(self.mid, "TyGuy + Blob vs. the mold", HEIGHT // 2 - 92, C_TEXT)
             lines = [
                 "Move: Arrows / A D      Jump & climb: Up / W / Space",
                 "Spray mold: hold F",
@@ -717,67 +835,67 @@ class Game:
                 "Clear every mold patch, then reach the exit door.",
             ]
             for i, ln in enumerate(lines):
-                self._c(self.small, ln, HEIGHT // 2 - 36 + i * 27, C_TEXT_DIM)
-            self._c(self.mid, "Press Enter to start", HEIGHT // 2 + 96, C_BRAND)
-            draw_blob(s, WIDTH // 2 - 46, HEIGHT // 2 + 172, 26, t * 3, t)
-            draw_tyguy(s, WIDTH // 2 + 8, HEIGHT // 2 + 140, 26, 42, -1,
-                       False, True, 0, True, t)
+                self._cc(self.small, ln, HEIGHT // 2 - 36 + i * 27, C_TEXT_DIM)
+            self._cc(self.mid, "Press Enter to start", HEIGHT // 2 + 96, C_BRAND)
             return
 
-        s.blit(self.plat, (0, 0))
+        scene.blit(self.plat, (0, 0))
+        self._mist(c, t)
 
-        # exit door (glows + sparkles once mold is cleared)
         dx, dy, dw, dh = self.door
         open_ = self.cleared()
         if open_:
             pulse = 0.55 + 0.45 * math.sin(t * 4)
-            gl = glow(46, C_DOOR_OPEN, int(130 * pulse))
-            s.blit(gl, (dx + dw / 2 - 46, dy + dh / 2 - 46))
+            c.glow(dx + dw / 2, dy + dh / 2, 46, C_DOOR_OPEN, int(130 * pulse))
             if random.random() < 0.3:
                 self.particles.sparkle(dx + dw / 2, dy + dh / 2)
-        orrect(s, (dx, dy, dw, dh), C_DOOR_OPEN if open_ else C_DOOR, radius=6)
-        orrect(s, (dx + 5, dy + 7, dw - 10, dh - 7), (26, 36, 32), radius=4)
-        fcircle(s, dx + dw - 9, dy + dh / 2, 2.5, (250, 240, 180))
-        if open_:
-            self._t(self.tiny, "EXIT", (dx - 6, dy - 20), C_DOOR_OPEN)
+        c.orrect((dx, dy, dw, dh), C_DOOR_OPEN if open_ else C_DOOR, radius=6)
+        c.orrect((dx + 5, dy + 7, dw - 10, dh - 7), (26, 36, 32), radius=4)
+        c.circle(dx + dw - 9, dy + dh / 2, 2.5, (250, 240, 180))
 
         for m in self.molds:
-            m.draw(s, t)
-        self.blob.draw(s, t)
-        self.player.draw(s, t)
-        self.particles.draw(s)
+            m.draw(c, t)
+        self.blob.draw(c, t)
+        self.player.draw(c, t)
+        self.particles.draw(c)
 
-        # HUD panel
+        self._present(t)
+
+        # HUD (native resolution, crisp text)
+        if open_:
+            self._t(self.tiny, "EXIT", (dx - 6, dy - 20), C_DOOR_OPEN)
         panel = pygame.Surface((252, 76), pygame.SRCALPHA)
         pygame.draw.rect(panel, (12, 18, 22, 150), (0, 0, 252, 76),
                          border_radius=12)
-        s.blit(panel, (12, 10))
+        self.screen.blit(panel, (12, 10))
         self._t(self.mid, f"Mold left: {len(self.molds)}", (24, 16), C_TEXT)
         self._t(self.small, f"Blob: {self.blob.form}", (24, 48), C_BRAND)
         for i in range(3):
             col = C_BLOB if i < self.lives else (58, 70, 66)
-            ocircle(s, WIDTH - 30 - i * 32, 30, 9, col)
+            fcircle(self.screen, WIDTH - 30 - i * 32, 30, 11, OUTLINE)
+            fcircle(self.screen, WIDTH - 30 - i * 32, 30, 9, col)
         self._t(self.tiny, "1 tramp  2 bridge  3 ladder  E call  F spray",
                 (WIDTH - 356, 52), C_TEXT_DIM)
 
         if self.state in (STATE_WIN, STATE_OVER):
             veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             veil.fill((10, 14, 18, 190))
-            s.blit(veil, (0, 0))
+            self.screen.blit(veil, (0, 0))
             if self.state == STATE_WIN:
                 self._title("MOLD-FREE!", HEIGHT // 2 - 60, C_BRAND)
-                self._c(self.mid, "TyGuy & Blob cleaned the whole level.",
-                        HEIGHT // 2 + 12, C_TEXT)
+                self._cc(self.mid, "TyGuy & Blob cleaned the whole level.",
+                         HEIGHT // 2 + 12, C_TEXT)
             else:
                 self._title("WIPED OUT", HEIGHT // 2 - 60, C_DANGER)
-                self._c(self.mid, "Blob will miss you. Try again?",
-                        HEIGHT // 2 + 12, C_TEXT)
-            self._c(self.mid, "Press Enter", HEIGHT // 2 + 72, C_BRAND)
+                self._cc(self.mid, "Blob will miss you. Try again?",
+                         HEIGHT // 2 + 12, C_TEXT)
+            self._cc(self.mid, "Press Enter", HEIGHT // 2 + 72, C_BRAND)
 
+    # -- text (native res) --------------------------------------------------- #
     def _t(self, font, msg, pos, col):
         self.screen.blit(font.render(msg, True, col), pos)
 
-    def _c(self, font, msg, y, col):
+    def _cc(self, font, msg, y, col):
         img = font.render(msg, True, col)
         self.screen.blit(img, img.get_rect(center=(WIDTH // 2, y)))
 
@@ -793,6 +911,9 @@ class Game:
             if self.state in (STATE_MENU, STATE_WIN, STATE_OVER):
                 self.reset()
                 self.state = STATE_PLAY
+            return
+        if key == pygame.K_g:
+            self.hq = not self.hq
             return
         if self.state != STATE_PLAY:
             return
@@ -829,7 +950,7 @@ def run(selftest=False):
             def __missing__(self, _):
                 return False
 
-        game.on_key(pygame.K_RETURN)                   # menu -> play
+        game.on_key(pygame.K_RETURN)
 
         def ahead_mold(p):
             best = None
