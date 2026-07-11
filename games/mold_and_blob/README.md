@@ -27,6 +27,17 @@ pipeline:
 Press **G** in-game to toggle the heavy effects (bloom/grain) if you want max
 frame rate on a slower machine — supersampling stays on either way.
 
+### Custom art (drop-in PNGs)
+
+You can replace any drawn element with your own artwork — no code changes. Put
+transparent PNGs named `tyguy.png`, `blob.png`, `mold.png`, `trampoline.png`,
+`bridge.png`, `ladder.png`, `door_open.png`, `door_closed.png`, `background.png`,
+or `platform.png` into the **`assets/`** folder and the game uses them
+automatically (menu + gameplay). Anything missing falls back to the built-in
+vector art, so you can add them one at a time. See `assets/README.md` for
+framing tips and **`CHATGPT_3D_PROMPTS.md`** for prompts that generate a matched
+set of 3D sprites.
+
 ## Run
 
 ```bash

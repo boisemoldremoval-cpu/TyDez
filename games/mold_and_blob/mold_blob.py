@@ -34,6 +34,7 @@ Headless smoke test (no window):
 """
 
 import math
+import os
 import random
 import sys
 
@@ -150,12 +151,71 @@ def noise_surf(w, h, cell, seed, lo, hi):
 
 
 # --------------------------------------------------------------------------- #
+# Asset pack — optional PNG art dropped into ./assets replaces the vector art
+# --------------------------------------------------------------------------- #
+# Drop transparent PNGs named after any of these into an "assets" folder next
+# to this script and they are used throughout the game (menu + gameplay). Any
+# missing name falls back to the built-in vector drawing.
+ASSET_NAMES = ("tyguy", "blob", "mold", "trampoline", "bridge", "ladder",
+               "door_open", "door_closed", "background", "platform")
+
+
+class AssetPack:
+    def __init__(self, folder):
+        self.imgs = {}
+        self.scaled = {}
+        self.folder = folder
+        for name in ASSET_NAMES:
+            p = os.path.join(folder, name + ".png")
+            if os.path.isfile(p):
+                try:
+                    self.imgs[name] = pygame.image.load(p).convert_alpha()
+                except Exception:
+                    pass
+
+    def scaled_get(self, name, dw, dh, flip):
+        key = (name, dw, dh, flip)
+        s = self.scaled.get(key)
+        if s is None:
+            s = pygame.transform.smoothscale(self.imgs[name], (dw, dh))
+            if flip:
+                s = pygame.transform.flip(s, True, False)
+            self.scaled[key] = s
+        return s
+
+
+# --------------------------------------------------------------------------- #
 # Canvas — scales logical coordinates up to the 2x render surface
 # --------------------------------------------------------------------------- #
 class Canvas:
-    def __init__(self, surf, k):
+    def __init__(self, surf, k, assets=None):
         self.s = surf
         self.k = k
+        self.assets = assets
+
+    def has(self, name):
+        return self.assets is not None and name in self.assets.imgs
+
+    def image(self, name, cx, cy, h, flip=False):
+        """Blit asset centered at (cx, cy) with logical height h (aspect kept)."""
+        img = self.assets.imgs[name]
+        aw, ah = img.get_size()
+        wlog = h * aw / ah
+        dw, dh = max(1, int(wlog * self.k)), max(1, int(h * self.k))
+        s = self.assets.scaled_get(name, dw, dh, flip)
+        self.s.blit(s, (int((cx - wlog / 2) * self.k), int((cy - h / 2) * self.k)))
+
+    def image_rect(self, name, rect, flip=False):
+        """Fit asset inside rect (aspect kept), centered."""
+        x, y, w, h = rect
+        img = self.assets.imgs[name]
+        aw, ah = img.get_size()
+        sc = min(w / aw, h / ah)
+        wlog, hlog = aw * sc, ah * sc
+        dw, dh = max(1, int(wlog * self.k)), max(1, int(hlog * self.k))
+        s = self.assets.scaled_get(name, dw, dh, flip)
+        self.s.blit(s, (int((x + w / 2 - wlog / 2) * self.k),
+                        int((y + h / 2 - hlog / 2) * self.k)))
 
     def circle(self, cx, cy, r, color):
         fcircle(self.s, cx * self.k, cy * self.k, r * self.k, color)
@@ -225,6 +285,11 @@ class Canvas:
 # Character illustrations
 # --------------------------------------------------------------------------- #
 def draw_blob(c, cx, cy, r, wobble, t):
+    if c.has("blob"):
+        bob = math.sin(wobble) * 1.5
+        c.shadow(cx, cy + r, r * 2.4, 9)
+        c.image("blob", cx, cy + bob, r * 3.0)
+        return
     sq = math.sin(wobble) * 0.12
     rx, ry = r * (1 + sq), r * (1 - sq)
     c.shadow(cx, cy + ry, rx * 2.4, 9)
@@ -250,6 +315,14 @@ def draw_tyguy(c, x, y, w, h, facing, moving, on_ground, anim, spraying, t):
     feet = y + h
     fc = 1 if facing >= 0 else -1
     walk = math.sin(anim * 0.045) if (moving and on_ground) else 0.0
+
+    if c.has("tyguy"):
+        if on_ground:
+            c.shadow(cx, feet, w * 1.9, 9)
+        bob = abs(math.sin(anim * 0.045)) * 1.2 if (moving and on_ground) else 0.0
+        H = h * 1.72
+        c.image("tyguy", cx, y + h * 0.5 - bob, H, flip=(fc < 0))
+        return
 
     if on_ground:
         c.shadow(cx, feet, w * 1.9, 9)
@@ -453,6 +526,9 @@ class Blob:
             return
         x, y, w, h = self.rect
         if self.form == TRAMPOLINE:
+            if c.has("trampoline"):
+                c.image_rect("trampoline", (x, y - 8, w, h + 8))
+                return
             c.orrect((x, y + 9, w, h - 9), C_BLOB_DK, radius=7)
             for i in range(4):
                 sx = x + 12 + i * (w - 24) / 3
@@ -463,6 +539,9 @@ class Blob:
                 c.circle(ex, y + 3, 3, (250, 252, 250))
                 c.circle(ex, y + 3, 1.4, (26, 34, 30))
         elif self.form == BRIDGE:
+            if c.has("bridge"):
+                c.image_rect("bridge", (x, y - 4, w, h + 8))
+                return
             c.orrect((x, y, w, h), C_BLOB_DK, radius=7)
             c.rect((x + 2, y + 2, w - 4, 5), C_BLOB, radius=4)
             for i in range(1, int(w // 26)):
@@ -472,6 +551,9 @@ class Blob:
                 c.circle(ex, y + 9, 3, (250, 252, 250))
                 c.circle(ex, y + 9, 1.4, (26, 34, 30))
         elif self.form == LADDER:
+            if c.has("ladder"):
+                c.image_rect("ladder", (x - 4, y, w + 8, h))
+                return
             c.orrect((x, y, 5, h), C_BLOB_DK, radius=3)
             c.orrect((x + w - 5, y, 5, h), C_BLOB_DK, radius=3)
             for i in range(int(h // 26) + 1):
@@ -605,6 +687,10 @@ class Mold:
 
     def draw(self, c, t):
         r = self.r
+        if c.has("mold"):
+            side = r * 3.2
+            c.image_rect("mold", (self.x - side / 2, self.y - side / 2, side, side))
+            return
         c.glow(self.x, self.y, r * 1.4, C_MOLD_DK, 45)
         for dx, dy, rr in self.blobs:
             c.circle(self.x + dx * r * 0.55, self.y + dy * r * 0.55,
@@ -648,7 +734,9 @@ class Game:
         self.small = pygame.font.SysFont("arial", 19)
         self.tiny = pygame.font.SysFont("arial", 15, bold=True)
         self.scene = pygame.Surface((SW, SH)).convert()
-        self.cv = Canvas(self.scene, SS)
+        here = os.path.dirname(os.path.abspath(__file__))
+        self.assets = AssetPack(os.path.join(here, "assets"))
+        self.cv = Canvas(self.scene, SS, self.assets)
         self.hq = True
         self.grain = self._make_grain()
         self.particles = Particles()
@@ -679,6 +767,9 @@ class Game:
         return pygame.transform.smoothscale(v, (SW, SH))
 
     def _make_bg(self):
+        if "background" in self.assets.imgs:
+            return pygame.transform.smoothscale(
+                self.assets.imgs["background"], (SW, SH)).convert()
         bg = vgrad(SW, SH, C_SKY_TOP, C_SKY_BOT).convert()
         # soft clouds from noise
         clouds = noise_surf(SW, SH // 2, 120 * SS, 11, 150, 220)
@@ -705,6 +796,7 @@ class Game:
     def _make_platforms(self):
         surf = pygame.Surface((SW, SH), pygame.SRCALPHA)
         c = Canvas(surf, SS)
+        plat_img = self.assets.imgs.get("platform")
         dirt = noise_surf(SW, SH, 6 * SS, 21, 200, 256)
         st = random.getstate()
         for (x, y, w, h, kind) in self.solids:
@@ -712,6 +804,10 @@ class Game:
             pygame.draw.rect(sh, (0, 0, 0, 70), (0, 0, (w + 26) * SS,
                              (h + 26) * SS), border_radius=16 * SS)
             surf.blit(sh, ((x - 13) * SS, (y - 4) * SS))
+            if plat_img is not None:
+                surf.blit(pygame.transform.smoothscale(
+                    plat_img, (int(w * SS), int(h * SS))), (int(x * SS), int(y * SS)))
+                continue
             rad = 9 if kind == "oneway" else 4
             body = vgrad(w * SS, h * SS, (100, 76, 60), (42, 31, 25),
                          radius=rad * SS)
@@ -849,9 +945,13 @@ class Game:
             c.glow(dx + dw / 2, dy + dh / 2, 46, C_DOOR_OPEN, int(130 * pulse))
             if random.random() < 0.3:
                 self.particles.sparkle(dx + dw / 2, dy + dh / 2)
-        c.orrect((dx, dy, dw, dh), C_DOOR_OPEN if open_ else C_DOOR, radius=6)
-        c.orrect((dx + 5, dy + 7, dw - 10, dh - 7), (26, 36, 32), radius=4)
-        c.circle(dx + dw - 9, dy + dh / 2, 2.5, (250, 240, 180))
+        dname = "door_open" if open_ else "door_closed"
+        if c.has(dname):
+            c.image_rect(dname, (dx - 4, dy - 4, dw + 8, dh + 8))
+        else:
+            c.orrect((dx, dy, dw, dh), C_DOOR_OPEN if open_ else C_DOOR, radius=6)
+            c.orrect((dx + 5, dy + 7, dw - 10, dh - 7), (26, 36, 32), radius=4)
+            c.circle(dx + dw - 9, dy + dh / 2, 2.5, (250, 240, 180))
 
         for m in self.molds:
             m.draw(c, t)
