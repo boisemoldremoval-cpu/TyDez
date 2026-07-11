@@ -283,7 +283,8 @@ with a charged HEPA pull). **Mold Mite Cluster** (weak singly, dangerous in
 groups; area attacks disperse). **Roof Leech** (drips corrosive mold; clear roof
 leaks to stop spawns). Enemies react to restored ventilation.
 
-**Status:** documented; ships with Level 3 (Attic), not yet built.
+**Status: BUILT.** Level 3 (Attic) is playable — Insulation Creeper, Spore Hawk,
+Mold Mite clusters, and Roof Leech are in the stage.
 
 # Volume 4, Chapter 3 — Boss: Spore Queen (Level 3)
 
@@ -297,7 +298,8 @@ Spore Hawks. **P3 (30%):** breaks the roof for updrafts + rapid aerial attacks.
 disrupt the wind with the **HEPA Vacuum**, then hit with the **Disinfect
 Blaster**. Rewards: **Seal Foam Cannon**, Attic Badge, 1000 cassettes, Level 4.
 
-**Status:** documented; the third boss for the upcoming Level 3 (Attic).
+**Status: BUILT.** The Spore Queen is Mission 3's boss — hovering, 3 phases,
+mite/hawk summons, and an exposed-core weak point after her wind channel.
 
 # Volume 4, Chapter 4 — Seal Foam Cannon
 

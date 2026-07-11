@@ -82,12 +82,17 @@ ENERGY_CELL = 30
 COYOTE = 0.10
 SLUDGE_HP = 220
 BEAST_HP = 260
+QUEEN_HP = 280
 
 # Bathroom (Level 2) palette
 C_TILE = (74, 120, 138)
 C_TILE_DK = (34, 58, 70)
 C_STEAM = (210, 224, 230)
 C_WATER = (90, 150, 190)
+# Attic (Level 3) palette
+C_WOOD = (120, 86, 54)
+C_WOOD_DK = (72, 50, 32)
+C_SUN = (250, 226, 150)
 
 MISSIONS = {
     1: {"name": "THE BASEMENT", "boss": "SLUDGE KING",
@@ -96,6 +101,9 @@ MISSIONS = {
     2: {"name": "THE BATHROOM", "boss": "SHOWER BEAST",
         "briefing": "The infestation spread upward — clear it before it reaches the attic.",
         "reward": "Disinfect Blaster"},
+    3: {"name": "THE ATTIC", "boss": "SPORE QUEEN",
+        "briefing": "Ride the air currents to the Queen's nest and end the outbreak.",
+        "reward": "Seal Foam Cannon"},
 }
 
 STATE_HQ, STATE_PLAY, STATE_WIN, STATE_OVER = "hq", "play", "win", "over"
@@ -141,9 +149,10 @@ def glow(s, cx, cy, r, color, strength=120):
 ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "player_dash", "player_crouch", "player_shoot", "player_hurt",
                "sporebot", "moldcrawler", "toxicsprayer", "moldbat",
-               "steammite", "ventswarm", "boss", "boss2", "shot",
-               "shot_charged", "toxic", "coin", "background", "background2",
-               "platform", "platform2")
+               "steammite", "ventswarm", "sporehawk", "roofleech", "moldmite",
+               "creeper", "boss", "boss2", "boss3", "shot", "shot_charged",
+               "toxic", "coin", "background", "background2", "background3",
+               "platform", "platform2", "platform3")
 
 
 class AssetPack:
@@ -307,6 +316,19 @@ class Enemy:
         elif kind == "ventswarm":     # V3C2 — floats, splits unless charged
             self.w, self.h, self.hp = 44, 44, 5
             self.dmg = 4
+        elif kind == "sporehawk":     # V4C2 — big attic flyer, dives
+            self.w, self.h, self.hp = 56, 40, 6
+            self.dmg = 5
+            self.bat_speed = 120
+        elif kind == "roofleech":     # V4C2 — ceiling, drips down
+            self.w, self.h, self.hp = 34, 30, 4
+            self.dmg = 4
+        elif kind == "moldmite":      # V4C2 — tiny swarm unit
+            self.w, self.h, self.hp = 20, 18, 1
+            self.dmg = 2
+        elif kind == "creeper":       # V4C2 — insulation ambusher, slow
+            self.w, self.h, self.hp = 42, 28, 6
+            self.dmg = 4
         else:  # toxicsprayer
             self.w, self.h, self.hp = 40, 48, 6
             self.dmg = 4
@@ -340,13 +362,37 @@ class Enemy:
             else:
                 self.y += (self.home_y + math.sin(self.t * 3) * 26 - self.y) \
                     * min(1.0, dt * 3)
-        elif self.kind == "steammite":
+        elif self.kind in ("steammite", "moldmite"):
             d = player.x - self.x
-            self.x += (1 if d > 0 else -1) * 165 * dt
+            sp = 165 if self.kind == "steammite" else 190
+            self.x += (1 if d > 0 else -1) * sp * dt
+        elif self.kind == "creeper":
+            d = player.x - self.x
+            self.x += (1 if d > 0 else -1) * 45 * dt
         elif self.kind == "ventswarm":
             d = player.x - self.x
             self.x += (1 if d > 0 else -1) * 55 * dt
             self.y = self.home_y + math.sin(self.t * 2) * 30
+        elif self.kind == "sporehawk":
+            d = player.x - self.x
+            self.x += (1 if d > 0 else -1) * self.bat_speed * dt
+            self.dive_t -= dt
+            if self.dive_t <= 0 and abs(d) < 380 and self.diving <= 0:
+                self.diving = 0.7
+                self.dive_t = random.uniform(2.2, 3.6)
+            if self.diving > 0:
+                self.diving -= dt
+                self.y += (player.y - self.y) * min(1.0, dt * 4)
+            else:
+                self.y += (self.home_y + math.sin(self.t * 2) * 40 - self.y) \
+                    * min(1.0, dt * 3)
+        elif self.kind == "roofleech":
+            self.shoot_t -= dt
+            if self.shoot_t <= 0 and abs(player.x - self.x) < 240:
+                self.shoot_t = random.uniform(1.4, 2.4)
+                sh = Shot(self.x + self.w / 2, self.y + self.h, 0, 4, -1, hostile=True)
+                sh.vy = 300
+                shots.append(sh)
         else:  # toxicsprayer shoots
             self.shoot_t -= dt
             if self.shoot_t <= 0 and abs(player.x - self.x) < 520:
@@ -371,9 +417,33 @@ class Enemy:
         asset = {"sporebot": "sporebot", "moldcrawler": "moldcrawler",
                  "toxicsprayer": "toxicsprayer", "moldbat": "moldbat",
                  "moldbat2": "moldbat", "steammite": "steammite",
-                 "ventswarm": "ventswarm"}[self.kind]
+                 "ventswarm": "ventswarm", "sporehawk": "sporehawk",
+                 "roofleech": "roofleech", "moldmite": "moldmite",
+                 "creeper": "creeper"}[self.kind]
         if assets.has(asset):
             assets.blit_fit(s, asset, cx, cy, self.w * 1.5, self.h * 1.5)
+        elif self.kind == "sporehawk":
+            flap = math.sin(self.t * 12) * 10
+            for wdir in (-1, 1):
+                pygame.draw.polygon(s, C_WOOD_DK, [
+                    (cx, cy), (cx + wdir * 32, cy - 10 - flap), (cx + wdir * 26, cy + 12)])
+            fcircle(s, cx, cy, self.h * 0.42, (110, 90, 60))
+            fcircle(s, cx - 7, cy - 3, 4, (250, 210, 120))
+            fcircle(s, cx + 7, cy - 3, 4, (250, 210, 120))
+        elif self.kind == "roofleech":
+            pygame.draw.ellipse(s, C_MOLD_DK, (int(x), int(y), self.w, self.h))
+            fcircle(s, cx, y + self.h, 5, C_MOLD)
+            fcircle(s, cx - 5, cy, 3, (200, 240, 160))
+            fcircle(s, cx + 5, cy, 3, (200, 240, 160))
+        elif self.kind == "moldmite":
+            fcircle(s, cx, cy, self.h * 0.5, C_MOLD_DK)
+            fcircle(s, cx, cy, self.h * 0.3, (140, 190, 90))
+        elif self.kind == "creeper":
+            pygame.draw.ellipse(s, C_WOOD_DK, (int(x), int(y + 4), self.w, self.h))
+            for k in range(4):
+                fcircle(s, x + 8 + k * 9, y + 4, 5, (130, 160, 90))
+            fcircle(s, cx - 7, cy, 3, (240, 240, 200))
+            fcircle(s, cx + 7, cy, 3, (240, 240, 200))
         elif self.kind == "steammite":
             col = (150, 200, 150)
             fcircle(s, cx, cy, self.h * 0.5, C_MOLD_DK)
@@ -669,6 +739,124 @@ class ShowerBeast:
             fcircle(s, wx + ww / 2, wy + wh / 2, ww * 0.2, (40, 80, 100))
         else:
             fcircle(s, wx + ww / 2, wy + wh / 2, ww * 0.34, (60, 70, 74))
+        if self.hit > 0:
+            fl = pygame.Surface((self.w * 2, self.h * 2), pygame.SRCALPHA)
+            fcircle(fl, self.w, self.h, self.w * 0.55, (255, 255, 255, 90))
+            s.blit(fl, (cx - self.w, cy - self.h))
+
+
+# --------------------------------------------------------------------------- #
+# Boss — SPORE QUEEN (Level 3, V4C3)
+# --------------------------------------------------------------------------- #
+class SporeQueen:
+    """Third Mold General. Hovers, controls spores + wind. Core weak point under
+    the crown opens after a wind channel. Summons Mold Mites / Spore Hawks."""
+    NAME = "SPORE QUEEN"
+
+    def __init__(self):
+        self.w, self.h = 210, 210
+        self.home_x = LEVEL_W - self.w - 120
+        self.x = self.home_x
+        self.y = 310.0
+        self.hp = self.maxhp = QUEEN_HP
+        self.hit = 0.0
+        self.t = 0.0
+        self.attack_t = 1.3
+        self.weak_open = 0.0
+        self.summon_t = 3.0
+        self.slam = 0.0
+        self.dead = False
+        self.bob = 0.0
+
+    def phase(self):
+        f = self.hp / self.maxhp
+        return 3 if f <= 0.3 else (2 if f <= 0.7 else 1)
+
+    def rect(self):
+        return (self.x + 20, self.y + 30 + self.bob, self.w - 40, self.h - 40)
+
+    def weak_rect(self):
+        return (self.x + self.w * 0.36, self.y + self.h * 0.45 + self.bob,
+                self.w * 0.28, self.h * 0.24)
+
+    def update(self, dt, player, shots, parts, enemies):
+        self.t += dt
+        self.hit = max(0.0, self.hit - dt)
+        self.weak_open = max(0.0, self.weak_open - dt)
+        ph = self.phase()
+        self.bob = math.sin(self.t * 1.8) * 16
+        self.x += (self.home_x - self.x) * min(1.0, dt * 1.5)
+
+        self.attack_t -= dt
+        if self.attack_t <= 0:
+            self.attack_t = 0.8 if ph == 3 else (1.1 if ph == 2 else 1.5)
+            mx, my = self.x + self.w * 0.4, self.y + self.h * 0.5 + self.bob
+            n = 2 + ph
+            for i in range(n):
+                ang = math.atan2((player.y + 20) - my, player.x - mx)
+                ang += (i - (n - 1) / 2) * 0.26
+                sp = 280 + ph * 25
+                sh = Shot(mx, my, math.cos(ang) * sp, 4, -1, hostile=True)
+                sh.vy = math.sin(ang) * sp
+                shots.append(sh)
+            self.weak_open = 1.8                    # wind channel exposes the core
+            parts.spark(mx, my, C_TOXIC, 6, 120)
+        # summons: mites (P1+), hawks (P2+)
+        self.summon_t -= dt
+        if self.summon_t <= 0 and len([e for e in enemies if not e.dead]) < 7:
+            self.summon_t = 3.0 if ph == 1 else 2.2
+            sx = max(CAM_BOSS + 40, min(LEVEL_W - 90,
+                     player.x + random.choice([-180, 180])))
+            if ph >= 2 and random.random() < 0.5:
+                hk = Enemy("sporehawk", sx, 220)
+                hk.home_y = 220
+                enemies.append(hk)
+            else:
+                for k in range(3):
+                    enemies.append(Enemy("moldmite", sx + k * 22, GROUND_Y - 18))
+
+    def hurt(self, dmg, parts):
+        self.hp -= dmg
+        self.hit = 0.1
+        parts.spark(self.x + self.w * 0.5, self.y + self.h * 0.5, C_TEAL_LT, 8, 240)
+        if self.hp <= 0:
+            self.dead = True
+            return True
+        return False
+
+    def draw(self, s, cam, assets):
+        x, y = self.x - cam, self.y + self.bob
+        cx, cy = x + self.w / 2, y + self.h / 2
+        glow(s, cx, cy, self.w * 0.6, (150, 130, 60), 70)
+        if assets.has("boss3"):
+            assets.blit_fit(s, "boss3", cx, cy, self.w * 1.2, self.h * 1.2)
+        else:
+            # spore-membrane wings
+            for wdir in (-1, 1):
+                pygame.draw.polygon(s, (90, 74, 46), [
+                    (cx, cy), (cx + wdir * 120, cy - 60), (cx + wdir * 96, cy + 60)])
+            pygame.draw.ellipse(s, C_WOOD_DK, (int(x + 40), int(y + 20),
+                                self.w - 80, self.h - 30))
+            # crown of trusses
+            for k in range(5):
+                kx = cx + (k - 2) * 20
+                pygame.draw.line(s, C_WOOD, (kx, y + 30), (kx, y - 4), 4)
+            for ex in (cx - 26, cx + 26):
+                fcircle(s, ex, cy - 20, 12, (250, 200, 90))
+                fcircle(s, ex, cy - 20, 6, (60, 30, 10))
+            # shedding spores
+            for k in range(4):
+                fcircle(s, cx + math.sin(self.t * 2 + k) * 60,
+                        cy + 40 + (self.t * 30 + k * 20) % 50, 4, (*C_TOXIC, 120))
+        # core weak point
+        wx, wy, ww, wh = self.weak_rect()
+        wx -= cam
+        if self.weak_open > 0:
+            glow(s, wx + ww / 2, wy + wh / 2, ww, (255, 220, 120), 170)
+            fcircle(s, wx + ww / 2, wy + wh / 2, ww * 0.4, (255, 230, 140))
+            fcircle(s, wx + ww / 2, wy + wh / 2, ww * 0.2, (120, 70, 20))
+        else:
+            fcircle(s, wx + ww / 2, wy + wh / 2, ww * 0.32, (70, 56, 36))
         if self.hit > 0:
             fl = pygame.Surface((self.w * 2, self.h * 2), pygame.SRCALPHA)
             fcircle(fl, self.w, self.h, self.w * 0.55, (255, 255, 255, 90))
@@ -1004,30 +1192,43 @@ class Sound:
 # Level
 # --------------------------------------------------------------------------- #
 class Hazard:
-    """Steam vent (Level 2): periodically emits a damaging, view-obscuring cloud."""
-    def __init__(self, x, y):
+    """Level hazard. 'steam' vents damage + obscure (L2); 'updraft' lifts the
+    player, aiding vertical traversal (L3 attic air currents)."""
+    def __init__(self, x, y, kind="steam", h=100):
         self.x, self.y = float(x), float(y)
+        self.kind = kind
+        self.zh = h
         self.t = random.uniform(0, 3)
-        self.on = 0.0
+        self.on = 1.0 if kind == "updraft" else 0.0
 
     def rect(self):
+        if self.kind == "updraft":
+            return (self.x - 40, self.y - self.zh, 80, self.zh)
         return (self.x - 34, self.y - 90, 68, 100)
 
     def update(self, dt):
-        self.t -= dt
+        self.t += dt
+        if self.kind == "updraft":
+            self.on = 1.0
+            return
+        self.t2 = getattr(self, "t2", random.uniform(0, 3)) - dt
         self.on = max(0.0, self.on - dt)
-        if self.t <= 0:
-            self.t = random.uniform(2.2, 3.4)
+        if self.t2 <= 0:
+            self.t2 = random.uniform(2.2, 3.4)
             self.on = 1.3
 
     def draw(self, s, cam, t):
+        sx = self.x - cam
+        if self.kind == "updraft":
+            for k in range(7):
+                yy = self.y - (t * 120 + k * 30) % self.zh
+                fcircle(s, sx + math.sin(t * 4 + k) * 16, yy, 5, (*C_SUN, 70))
+            return
         if self.on <= 0:
             return
-        sx = self.x - cam
         for k in range(6):
             yy = self.y - (t * 60 + k * 18) % 100
-            a = int(120 * self.on)
-            fcircle(s, sx + math.sin(t * 3 + k) * 12, yy, 18, (*C_STEAM, a))
+            fcircle(s, sx + math.sin(t * 3 + k) * 12, yy, 18, (*C_STEAM, int(120 * self.on)))
 
 
 def build_level(mission=1):
@@ -1050,7 +1251,7 @@ def build_level(mission=1):
             Enemy("moldbat", 1150, 280), Enemy("moldbat", 1750, 260),
             Enemy("moldbat", 2200, 280),
         ]
-    else:  # Level 2 — Bathroom: more vertical, steam vents, new roster
+    elif mission == 2:  # Level 2 — Bathroom: vertical, steam vents, new roster
         for (x, y, w) in [(300, 400, 120), (520, 300, 120), (760, 210, 130),
                           (1020, 320, 140), (1280, 220, 130), (1520, 350, 150),
                           (1780, 250, 130), (2050, 340, 150), (2300, 240, 140)]:
@@ -1065,7 +1266,24 @@ def build_level(mission=1):
             Enemy("steammite", 2050, GROUND_Y - 22),
             Enemy("moldbat2", 2300, 240),
         ]
-        hazards = [Hazard(x, GROUND_Y) for x in (640, 1150, 1650, 2150)]
+        hazards = [Hazard(x, GROUND_Y, "steam") for x in (640, 1150, 1650, 2150)]
+    else:  # Level 3 — Attic: rafters, air-current updrafts, attic roster
+        for (x, y, w) in [(300, 410, 110), (560, 330, 120), (820, 250, 120),
+                          (1080, 350, 120), (1340, 260, 120), (1600, 360, 130),
+                          (1860, 270, 120), (2120, 350, 130), (2360, 250, 130)]:
+            plats.append((x, y, w, 22))
+        enemies = [
+            Enemy("creeper", 470, GROUND_Y - 28),
+            Enemy("sporehawk", 760, 200),
+            Enemy("moldmite", 1000, GROUND_Y - 18), Enemy("moldmite", 1024, GROUND_Y - 18),
+            Enemy("moldmite", 1048, GROUND_Y - 18),
+            Enemy("roofleech", 1300, 120),
+            Enemy("sporehawk", 1560, 190),
+            Enemy("creeper", 1850, GROUND_Y - 28),
+            Enemy("roofleech", 2100, 120),
+            Enemy("moldmite", 2300, GROUND_Y - 18), Enemy("moldmite", 2324, GROUND_Y - 18),
+        ]
+        hazards = [Hazard(x, GROUND_Y, "updraft", h=260) for x in (700, 1250, 1750, 2250)]
     coins = [Coin(x, GROUND_Y - 60) for x in range(300, 2400, 190)]
     return plats, enemies, coins, hazards
 
@@ -1103,12 +1321,13 @@ class Game:
         return 5 + lvl * 4
 
     def _make_bg(self, mission):
-        key = "background2" if mission == 2 else "background"
+        key = {1: "background", 2: "background2", 3: "background3"}[mission]
         if self.assets.has(key):
             return pygame.transform.smoothscale(
                 self.assets.imgs[key], (WIDTH, HEIGHT)).convert()
-        top, bot = ((20, 34, 44), (8, 16, 22)) if mission == 2 else \
-                   ((26, 40, 38), (12, 20, 22))
+        top, bot = {1: ((26, 40, 38), (12, 20, 22)),
+                    2: ((20, 34, 44), (8, 16, 22)),
+                    3: ((44, 40, 34), (20, 16, 14))}[mission]
         bg = pygame.Surface((WIDTH, HEIGHT))
         for y in range(HEIGHT):
             f = y / HEIGHT
@@ -1119,6 +1338,12 @@ class Game:
                 pygame.draw.line(bg, (30, 52, 62), (gx, 0), (gx, HEIGHT))
             for gy in range(0, HEIGHT, 64):
                 pygame.draw.line(bg, (30, 52, 62), (0, gy), (WIDTH, gy))
+        elif mission == 3:    # sunbeams through broken roof
+            for bx in range(120, WIDTH, 240):
+                beam = pygame.Surface((160, HEIGHT), pygame.SRCALPHA)
+                pygame.draw.polygon(beam, (*C_SUN, 22),
+                                    [(40, 0), (120, 0), (160, HEIGHT), (0, HEIGHT)])
+                bg.blit(beam, (bx, 0))
         return bg
 
     def reset(self):
@@ -1143,10 +1368,12 @@ class Game:
         self.boss_intro = 0.0
 
     BOSS_QUOTE = {1: "\"THIS HOME... IS MINE!\"",
-                  2: "\"YOU CANNOT WASH AWAY PERFECTION.\""}
+                  2: "\"YOU CANNOT WASH AWAY PERFECTION.\"",
+                  3: "\"THE SPORES ANSWER TO ME ALONE.\""}
+    REWARD_CASSETTES = {1: 500, 2: 750, 3: 1000}
 
     def spawn_boss(self):
-        self.boss = Boss() if self.mission == 1 else ShowerBeast()
+        self.boss = {1: Boss, 2: ShowerBeast, 3: SporeQueen}[self.mission]()
         self.boss_intro = 3.0
         self.snd.play("boss")
 
@@ -1171,11 +1398,15 @@ class Game:
         if self.boss:
             self.boss.update(dt, p, self.shots, self.parts, self.enemies)
 
-        # steam vents (Level 2 hazard)
+        # hazards: steam damages (L2), updraft lifts the player (L3)
         for hz in self.hazards:
             hz.update(dt)
-            if hz.on > 0 and overlap(*hz.rect(), *p.rect()):
-                p.hurt(3, self.parts)
+            if overlap(*hz.rect(), *p.rect()):
+                if hz.kind == "updraft":
+                    p.vy = min(p.vy, -260)
+                    p.jumps = 2
+                elif hz.on > 0:
+                    p.hurt(3, self.parts)
 
         # HEPA Vacuum (V2C3): pull enemies in, finish weakened ones, eat spores
         if p.vacuuming:
@@ -1226,8 +1457,7 @@ class Game:
                         self.parts.spark(sh.x, sh.y, (150, 255, 180), 8, 260)
                     if self.boss.hurt(dmg, self.parts):
                         self.state = STATE_WIN
-                        reward = 500 if self.mission == 1 else 750
-                        self.bank += self.cassettes + reward
+                        self.bank += self.cassettes + self.REWARD_CASSETTES[self.mission]
                         self.unlocked = max(self.unlocked,
                                             min(self.mission + 1, len(MISSIONS)))
                         self.snd.play("win")
@@ -1376,13 +1606,16 @@ class Game:
             sx = x - cam
             if sx + w < 0 or sx > WIDTH:
                 continue
-            pkey = "platform2" if self.mission == 2 else "platform"
+            pkey = {1: "platform", 2: "platform2", 3: "platform3"}[self.mission]
             if self.assets.has(pkey):
                 s.blit(pygame.transform.smoothscale(
                     self.assets.imgs[pkey], (int(w), int(h))), (int(sx), int(y)))
             elif self.mission == 2:
                 pygame.draw.rect(s, C_TILE_DK, (int(sx), int(y), int(w), int(h)))
                 pygame.draw.rect(s, C_TILE, (int(sx), int(y), int(w), 6))
+            elif self.mission == 3:
+                pygame.draw.rect(s, C_WOOD_DK, (int(sx), int(y), int(w), int(h)))
+                pygame.draw.rect(s, C_WOOD, (int(sx), int(y), int(w), 6))
             else:
                 pygame.draw.rect(s, (46, 40, 34), (int(sx), int(y), int(w), int(h)))
                 pygame.draw.rect(s, (70, 104, 52), (int(sx), int(y), int(w), 6))
@@ -1434,8 +1667,9 @@ class Game:
             self._t(self.small, self.boss.NAME + "   (Phase %d)" % self.boss.phase(),
                     (bx, HEIGHT - 66), C_DANGER)
             if self.boss.weak_open > 0:
-                hint = ("WEAK POINT OPEN — hit the chest valve!" if self.mission == 1
-                        else "WEAK POINT OPEN — dash behind and hit the regulator!")
+                hint = {1: "WEAK POINT OPEN — hit the chest valve!",
+                        2: "WEAK POINT OPEN — dash behind and hit the regulator!",
+                        3: "WEAK POINT OPEN — hit the Queen's exposed core!"}[self.mission]
                 self._center(self.small, hint, HEIGHT - 90, C_TEAL_LT)
 
     def _t(self, font, msg, pos, col):
@@ -1518,10 +1752,9 @@ def run(selftest=False):
                      game.boss.NAME if game.boss else "-", game.score))
             return game.state
 
-        r1 = play_mission(1)
-        r2 = play_mission(2)
+        results = [play_mission(m) for m in (1, 2, 3)]
         pygame.quit()
-        return (r1, r2)
+        return tuple(results)
 
     running = True
     while running:
