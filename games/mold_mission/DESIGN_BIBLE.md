@@ -665,6 +665,24 @@ particle presets, and profiling instrumentation are the production steps — and
 unlike the cinematic Mold & Blob renderer, this game deliberately skips heavy
 per-frame post-processing to stay fast on modest machines.
 
+# Volume 8, Chapter 10 — Asset Pipeline
+
+End-to-end asset workflow. **Stages:** Concept → Approval → Production →
+Technical Review → **Engine Integration** → QA Validation → Optimization → Final
+Approval. **Art/audio workflows** follow templates + naming + review checkpoints
+(loudness/looping/platform for audio). **Technical integration:** metadata,
+version, optimization validation, dependency tracking, automated import checks.
+**Review:** design/art/eng/audio/QA sign-off before the release branch; rejects
+return with feedback. **Automation:** import scripts validate placement, naming,
+missing refs, texture compression, poly/audio budgets. Metrics via dashboards.
+
+**Status:** documented as the target. The prototype makes the **Engine
+Integration** stage effectively free — the drop-in `AssetPack` auto-loads any
+correctly-named PNG from `assets/`, caches scaled versions, and falls back to
+vector art when absent (so art can be integrated one asset at a time with no code
+change). Concept/production art already lives under `art_reference/`. Formal
+approval gates, import-validation scripts, and dashboards are the production adds.
+
 ---
 
 ## Reference images
