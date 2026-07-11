@@ -299,6 +299,21 @@ Blaster**. Rewards: **Seal Foam Cannon**, Attic Badge, 1000 cassettes, Level 4.
 
 **Status:** documented; the third boss for the upcoming Level 3 (Attic).
 
+# Volume 4, Chapter 4 — Seal Foam Cannon
+
+Third permanent tool (Spore Queen / Attic reward). **Primary:** place expandable
+foam on valid surfaces. **Charged:** reinforced foam that lasts longer and
+supports heavy objects. **Precision:** narrow bead to seal cracks / trigger
+objectives. **Combat:** trap charging enemies, interrupt spore vents, block
+projectile lanes, expose boss weak points by redirecting airflow. **Puzzle:**
+bridge gaps, seal roof leaks, redirect water, stabilize platforms, isolate
+chambers. **Upgrades Mk I–V:** cure time, size, heat-resistant, smart auto-seal.
+Balance: 8 energy/shot, 20 charged; max 3 active structures (grid-snapped,
+deterministic, dissolve on timer/replace).
+
+**Status:** documented; unlocks after the Spore Queen. Foam-platform placement is
+a natural fit for the existing platform engine when Level 3 is built.
+
 ---
 
 ## Reference images
