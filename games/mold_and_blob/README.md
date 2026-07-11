@@ -11,6 +11,13 @@ to get around the level, spray every mold patch clean, then reach the exit door.
 Single file, no external art (everything is drawn procedurally), optional
 procedural sound.
 
+**Visuals** are all generated in code — a parallax hill background with a
+vignette, mossy textured platforms with drop shadows, an outlined/shaded TyGuy
+with a hard hat, backpack sprayer and a walk cycle, a glossy blinking Blob, a
+glowing/pulsing exit door, organic mold with drifting spores, and a particle
+system (spray droplets, mold-dissolve puffs, landing dust, trampoline bursts,
+door sparkles). No image files, so it stays a single portable script.
+
 ## Run
 
 ```bash
