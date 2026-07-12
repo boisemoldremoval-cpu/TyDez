@@ -177,6 +177,7 @@ def glow(s, cx, cy, r, color, strength=120):
 # --------------------------------------------------------------------------- #
 ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "player_dash", "player_crouch", "player_shoot", "player_hurt",
+               "player_aim", "player_victory",
                "sporebot", "moldcrawler", "toxicsprayer", "moldbat",
                "steammite", "ventswarm", "sporehawk", "roofleech", "moldmite",
                "creeper", "mudstalker", "centipede", "pipeparasite", "gaspod",
@@ -186,7 +187,7 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "background", "background2", "background3", "background4",
                "background5", "platform", "platform2", "platform3",
                "platform4", "platform5", "ellis", "molde", "turret",
-               "mira", "engineer", "medic")
+               "mira", "engineer", "medic", "molde_alert")
 
 
 class AssetPack:
@@ -1563,7 +1564,7 @@ class Player:
                 elif not self.on_ground:
                     want = "player_fall" if self.vy > 0 else "player_jump"
                 elif self.charging:
-                    want = "player_shoot"          # holding to charge / aiming
+                    want = "player_aim"            # holding to charge = aim pose
                 elif abs(self.vx) > 1:
                     want = "player_run"
                 else:
@@ -2102,6 +2103,8 @@ class Game:
             veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             veil.fill((8, 12, 14, 190))
             s.blit(veil, (0, 0))
+            if self.state == STATE_WIN and self.assets.has("player_victory"):
+                self.assets.blit_fit(s, "player_victory", 116, HEIGHT - 92, 130, 168)
             if self.state == STATE_WIN and self.mission == 5:
                 # campaign finale
                 self._center(self.big, "MISSION COMPLETE", HEIGHT // 2 - 96, C_TEAL_LT)
@@ -2178,10 +2181,14 @@ class Game:
             e.draw(s, cam, self.assets)
         if self.boss:
             self.boss.draw(s, cam, self.assets)
-        # MOLD-E companion drone hovers behind Ty (drawn before him)
-        if self.assets.has("molde"):
+        # MOLD-E companion drone hovers behind Ty; switches to ALERT near mold
+        px = self.player.x + self.player.w / 2
+        near = any(not e.dead and abs((e.x + e.w / 2) - px) < 260
+                   for e in self.enemies) or self.boss is not None
+        mkey = "molde_alert" if (near and self.assets.has("molde_alert")) else "molde"
+        if self.assets.has(mkey):
             bob = math.sin(self.molde_t * 3.2) * 4
-            self.assets.blit_fit(s, "molde", self.molde_x - cam,
+            self.assets.blit_fit(s, mkey, self.molde_x - cam,
                                  self.molde_y + bob, 48, 48,
                                  flip=self.molde_face < 0)
         self.player.draw(s, cam, self.assets, t)
