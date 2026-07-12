@@ -566,16 +566,23 @@ class Enemy:
                  "sentinel": "sentinel", "ventstalker": "ventstalker",
                  "cultureswarm": "cultureswarm", "reactorspore": "reactorspore",
                  "mycelium": "mycelium"}[self.kind]
-        # state-based pose: hurt > attack > run > idle (variants auto-load)
+        # state-based pose: hurt > attack > walk-cycle > idle (variants auto-load)
         want = asset
+        bob = 0.0
         if self.hit > 0 and assets.has(asset + "_hurt"):
             want = asset + "_hurt"
         elif getattr(self, "atk_anim", 0.0) > 0 and assets.has(asset + "_attack"):
             want = asset + "_attack"
-        elif abs(self.vx) > 8 and assets.has(asset + "_run"):
-            want = asset + "_run"
+        elif abs(self.vx) > 8:
+            # animate the walk: alternate the move pose with the idle pose on a
+            # timer + a little step-bob, so movement reads as motion not a slide
+            if int(self.t * 9) % 2 == 0 and assets.has(asset + "_run"):
+                want = asset + "_run"
+            bob = -abs(math.sin(self.t * 9)) * 3.0
+        else:
+            bob = math.sin(self.t * 3) * 1.5      # gentle idle breathing
         if assets.has(want):
-            assets.blit_fit(s, want, cx, cy, self.w * 1.5, self.h * 1.5,
+            assets.blit_fit(s, want, cx, cy + bob, self.w * 1.5, self.h * 1.5,
                             flip=self.vx < 0)
         elif self.kind == "sentinel":
             orrect(s, (x + 4, y + 8, self.w - 8, self.h - 8), C_LAB_DK, 6)
@@ -789,7 +796,9 @@ class Boss:
         if self.slam > 0:
             pygame.draw.rect(s, (180, 220, 120), (0, GROUND_Y - 4, WIDTH, 4))
         bkey = "boss"
-        if self.weak_open > 0 and assets.has("boss_hurt"):
+        if self.slam > 0 and assets.has("boss_attack"):
+            bkey = "boss_attack"   # ground-pound stomp pose during a slam
+        elif self.weak_open > 0 and assets.has("boss_hurt"):
             bkey = "boss_hurt"     # rears/enrages while the chest valve is open
         if assets.has(bkey):
             assets.blit_fit(s, bkey, cx, cy, self.w * 1.15, self.h * 1.15,
