@@ -2282,7 +2282,7 @@ class Game:
 # --------------------------------------------------------------------------- #
 # Entry
 # --------------------------------------------------------------------------- #
-def run(selftest=False):
+def run(selftest=False, demo=False):
     if selftest:
         os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
         os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
@@ -2326,6 +2326,49 @@ def run(selftest=False):
         print("selftest OK: all 5 missions win")
         return tuple(results)
 
+    if demo:
+        # watchable auto-playthrough: the bot walks Ty through all 5 missions
+        class _K(dict):
+            def __missing__(self, _):
+                return False
+
+        def _pump():
+            for e in pygame.event.get():
+                if e.type == pygame.QUIT or (
+                        e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE):
+                    return False
+            return True
+
+        for m in (1, 2, 3, 4, 5):
+            game.mission = m
+            game.unlocked = max(game.unlocked, m)
+            game.reset()
+            game.state = STATE_PLAY
+            for i in range(9000):
+                clock.tick(FPS)
+                if not _pump():
+                    pygame.quit()
+                    return
+                keys = _K()
+                keys[pygame.K_RIGHT] = game.boss is None
+                keys[pygame.K_j] = (i % 6) < 3
+                if i % 50 == 0:
+                    keys[pygame.K_SPACE] = True
+                game.update(1 / FPS, keys)
+                game.draw(pygame.time.get_ticks() / 1000.0)
+                pygame.display.flip()
+                if game.state in (STATE_WIN, STATE_OVER):
+                    break
+            for _ in range(int(FPS * 2.5)):   # linger on the result screen
+                clock.tick(FPS)
+                if not _pump():
+                    pygame.quit()
+                    return
+                game.draw(pygame.time.get_ticks() / 1000.0)
+                pygame.display.flip()
+        pygame.quit()
+        return
+
     running = True
     while running:
         dt = min(clock.tick(FPS) / 1000.0, 0.05)
@@ -2344,4 +2387,4 @@ def run(selftest=False):
 
 
 if __name__ == "__main__":
-    run(selftest="--selftest" in sys.argv)
+    run(selftest="--selftest" in sys.argv, demo="--demo" in sys.argv)

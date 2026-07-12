@@ -66,7 +66,8 @@ Enter to Deploy or spend banked **Sample Cassettes** on Armor (+HP), Battery
 Headless smoke test that plays the stage to a boss kill:
 
 ```bash
-python3 mold_mission.py --selftest   # -> selftest: state=win ...
+python3 mold_mission.py --selftest   # headless: walks a bot through all 5 missions
+python3 mold_mission.py --demo       # watchable auto-playthrough of the whole game
 ```
 
 ## Drop-in art
