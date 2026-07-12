@@ -25,7 +25,7 @@ exactly where we stopped. **Nothing is lost** — git is the memory.
 - **The game:** `games/mold_mission/mold_mission.py` (single file, pygame).
 - **Sprites the game uses:** `games/mold_mission/assets/`
 - **Source art already cut:** `games/mold_mission/art_reference/`
-- **Art still to cut:** `games/mold_mission/art_reference/pending/` (14 sheets)
+- **Pending art queue:** `games/mold_mission/art_reference/pending/` — CLEARED ✅
 - **Full technical detail:** `games/mold_mission/HANDOFF.md`
 
 ## RUN / CHECK THE GAME
@@ -46,7 +46,9 @@ python3 mold_mission.py --selftest # must print: selftest OK: all 5 missions win
   cultureswarm, reactorspore, mycelium.
 - **2 bosses** — Spore Queen (`boss3`) and the final SporeMother (`boss5`, with
   an enrage pose).
-- **HQ** — Commander Ellis + Dr. Mira, HQ Engineer, Field Medic.
+- **HQ** — Commander Ellis + Captain Rex (squad leader), Dr. Mira, HQ Engineer,
+  Field Medic, and the Purification Core centerpiece.
+- **Dr. Sporead** — mastermind villain; appears on each mission-win tease.
 - Systems: drop-in art with auto-animating state variants, a split-file loader
   for oversized art, and `--demo` / `--selftest`.
 
@@ -55,7 +57,6 @@ python3 mold_mission.py --selftest # must print: selftest OK: all 5 missions win
   `sporeworm`, `sentinel`, `ventstalker`.
 - Bosses: `boss` (Sludge King), `boss2` (Shower Beast), `boss4` (Crawlor).
 - Backgrounds/tiles per mission.
-- The sheets in `art_reference/pending/` — cut each into its sprite keys.
 
 ## HOW NEW ART BECOMES ANIMATED SPRITES (for the next session)
 Drop transparent PNGs in `assets/` named by key; they override vector art and

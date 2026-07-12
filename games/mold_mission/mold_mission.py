@@ -189,7 +189,8 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "background", "background2", "background3", "background4",
                "background5", "platform", "platform2", "platform3",
                "platform4", "platform5", "ellis", "molde", "turret",
-               "mira", "engineer", "medic", "molde_alert", "molde_scan")
+               "mira", "engineer", "medic", "molde_alert", "molde_scan",
+               "rex", "purcore", "sporead")
 
 
 def split_asset(path, parts=2, dest_dirs=None):
@@ -2130,10 +2131,14 @@ class Game:
             # Commander Ellis (NPC_001) leads from the left
             if self.assets.has("ellis"):
                 self.assets.blit_fit(s, "ellis", 78, 350, 138, 300)
+            # The Purification Core (CHR_009) — heart of the hub, powers the mission
+            if self.assets.has("purcore"):
+                self.assets.blit_fit(s, "purcore", 74, 132, 96, 96)
             # Purification Hub support crew down the right gutter
-            for i, key in enumerate(("mira", "engineer", "medic")):
+            # Captain Rex (CHR_007) leads the squad, then the support staff
+            for i, key in enumerate(("rex", "mira", "engineer", "medic")):
                 if self.assets.has(key):
-                    self.assets.blit_fit(s, key, 892, 200 + i * 115, 96, 106)
+                    self.assets.blit_fit(s, key, 892, 172 + i * 105, 92, 100)
             self._center(self.big, "DESILPOWER HQ", 92, C_TEAL_LT)
             self._center(self.small,
                          "Mission Command · Research Lab · Engineering Bay",
@@ -2182,6 +2187,11 @@ class Game:
             s.blit(veil, (0, 0))
             if self.state == STATE_WIN and self.assets.has("player_victory"):
                 self.assets.blit_fit(s, "player_victory", 116, HEIGHT - 92, 130, 168)
+            # Dr. Sporead (CHR_008) — the mastermind looms over each victory tease
+            if self.state == STATE_WIN and self.mission < 5 \
+                    and self.assets.has("sporead"):
+                self.assets.blit_fit(s, "sporead", WIDTH - 108, HEIGHT - 92,
+                                     120, 168, flip=True)
             if self.state == STATE_WIN and self.mission == 5:
                 # campaign finale
                 self._center(self.big, "MISSION COMPLETE", HEIGHT // 2 - 96, C_TEAL_LT)

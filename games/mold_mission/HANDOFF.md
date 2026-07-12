@@ -43,7 +43,11 @@ reassembles it at load. `boss5` ships pre-split as a working example.
   `mycelium`.
 - **Bosses:** `boss3` (Spore Queen = SporeMother) and `boss5` (final SporeMother,
   with enrage pose). 
-- **HQ:** Commander Ellis + support crew (Dr. Mira, HQ Engineer, Field Medic).
+- **HQ:** Commander Ellis + support crew (Captain Rex squad leader, Dr. Mira,
+  HQ Engineer, Field Medic) + the **Purification Core** (CHR_009) as the hub
+  centerpiece.
+- **Dr. Sporead** (CHR_008) — the mastermind villain; looms on each
+  mission-win tease screen (`assets/sporead.png`).
 
 ## What's LEFT (still vector fallback — needs real art)
 - **Non-blob enemies** (recolor can't fake their shapes): `moldbat`, `sporehawk`,
@@ -51,15 +55,18 @@ reassembles it at load. `boss5` ships pre-split as a working example.
 - **Bosses:** `boss` (Sludge King), `boss2` (Shower Beast), `boss4` (Crawlor).
 - **Backgrounds/tiles:** `background`/`platform` per mission.
 
-## Pending art to cut  →  `art_reference/pending/`
-Raw art-bible sheets that were uploaded but not yet cut (the prior session's
-image-read budget ran out). For each: open it, identify the character/enemy,
-and cut its animation-row poses into `assets/` under the right key (see the
-naming above). Layout is consistent across sheets: a 360° turnaround row up top
-and an "ANIMATION POSES" row around the vertical middle; cut from that row.
-Cutting recipe used throughout: crop the pose region → flood-fill the solid
-background from the edges (green or white) → keep the largest connected
-component (protects enclosed green logos/eyes) → light despill → autocrop.
+## Pending art to cut  →  `art_reference/pending/`  — CLEARED ✅
+The queue is fully processed (see `art_reference/pending/README.md`). Three new
+characters were cut and wired — Dr. Sporead (`sporead`), Captain Rex (`rex`),
+and the Purification Core (`purcore`); the rest were duplicate turnarounds of
+already-cut characters and were removed (their canonical art lives in
+`art_reference/`).
+
+Cutting recipe used throughout (for future sheets): crop the pose region →
+flood-fill the solid background from the edges (green or white) → keep the
+largest connected component (protects enclosed green logos/eyes) → light
+despill → autocrop. Layout is consistent: a 360° turnaround row up top and an
+"ANIMATION POSES" row around the vertical middle; cut from those.
 
 ## Verify after any change
 `python3 mold_mission.py --selftest` must print `selftest OK: all 5 missions win`.
