@@ -195,12 +195,15 @@ class AssetPack:
         self.imgs = {}
         self._scaled = {}
         for name in ASSET_NAMES:
-            p = os.path.join(folder, name + ".png")
-            if os.path.isfile(p):
-                try:
-                    self.imgs[name] = pygame.image.load(p).convert_alpha()
-                except Exception:
-                    pass
+            # base sprite + optional state variants (enemy/boss animations):
+            # <name>_run / _hurt / _attack drop in and animate automatically
+            for key in (name, name + "_run", name + "_hurt", name + "_attack"):
+                p = os.path.join(folder, key + ".png")
+                if os.path.isfile(p):
+                    try:
+                        self.imgs[key] = pygame.image.load(p).convert_alpha()
+                    except Exception:
+                        pass
 
     def has(self, name):
         return name in self.imgs
@@ -324,6 +327,7 @@ class Enemy:
         self.x, self.y = float(x), float(y)
         self.vx = 0.0
         self.hit = 0.0
+        self.atk_anim = 0.0        # brief attack-pose window after firing
         self.shoot_t = random.uniform(0.8, 2.0)
         self.dead = False
         self.t = random.uniform(0, 6.28)
@@ -404,6 +408,7 @@ class Enemy:
 
     def update(self, dt, player, shots, parts):
         self.hit = max(0.0, self.hit - dt)
+        self.atk_anim = max(0.0, self.atk_anim - dt)
         self.t += dt
         if self.kind == "sporebot":
             self.x += self.vx * dt
@@ -475,6 +480,7 @@ class Enemy:
             self.shoot_t -= dt
             if self.shoot_t <= 0 and abs(player.x - self.x) < 480:
                 self.shoot_t = random.uniform(1.5, 2.5)
+                self.atk_anim = 0.4
                 face = 1 if player.x > self.x else -1
                 shots.append(Shot(self.x + self.w / 2, self.y + 18, face * 270,
                                   4, -1, hostile=True))
@@ -482,6 +488,7 @@ class Enemy:
             self.shoot_t -= dt
             if self.shoot_t <= 0 and abs(player.x - self.x) < 520:
                 self.shoot_t = random.uniform(1.6, 2.6)
+                self.atk_anim = 0.4
                 face = 1 if player.x > self.x else -1
                 shots.append(Shot(self.x + self.w / 2, self.y + 16,
                                   face * 240, 4, -1, hostile=True))
@@ -510,8 +517,17 @@ class Enemy:
                  "sentinel": "sentinel", "ventstalker": "ventstalker",
                  "cultureswarm": "cultureswarm", "reactorspore": "reactorspore",
                  "mycelium": "mycelium"}[self.kind]
-        if assets.has(asset):
-            assets.blit_fit(s, asset, cx, cy, self.w * 1.5, self.h * 1.5)
+        # state-based pose: hurt > attack > run > idle (variants auto-load)
+        want = asset
+        if self.hit > 0 and assets.has(asset + "_hurt"):
+            want = asset + "_hurt"
+        elif getattr(self, "atk_anim", 0.0) > 0 and assets.has(asset + "_attack"):
+            want = asset + "_attack"
+        elif abs(self.vx) > 8 and assets.has(asset + "_run"):
+            want = asset + "_run"
+        if assets.has(want):
+            assets.blit_fit(s, want, cx, cy, self.w * 1.5, self.h * 1.5,
+                            flip=self.vx < 0)
         elif self.kind == "sentinel":
             orrect(s, (x + 4, y + 8, self.w - 8, self.h - 8), C_LAB_DK, 6)
             orrect(s, (x + 8, y + 12, self.w - 16, 12), C_LAB, 4)
