@@ -1581,13 +1581,17 @@ class Player:
                 if self.iframe > 0:
                     want = "player_hurt"
                 elif self.dash_t > 0:
-                    want = "player_dash"
+                    # dash reuses the run pose unless dedicated dash art exists
+                    want = "player_dash" if assets.has("player_dash") else "player_run"
                 elif self.fire_anim > 0:
                     want = "player_shoot"          # a bullet just came out
                 elif self.crouching:
                     want = "player_crouch"
                 elif not self.on_ground:
-                    want = "player_fall" if self.vy > 0 else "player_jump"
+                    if self.vy > 0:                # falling shares the jump pose
+                        want = "player_fall" if assets.has("player_fall") else "player_jump"
+                    else:
+                        want = "player_jump"
                 elif self.charging:
                     want = "player_aim"            # holding to charge = aim pose
                 elif abs(self.vx) > 1:
