@@ -1606,13 +1606,15 @@ class Player:
                 self.wj_lock = 0.18
                 self.facing = -self.wall
                 self.jumps = 1
-                snd.play("jump")
+                snd.play("wall")
             elif self.jumps > 0:
                 self.vy = -JUMP_V * 0.92
                 self.jumps -= 1
-                snd.play("jump")
+                snd.play("djump")
 
         # -- vertical move + resolve --
+        was_air = not self.on_ground
+        fall_v = self.vy
         self.y += self.vy * dt
         self.on_ground = False
         for (px, py, pw, ph) in plats:
@@ -1624,6 +1626,8 @@ class Player:
                 elif self.vy < 0:
                     self.y = py + ph
                     self.vy = 0
+        if self.on_ground and was_air and fall_v > 240:
+            snd.play("land")            # thud on touchdown from a real fall
         if self.on_ground:
             self.jumps = 2
             self.coyote = COYOTE
@@ -1633,8 +1637,11 @@ class Player:
             self.anim += dt
 
         # HEPA Vacuum (hold K) — drains energy; Game applies the suction.
+        vac_prev = self.vacuuming
         self.vacuuming = (keys[pygame.K_k] and self.energy > 0
                           and self.dash_t <= 0)
+        if self.vacuuming and not vac_prev:
+            snd.play("vacuum")
         if self.vacuuming:
             self.energy = max(0.0, self.energy - 26 * dt)
         else:
@@ -1652,7 +1659,7 @@ class Player:
         if fire and not self.fire_prev:
             shots.append(Shot(muzx, muzy, self.facing * spd, dmg0, 0, color=col))
             parts.muzzle(muzx, muzy, self.facing, col or C_CHARGE)
-            snd.play("shot")
+            snd.play("shot_" + self.weapon if self.weapon else "shot")
             self.fire_anim = 0.16
             self.charging = True
             self.charge = 0.0
@@ -1669,7 +1676,7 @@ class Player:
                 shots.append(Shot(muzx, muzy, self.facing * (spd + 30),
                                   dmg0 + 2, 1, color=col))
                 parts.muzzle(muzx, muzy, self.facing, col or C_CHARGE)
-                snd.play("shot")
+                snd.play("shot_" + self.weapon if self.weapon else "shot")
                 self.fire_anim = 0.20
             self.charging = False
             self.charge = 0.0
@@ -1785,10 +1792,23 @@ class Sound:
             return
         try:
             if name not in self._cache:
-                specs = {"shot": (620, 70), "charge": (300, 200, "square"),
-                         "jump": (520, 90), "dash": (700, 120),
-                         "hit": (160, 160, "square"), "boss": (90, 500, "square"),
-                         "win": (720, 500), "coin": (900, 70)}
+                specs = {
+                    "shot": (620, 55), "charge": (300, 220, "square"),
+                    "jump": (520, 90), "djump": (680, 95),
+                    "wall": (430, 80), "land": (190, 60),
+                    "dash": (760, 110), "vacuum": (240, 70),
+                    "hit": (150, 170, "square"),        # player hurt
+                    "kill": (340, 110, "square"),       # enemy destroyed
+                    "weak": (900, 150), "bosshit": (200, 90, "square"),
+                    "boss": (90, 520, "square"), "win": (720, 500),
+                    "lose": (120, 600, "square"), "coin": (900, 70),
+                    "health": (780, 120), "energy": (640, 120),
+                    "weapon": (500, 200),
+                    # weapon-specific fire pitches (each gun sounds different)
+                    "shot_disinfect": (620, 55), "shot_uvcannon": (300, 90, "square"),
+                    "shot_fogger": (820, 40), "shot_sealant": (500, 70),
+                    "shot_grenade": (150, 130, "square"),
+                }
                 self._cache[name] = self._tone(*specs.get(name, (440, 60)))
             self._cache[name].play()
         except Exception:
@@ -2234,6 +2254,7 @@ class Game:
                             self.score += 100
                             self.spores = max(0, self.spores - 50)
                             self.shake = max(self.shake, 5)
+                            self.snd.play("kill")
                             self._split(e, charged=(sh.level >= 2))
                             self._maybe_drop(e)
                         sh.dead = True
@@ -2247,8 +2268,10 @@ class Game:
                         self.parts.spark(sh.x, sh.y, (150, 255, 180), 8, 260)
                         self.shake = max(self.shake, 10)
                         self.hitstop = max(self.hitstop, 0.04)
+                        self.snd.play("weak")
                     else:
                         self.shake = max(self.shake, 4)
+                        self.snd.play("bosshit")
                     if self.boss.hurt(dmg, self.parts):
                         self.shake = max(self.shake, 18)
                         self.hitstop = max(self.hitstop, 0.08)
@@ -2294,9 +2317,10 @@ class Game:
                 pk.got = True
                 if pk.kind == "health":
                     p.hp = min(p.maxhp, p.hp + HP_PACK)
+                    self.snd.play("health")
                 else:
                     p.energy = min(p.maxenergy, p.energy + ENERGY_CELL)
-                self.snd.play("coin")
+                    self.snd.play("energy")
         self.pickups = [pk for pk in self.pickups if not pk.got]
 
         # weapon pick-ups (Batch 4): walk over one to equip it
@@ -2306,14 +2330,15 @@ class Game:
                 p.weapon = wp.wid
                 self.weapon_msg = WEAPONS[wp.wid]["name"]
                 self.weapon_msg_t = 2.2
-                self.snd.play("coin")
+                self.snd.play("weapon")
         self.weapons = [wp for wp in self.weapons if not wp.got]
         self.weapon_msg_t = max(0.0, getattr(self, "weapon_msg_t", 0.0) - dt)
 
         if p.dead:
             self.state = STATE_OVER
             self.bank += self.cassettes
-            self.snd.play("hit")
+            self.snd.play("lose")
+            self.snd.stop_music()
 
         self.boss_intro = max(0.0, self.boss_intro - dt)
         self.parts.update(dt)
