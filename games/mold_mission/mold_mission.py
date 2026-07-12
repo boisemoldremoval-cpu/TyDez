@@ -190,7 +190,7 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "background5", "platform", "platform2", "platform3",
                "platform4", "platform5", "ellis", "molde", "turret",
                "mira", "engineer", "medic", "molde_alert", "molde_scan",
-               "rex", "purcore", "sporead")
+               "rex", "rex_2", "purcore", "sporead", "sporead_gloat")
 
 
 def split_asset(path, parts=2, dest_dirs=None):
@@ -2131,14 +2131,23 @@ class Game:
             # Commander Ellis (NPC_001) leads from the left
             if self.assets.has("ellis"):
                 self.assets.blit_fit(s, "ellis", 78, 350, 138, 300)
-            # The Purification Core (CHR_009) — heart of the hub, powers the mission
+            # The Purification Core (CHR_009) — heart of the hub, IDLE (PULSE)
             if self.assets.has("purcore"):
-                self.assets.blit_fit(s, "purcore", 74, 132, 96, 96)
+                pulse = 0.5 + 0.5 * math.sin(t * 3.0)
+                glow(s, 74, 132, int(42 + 10 * pulse), C_HP,
+                     strength=int(50 + 60 * pulse))
+                sc = 94 + 6 * pulse
+                self.assets.blit_fit(s, "purcore", 74, 132, sc, sc)
             # Purification Hub support crew down the right gutter
-            # Captain Rex (CHR_007) leads the squad, then the support staff
+            # Captain Rex (CHR_007) leads the squad, then the support staff.
+            # Rex shifts stance now and then for a live idle.
             for i, key in enumerate(("rex", "mira", "engineer", "medic")):
-                if self.assets.has(key):
-                    self.assets.blit_fit(s, key, 892, 172 + i * 105, 92, 100)
+                pose = key
+                if key == "rex" and self.assets.has("rex_2") \
+                        and (t + i) % 3.0 < 0.45:
+                    pose = "rex_2"
+                if self.assets.has(pose):
+                    self.assets.blit_fit(s, pose, 892, 172 + i * 105, 92, 100)
             self._center(self.big, "DESILPOWER HQ", 92, C_TEAL_LT)
             self._center(self.small,
                          "Mission Command · Research Lab · Engineering Bay",
@@ -2187,10 +2196,14 @@ class Game:
             s.blit(veil, (0, 0))
             if self.state == STATE_WIN and self.assets.has("player_victory"):
                 self.assets.blit_fit(s, "player_victory", 116, HEIGHT - 92, 130, 168)
-            # Dr. Sporead (CHR_008) — the mastermind looms over each victory tease
+            # Dr. Sporead (CHR_008) — the mastermind looms over each victory
+            # tease, cackling (idle vial pose <-> arms-up gloat).
             if self.state == STATE_WIN and self.mission < 5 \
                     and self.assets.has("sporead"):
-                self.assets.blit_fit(s, "sporead", WIDTH - 108, HEIGHT - 92,
+                skey = "sporead"
+                if self.assets.has("sporead_gloat") and int(t * 1.6) % 2:
+                    skey = "sporead_gloat"
+                self.assets.blit_fit(s, skey, WIDTH - 108, HEIGHT - 92,
                                      120, 168, flip=True)
             if self.state == STATE_WIN and self.mission == 5:
                 # campaign finale
