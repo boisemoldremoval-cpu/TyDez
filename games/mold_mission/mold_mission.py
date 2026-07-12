@@ -1342,8 +1342,11 @@ class Turret:
             pygame.draw.line(s, C_SHOT, (cx + self.face * 18, cy),
                              (cx + self.face * 320, cy), 3)
             glow(s, cx + self.face * 20, cy, 13, C_SHOT, 160)
-        if assets.has("turret"):
-            assets.blit_fit(s, "turret", cx, GROUND_Y - self.DH / 2,
+        # swap to the FIRE-BEAM pose (cannon lit, rotated) while shooting
+        tkey = "turret_attack" if (self.flash > 0
+                                   and assets.has("turret_attack")) else "turret"
+        if assets.has(tkey):
+            assets.blit_fit(s, tkey, cx, GROUND_Y - self.DH / 2,
                             self.DW, self.DH, flip=self.face < 0)
         else:
             x = cx - self.DW / 2
