@@ -130,6 +130,18 @@ MISSIONS = {
 STATE_HQ, STATE_PLAY, STATE_WIN, STATE_OVER = "hq", "play", "win", "over"
 STATE_MENU = STATE_HQ  # menu screen is the DesilPower HQ hub
 
+# Pick-up weapons (Batch 4). Ty carries one at a time; each recolours/retunes
+# his shot and swaps his hold/fire sprite (ty_<id> / ty_<id>_fire).
+WEAPONS = {
+    "disinfect": {"name": "DISINFECT BLASTER", "color": (150, 224, 255),
+                  "dmg": 3, "spd": 720, "cd": 0.14},
+    "uvcannon":  {"name": "UV PURIFIER CANNON", "color": (196, 120, 255),
+                  "dmg": 5, "spd": 780, "cd": 0.26},
+    "fogger":    {"name": "THERMAL FOGGER", "color": (255, 176, 84),
+                  "dmg": 2, "spd": 560, "cd": 0.08},
+}
+WEAPON_ORDER = ["disinfect", "uvcannon", "fogger"]
+
 
 def overlap(ax, ay, aw, ah, bx, by, bw, bh):
     return ax < bx + bw and ax + aw > bx and ay < by + bh and ay + ah > by
@@ -190,7 +202,10 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "background5", "platform", "platform2", "platform3",
                "platform4", "platform5", "ellis", "molde", "turret",
                "mira", "engineer", "medic", "molde_alert", "molde_scan",
-               "rex", "rex_2", "purcore", "sporead", "sporead_gloat")
+               "rex", "rex_2", "purcore", "sporead", "sporead_gloat",
+               "ty_disinfect", "ty_disinfect_fire", "ty_uvcannon",
+               "ty_uvcannon_fire", "ty_fogger", "ty_fogger_fire",
+               "wpn_disinfect", "wpn_uvcannon", "wpn_fogger")
 
 
 def split_asset(path, parts=2, dest_dirs=None):
@@ -331,11 +346,12 @@ class Particles:
 # Projectiles
 # --------------------------------------------------------------------------- #
 class Shot:
-    def __init__(self, x, y, vx, dmg, level, hostile=False):
+    def __init__(self, x, y, vx, dmg, level, hostile=False, color=None):
         self.x, self.y, self.vx = x, y, vx
         self.dmg = dmg
         self.level = level          # 0 normal, 1 mid, 2 full (player); -1 toxic
         self.hostile = hostile
+        self.color = color          # weapon tint (None = default blaster blue)
         self.r = 6 + level * 5 if level >= 0 else 10
         self.dead = False
 
@@ -357,13 +373,14 @@ class Shot:
                 fcircle(s, sx, self.y, self.r, C_TOXIC)
                 fcircle(s, sx, self.y, self.r * 0.6, C_MOLD_DK)
             return
+        col = self.color or C_SHOT
         name = "shot_charged" if self.level >= 1 else "shot"
-        if assets.has(name):
+        if self.color is None and assets.has(name):
             assets.blit_fit(s, name, sx, self.y, self.r * 3, self.r * 3,
                             flip=self.vx < 0)
         else:
-            glow(s, sx, self.y, self.r + 7, C_SHOT, 130)
-            fcircle(s, sx, self.y, self.r, C_SHOT)
+            glow(s, sx, self.y, self.r + 7, col, 130)
+            fcircle(s, sx, self.y, self.r, col)
             fcircle(s, sx, self.y, self.r * 0.55, (245, 252, 255))
 
 
@@ -1362,6 +1379,33 @@ class Pickup:
             pygame.draw.rect(s, (210, 240, 255), (int(sx - 3), int(yy - 12), 6, 4))
 
 
+class WeaponPickup:
+    """A weapon dropped in the level. Walk over it to equip it (Batch 4)."""
+    def __init__(self, x, y, wid):
+        self.x, self.y, self.wid = float(x), float(y), wid
+        self.got = False
+        self.t = random.uniform(0, 6.28)
+
+    def rect(self):
+        return (self.x - 18, self.y - 18, 36, 40)
+
+    def draw(self, s, cam, assets, t):
+        sx = self.x - cam
+        yy = self.y + math.sin(t * 3 + self.t) * 4
+        w = WEAPONS[self.wid]
+        glow(s, sx, yy, 22, w["color"], 120)
+        icon = "wpn_" + self.wid
+        if assets.has(icon):
+            assets.blit_fit(s, icon, sx, yy, 44, 40)
+        else:                                   # vector fallback: a little gun
+            orrect(s, (sx - 15, yy - 5, 26, 11), (60, 66, 74), radius=3)
+            orrect(s, (sx - 6, yy + 4, 8, 9), (40, 44, 50), radius=2)
+            fcircle(s, sx + 12, yy, 5, w["color"])
+        f = pygame.font.SysFont("arial", 11, bold=True)
+        g = f.render(w["name"].split()[0], True, w["color"])
+        s.blit(g, g.get_rect(center=(sx, yy - 22)))
+
+
 class Turret:
     """Allied auto-defense tower (TWR_001): locks onto the nearest mold enemy
     in range and fires a disinfection beam. Stands on the ground."""
@@ -1462,6 +1506,7 @@ class Player:
         self.crouching = False
         self.sliding = False
         self.slow = 0.0
+        self.weapon = None          # equipped pick-up weapon id (None = blaster)
 
     def rect(self):
         if self.crouching:                 # duck: shorter hurtbox, feet fixed
@@ -1588,12 +1633,17 @@ class Player:
         else:
             self.energy = min(self.maxenergy, self.energy + 9 * dt)
 
-        # shooting (edge-triggered; hold to charge)
+        # shooting (edge-triggered; hold to charge). A picked-up weapon retints
+        # and retunes the shot; base blaster keeps its original feel.
+        w = WEAPONS.get(self.weapon)
+        col = w["color"] if w else None
+        dmg0 = w["dmg"] if w else 2
+        spd = w["spd"] if w else 620
         fire = keys[pygame.K_j] or keys[pygame.K_x]
         muzx = self.x + (self.w if self.facing > 0 else 0)
         muzy = self.y + 24
         if fire and not self.fire_prev:
-            shots.append(Shot(muzx, muzy, self.facing * 620, 2, 0))
+            shots.append(Shot(muzx, muzy, self.facing * spd, dmg0, 0, color=col))
             parts.muzzle(muzx, muzy, self.facing)
             snd.play("shot")
             self.fire_anim = 0.16
@@ -1603,12 +1653,14 @@ class Player:
             self.charge += dt
         if not fire and self.fire_prev and self.charging:
             if self.charge >= 0.9:
-                shots.append(Shot(muzx, muzy, self.facing * 680, 6, 2))
+                shots.append(Shot(muzx, muzy, self.facing * (spd + 60),
+                                  dmg0 + 4, 2, color=col))
                 parts.muzzle(muzx, muzy, self.facing)
                 snd.play("charge")
                 self.fire_anim = 0.22
             elif self.charge >= 0.4:
-                shots.append(Shot(muzx, muzy, self.facing * 650, 4, 1))
+                shots.append(Shot(muzx, muzy, self.facing * (spd + 30),
+                                  dmg0 + 2, 1, color=col))
                 parts.muzzle(muzx, muzy, self.facing)
                 snd.play("shot")
                 self.fire_anim = 0.20
@@ -1665,6 +1717,14 @@ class Player:
                     want = "player_run"
                 else:
                     want = "player"
+                # equipped weapon: show Ty holding / firing it (Batch 4)
+                if self.weapon and assets.has("ty_" + self.weapon):
+                    wk = "ty_" + self.weapon
+                    if self.fire_anim > 0 and assets.has(wk + "_fire"):
+                        want = wk + "_fire"
+                    elif want in ("player", "player_run", "player_aim",
+                                  "player_shoot"):
+                        want = wk
                 name = want if assets.has(want) else "player"
                 assets.blit_fit(s, name, cx, y + self.h / 2,
                                 self.w * 2.1, self.h * 1.25, flip=self.facing < 0)
@@ -1957,6 +2017,14 @@ class Game:
         self.molde_t = 0.0
         # allied auto-defense turrets (TWR_001) stationed on clear ground
         self.turrets = [Turret(880), Turret(1850)]
+        # pick-up weapons dropped through the level (Batch 4): a different one
+        # partway through each mission so Ty finds new gear as he pushes on
+        wid = WEAPON_ORDER[(self.mission - 1) % len(WEAPON_ORDER)]
+        wid2 = WEAPON_ORDER[self.mission % len(WEAPON_ORDER)]
+        self.weapons = [WeaponPickup(680, GROUND_Y - 60, wid),
+                        WeaponPickup(1780, GROUND_Y - 60, wid2)]
+        self.weapon_msg = ""
+        self.weapon_msg_t = 0.0
 
     BOSS_QUOTE = {1: "\"THIS HOME... IS MINE!\"",
                   2: "\"YOU CANNOT WASH AWAY PERFECTION.\"",
@@ -2109,6 +2177,17 @@ class Game:
                     p.energy = min(p.maxenergy, p.energy + ENERGY_CELL)
                 self.snd.play("coin")
         self.pickups = [pk for pk in self.pickups if not pk.got]
+
+        # weapon pick-ups (Batch 4): walk over one to equip it
+        for wp in self.weapons:
+            if not wp.got and overlap(*wp.rect(), *p.rect()):
+                wp.got = True
+                p.weapon = wp.wid
+                self.weapon_msg = WEAPONS[wp.wid]["name"]
+                self.weapon_msg_t = 2.2
+                self.snd.play("coin")
+        self.weapons = [wp for wp in self.weapons if not wp.got]
+        self.weapon_msg_t = max(0.0, getattr(self, "weapon_msg_t", 0.0) - dt)
 
         if p.dead:
             self.state = STATE_OVER
@@ -2295,6 +2374,8 @@ class Game:
             c.draw(s, cam, self.assets, t)
         for pk in self.pickups:
             pk.draw(s, cam, t)
+        for wp in self.weapons:
+            wp.draw(s, cam, self.assets, t)
         for e in self.enemies:
             e.draw(s, cam, self.assets)
         if self.boss:
@@ -2335,7 +2416,15 @@ class Game:
         # charge meter
         pygame.draw.rect(s, (10, 16, 16), (18, 62, 244, 10), border_radius=4)
         ch = min(1.0, p.charge / 0.9) if p.charging else 0
-        pygame.draw.rect(s, C_SHOT, (20, 63, int(240 * ch), 7), border_radius=4)
+        cm_col = WEAPONS[p.weapon]["color"] if p.weapon else C_SHOT
+        pygame.draw.rect(s, cm_col, (20, 63, int(240 * ch), 7), border_radius=4)
+        # equipped weapon label
+        wlabel = WEAPONS[p.weapon]["name"] if p.weapon else "HEPA BLASTER"
+        self._t(self.small, "WEAPON: " + wlabel, (18, 78),
+                WEAPONS[p.weapon]["color"] if p.weapon else C_DIM)
+        # weapon pick-up toast
+        if self.weapon_msg_t > 0:
+            self._center(self.mid, "EQUIPPED: " + self.weapon_msg, 120, C_TEAL_LT)
         # score / spores / cassettes
         self._t(self.mid, f"SCORE {self.score}", (WIDTH - 230, 16), C_TEXT)
         self._t(self.small, f"SPORE COUNT {self.spores}", (WIDTH - 230, 48), C_TOXIC)
