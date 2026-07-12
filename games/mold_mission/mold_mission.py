@@ -1167,8 +1167,11 @@ class CrawlorBoss:
         glow(s, cx, cy, self.w * 0.5, (60, 100, 50), 70)
         if self.slam > 0:
             pygame.draw.rect(s, C_MUD, (0, GROUND_Y - 4, WIDTH, 4))
-        if assets.has("boss4"):
-            assets.blit_fit(s, "boss4", cx, cy, self.w * 1.15, self.h * 1.3)
+        bkey = "boss4"
+        if self.weak_open > 0 and assets.has("boss4_hurt"):
+            bkey = "boss4_hurt"    # roaring maw while the cores are exposed
+        if assets.has(bkey):
+            assets.blit_fit(s, bkey, cx, cy, self.w * 1.15, self.h * 1.3)
         else:
             # segmented armored worm
             for k in range(6):
