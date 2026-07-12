@@ -1945,6 +1945,9 @@ class Game:
         self.big = pygame.font.SysFont("arialblack,arial", 58, bold=True)
         self.mid = pygame.font.SysFont("arial", 26, bold=True)
         self.small = pygame.font.SysFont("arial", 18)
+        self.tiny = pygame.font.SysFont("arial", 13, bold=True)
+        self.name_f = pygame.font.SysFont("arialblack,arial", 22, bold=True)
+        self.boss_f = pygame.font.SysFont("arialblack,arial", 24, bold=True)
         here = os.path.dirname(os.path.abspath(__file__))
         self.assets = AssetPack(os.path.join(here, "assets"))
         # persistent between missions (DesilPower HQ upgrades — Ch 3/4)
@@ -2407,53 +2410,94 @@ class Game:
             sh.draw(s, cam, self.assets)
         self.parts.draw(s, cam)
 
+    def _panel(self, x, y, w, h, fill=(12, 18, 20, 210), border=(74, 150, 120),
+               r=8):
+        surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        pygame.draw.rect(surf, fill, (0, 0, w, h), border_radius=r)
+        pygame.draw.rect(surf, border, (0, 0, w, h), width=2, border_radius=r)
+        self.screen.blit(surf, (x, y))
+
+    def _bar(self, x, y, w, h, frac, col, r=5):
+        s = self.screen
+        pygame.draw.rect(s, (8, 12, 13), (x, y, w, h), border_radius=r)
+        fw = max(0, int((w - 4) * max(0.0, min(1.0, frac))))
+        if fw > 0:
+            pygame.draw.rect(s, col, (x + 2, y + 2, fw, h - 4), border_radius=r - 1)
+
     def _hud(self):
         s = self.screen
         p = self.player
-        # health bar (0..maxhp)
-        pygame.draw.rect(s, (10, 16, 16), (18, 16, 244, 20), border_radius=6)
-        hf = max(0.0, p.hp / p.maxhp)
-        pygame.draw.rect(s, C_HP, (21, 19, int(238 * hf), 14), border_radius=5)
-        self._t(self.small, f"HP {int(p.hp)}/{p.maxhp}", (270, 15), C_DIM)
-        # weapon energy bar
-        pygame.draw.rect(s, (10, 16, 16), (18, 42, 244, 14), border_radius=5)
-        ef = max(0.0, p.energy / p.maxenergy)
-        pygame.draw.rect(s, (110, 180, 240), (21, 44, int(238 * ef), 9), border_radius=4)
-        self._t(self.small, "ENERGY", (270, 40), C_DIM)
-        # charge meter
-        pygame.draw.rect(s, (10, 16, 16), (18, 62, 244, 10), border_radius=4)
-        ch = min(1.0, p.charge / 0.9) if p.charging else 0
-        cm_col = WEAPONS[p.weapon]["color"] if p.weapon else C_SHOT
-        pygame.draw.rect(s, cm_col, (20, 63, int(240 * ch), 7), border_radius=4)
-        # equipped weapon label
+        # ---- player status panel (top-left) ----
+        self._panel(14, 12, 300, 74)
+        # portrait
+        pygame.draw.rect(s, (8, 14, 16), (22, 20, 58, 58), border_radius=6)
+        if self.assets.has("player"):
+            self.assets.blit_fit(s, "player", 51, 49, 54, 54)
+        pygame.draw.rect(s, (74, 150, 120), (22, 20, 58, 58), width=2, border_radius=6)
+        self._t(self.name_f, "TY", (90, 18), C_TEXT)
+        # HP + energy bars
+        self._bar(90, 44, 168, 15, p.hp / p.maxhp, C_HP)
+        self._t(self.tiny, f"HP {int(p.hp)}/{int(p.maxhp)}", (264, 45), C_DIM)
+        self._bar(90, 63, 168, 12, p.energy / p.maxenergy, (96, 172, 240))
+        self._t(self.tiny, "ENERGY", (264, 63), C_DIM)
+
+        # ---- score / resources (top-right) ----
+        self._panel(WIDTH - 250, 12, 236, 74)
+        self._t(self.mid, f"SCORE {self.score}", (WIDTH - 240, 16), C_TEXT)
+        self._t(self.tiny, f"SPORE COUNT {self.spores}", (WIDTH - 240, 46), C_TOXIC)
+        self._t(self.tiny, f"CASSETTES {self.cassettes}/{self.cassettes_total}",
+                (WIDTH - 240, 66), C_COIN)
+
+        # ---- objective tracker (top-left, below status) ----
+        if self.boss and self.boss_intro <= 0:
+            self._panel(14, 94, 214, 46, border=(150, 90, 88))
+            self._t(self.tiny, "OBJECTIVE", (24, 100), (232, 140, 100))
+            self._t(self.small, f"Defeat {self.boss.NAME.title()}", (24, 116), C_TEXT)
+
+        # ---- weapon chip (bottom-left) ----
+        wcol = WEAPONS[p.weapon]["color"] if p.weapon else C_SHOT
         wlabel = WEAPONS[p.weapon]["name"] if p.weapon else "HEPA BLASTER"
-        self._t(self.small, "WEAPON: " + wlabel, (18, 78),
-                WEAPONS[p.weapon]["color"] if p.weapon else C_DIM)
-        # weapon pick-up toast
+        self._panel(14, HEIGHT - 62, 250, 48, border=tuple(wcol))
+        pygame.draw.rect(s, (8, 14, 16), (22, HEIGHT - 54, 40, 32), border_radius=5)
+        wicon = "wpn_" + p.weapon if p.weapon else None
+        if wicon and self.assets.has(wicon):
+            self.assets.blit_fit(s, wicon, 42, HEIGHT - 38, 36, 28)
+        else:
+            fcircle(s, 42, HEIGHT - 38, 9, wcol)
+        self._t(self.small, wlabel, (70, HEIGHT - 52), wcol)
+        # charge meter under the name
+        ch = min(1.0, p.charge / 0.9) if p.charging else 0
+        self._bar(70, HEIGHT - 30, 180, 9, ch, wcol, r=4)
+
+        # ---- weapon pick-up toast ----
         if self.weapon_msg_t > 0:
-            self._center(self.mid, "EQUIPPED: " + self.weapon_msg, 120, C_TEAL_LT)
-        # score / spores / cassettes
-        self._t(self.mid, f"SCORE {self.score}", (WIDTH - 230, 16), C_TEXT)
-        self._t(self.small, f"SPORE COUNT {self.spores}", (WIDTH - 230, 48), C_TOXIC)
-        self._t(self.small, f"CASSETTES {self.cassettes}/{self.cassettes_total}",
-                (WIDTH - 230, 70), C_COIN)
-        # boss bar
+            self._center(self.mid, "EQUIPPED: " + self.weapon_msg, 150, C_TEAL_LT)
+
+        # ---- boss health bar (bottom-center) ----
         if self.boss:
-            bw = 460
+            ph = self.boss.phase()
+            pcol = {1: (232, 96, 92), 2: (240, 168, 72),
+                    3: (206, 96, 208)}.get(ph, (206, 96, 208))
+            bw, bh = 470, 66
             bx = WIDTH // 2 - bw // 2
-            pygame.draw.rect(s, (10, 16, 16), (bx - 3, HEIGHT - 44, bw + 6, 22),
-                             border_radius=6)
+            by = HEIGHT - 78
+            self._panel(bx, by, bw, bh, fill=(10, 16, 18, 220),
+                        border=(60, 74, 78), r=9)
+            self._t(self.boss_f, self.boss.NAME, (bx + 16, by + 8), pcol)
+            self._t(self.small, "(Phase %d)" % ph,
+                    (bx + 22 + self.boss_f.size(self.boss.NAME)[0], by + 14), C_DIM)
             frac = max(0, self.boss.hp / self.boss.maxhp)
-            pygame.draw.rect(s, C_DANGER, (bx, HEIGHT - 41, int(bw * frac), 16))
-            self._t(self.small, self.boss.NAME + "   (Phase %d)" % self.boss.phase(),
-                    (bx, HEIGHT - 66), C_DANGER)
+            self._bar(bx + 16, by + 38, bw - 32, 18, frac, pcol, r=6)
+            hp_txt = f"{int(self.boss.hp)} / {int(self.boss.maxhp)} HP"
+            g = self.tiny.render(hp_txt, True, C_TEXT)
+            s.blit(g, (bx + bw - 18 - g.get_width(), by + 40))
             if self.boss.weak_open > 0:
                 hint = {1: "WEAK POINT OPEN — hit the chest valve!",
                         2: "WEAK POINT OPEN — dash behind and hit the regulator!",
                         3: "WEAK POINT OPEN — hit the Queen's exposed core!",
                         4: "WEAK POINT OPEN — hit the exposed segment core!",
                         5: "PURIFICATION NODE EXPOSED — hit the core!"}[self.mission]
-                self._center(self.small, hint, HEIGHT - 90, C_TEAL_LT)
+                self._center(self.small, hint, by - 22, C_TEAL_LT)
 
     def _t(self, font, msg, pos, col):
         self.screen.blit(font.render(msg, True, col), pos)
