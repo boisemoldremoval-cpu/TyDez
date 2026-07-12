@@ -788,8 +788,11 @@ class Boss:
         glow(s, cx, cy, self.w * 0.6, (60, 90, 40), 70)
         if self.slam > 0:
             pygame.draw.rect(s, (180, 220, 120), (0, GROUND_Y - 4, WIDTH, 4))
-        if assets.has("boss"):
-            assets.blit_fit(s, "boss", cx, cy, self.w * 1.15, self.h * 1.15,
+        bkey = "boss"
+        if self.weak_open > 0 and assets.has("boss_hurt"):
+            bkey = "boss_hurt"     # rears/enrages while the chest valve is open
+        if assets.has(bkey):
+            assets.blit_fit(s, bkey, cx, cy, self.w * 1.15, self.h * 1.15,
                             flip=True)
         else:
             pygame.draw.ellipse(s, C_BOSS_DK, (int(x), int(y + 20), self.w, self.h - 20))
@@ -911,8 +914,11 @@ class ShowerBeast:
         glow(s, cx, cy, self.w * 0.6, (90, 130, 150), 70)
         if self.slam > 0:
             pygame.draw.rect(s, C_WATER, (0, GROUND_Y - 4, WIDTH, 4))
-        if assets.has("boss2"):
-            assets.blit_fit(s, "boss2", cx, cy, self.w * 1.15, self.h * 1.15)
+        bkey = "boss2"
+        if self.weak_open > 0 and assets.has("boss2_hurt"):
+            bkey = "boss2_hurt"    # phase-shift glow while the core is exposed
+        if assets.has(bkey):
+            assets.blit_fit(s, bkey, cx, cy, self.w * 1.15, self.h * 1.15)
         else:
             # bathtub/tile creature
             pygame.draw.ellipse(s, C_TILE_DK, (int(x), int(y + 30), self.w, self.h - 30))
