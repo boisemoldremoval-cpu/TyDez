@@ -187,7 +187,7 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "background", "background2", "background3", "background4",
                "background5", "platform", "platform2", "platform3",
                "platform4", "platform5", "ellis", "molde", "turret",
-               "mira", "engineer", "medic", "molde_alert")
+               "mira", "engineer", "medic", "molde_alert", "molde_scan")
 
 
 class AssetPack:
@@ -2210,7 +2210,12 @@ class Game:
         px = self.player.x + self.player.w / 2
         near = any(not e.dead and abs((e.x + e.w / 2) - px) < 260
                    for e in self.enemies) or self.boss is not None
-        mkey = "molde_alert" if (near and self.assets.has("molde_alert")) else "molde"
+        if near and self.assets.has("molde_alert"):
+            mkey = "molde_alert"                    # reacts to danger
+        elif abs(self.player.vx) < 12 and self.assets.has("molde_scan"):
+            mkey = "molde_scan"                     # scans while Ty is still
+        else:
+            mkey = "molde"                          # follows in motion
         if self.assets.has(mkey):
             bob = math.sin(self.molde_t * 3.2) * 4
             self.assets.blit_fit(s, mkey, self.molde_x - cam,
