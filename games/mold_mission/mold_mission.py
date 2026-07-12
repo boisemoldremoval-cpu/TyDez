@@ -1775,6 +1775,9 @@ class Sound:
             else np.sin(2 * math.pi * freq * t)
         env = np.minimum(1.0, np.linspace(1.0, 0.0, n) * 3)
         data = (wave * env * vol * 32767).astype(np.int16)
+        init = pygame.mixer.get_init()
+        if init and init[2] >= 2:          # match the mixer's channel count
+            data = np.repeat(data[:, None], init[2], axis=1)
         return pygame.sndarray.make_sound(np.ascontiguousarray(data))
 
     def play(self, name):
@@ -1790,6 +1793,87 @@ class Sound:
             self._cache[name].play()
         except Exception:
             self.ok = False
+
+    def _make_music(self, mission):
+        import numpy as np
+        sr = 44100
+        bpm = [100, 118, 92, 110, 128][(mission - 1) % 5]
+        beat = 60.0 / bpm
+        bars = 4
+        n = int(sr * beat * 4 * bars)
+        buf = np.zeros(n, dtype=np.float32)
+
+        def note(freq, start, dur, vol, shape="sine"):
+            a = int(sr * start)
+            ln = min(int(sr * dur), n - a)
+            if a < 0 or a >= n or ln <= 0:
+                return
+            t = np.arange(ln) / sr
+            if shape == "square":
+                w = np.sign(np.sin(2 * math.pi * freq * t))
+            elif shape == "tri":
+                w = 2 * np.abs(2 * (t * freq - np.floor(t * freq + 0.5))) - 1
+            else:
+                w = np.sin(2 * math.pi * freq * t)
+            buf[a:a + ln] += w * np.exp(-t * 4.0) * vol
+
+        def kick(start, vol=0.55):
+            a = int(sr * start)
+            ln = min(int(sr * 0.13), n - a)
+            if a < 0 or a >= n or ln <= 0:
+                return
+            t = np.arange(ln) / sr
+            f = 130 * np.exp(-t * 32) + 46
+            buf[a:a + ln] += np.sin(2 * math.pi * f * t) * np.exp(-t * 17) * vol
+
+        root = [55, 62, 49, 58, 65][(mission - 1) % 5]
+        penta = [0, 3, 5, 7, 10]
+        barroot = [0, 3, 5, 3]
+        step = beat / 2
+        for bar in range(bars):
+            br = root * 2 ** (barroot[bar % 4] / 12.0)
+            for b in range(4):
+                t0 = (bar * 4 + b) * beat
+                kick(t0)
+                note(br / 2, t0, beat * 0.9, 0.20, "square")   # bass
+            for e in range(8):
+                t0 = bar * 4 * beat + e * step
+                deg = penta[(e + bar) % 5]
+                note(br * 2 * 2 ** (deg / 12.0), t0, step * 0.85, 0.09, "tri")
+        buf = np.clip(buf, -1, 1)
+        data = (buf * 0.5 * 32767).astype(np.int16)
+        init = pygame.mixer.get_init()
+        if init and init[2] >= 2:          # stereo mixer wants a 2-D array
+            data = np.repeat(data[:, None], init[2], axis=1)
+        return pygame.sndarray.make_sound(np.ascontiguousarray(data))
+
+    def music(self, mission):
+        if not (self.ok and self.on):
+            self.stop_music()
+            return
+        try:
+            if getattr(self, "_music_m", None) == mission and \
+                    getattr(self, "_music_ch", None) and self._music_ch.get_busy():
+                return
+            if mission not in getattr(self, "_music_cache", {}):
+                self._music_cache = getattr(self, "_music_cache", {})
+                self._music_cache[mission] = self._make_music(mission)
+            snd = self._music_cache[mission]
+            snd.set_volume(0.4)
+            if getattr(self, "_music_ch", None):
+                self._music_ch.stop()
+            self._music_ch = snd.play(loops=-1)
+            self._music_m = mission
+        except Exception:
+            self.ok = False
+
+    def stop_music(self):
+        try:
+            if getattr(self, "_music_ch", None):
+                self._music_ch.stop()
+            self._music_m = None
+        except Exception:
+            pass
 
 
 # --------------------------------------------------------------------------- #
@@ -2036,6 +2120,8 @@ class Game:
                         WeaponPickup(1780, GROUND_Y - 60, wid2)]
         self.weapon_msg = ""
         self.weapon_msg_t = 0.0
+        self.shake = 0.0            # screen-shake magnitude (decays)
+        self.hitstop = 0.0          # brief freeze on big impacts (juice)
 
     BOSS_QUOTE = {1: "\"THIS HOME... IS MINE!\"",
                   2: "\"YOU CANNOT WASH AWAY PERFECTION.\"",
@@ -2053,6 +2139,14 @@ class Game:
     # -- update -------------------------------------------------------------- #
     def update(self, dt, keys):
         if self.state != STATE_PLAY:
+            self.snd.stop_music()
+            return
+        self.snd.music(self.mission)
+        self.shake = max(0.0, self.shake - dt * 60)
+        # hit-stop: a couple frozen frames on a big impact makes hits land hard
+        if self.hitstop > 0:
+            self.hitstop = max(0.0, self.hitstop - dt)
+            self.parts.update(dt)          # let particles keep popping
             return
         p = self.player
         p.update(dt, keys, self.plats, self.shots, self.parts, self.snd)
@@ -2125,6 +2219,9 @@ class Game:
                 sh.y += vy * dt
             if sh.hostile:
                 if overlap(*sh.rect(), *p.rect()):
+                    if p.iframe <= 0 and p.dash_t <= 0:
+                        self.shake = max(self.shake, 7)
+                        self.hitstop = max(self.hitstop, 0.05)
                     p.hurt(4, self.parts)
                     sh.dead = True
                     self.snd.play("hit")
@@ -2132,9 +2229,11 @@ class Game:
                 for e in self.enemies:
                     if not e.dead and overlap(*sh.rect(), *e.rect()):
                         self.parts.spark(sh.x, sh.y, sh.color or C_SHOT, 6, 200)
+                        e.x += 14 if sh.vx > 0 else -14      # knockback
                         if e.hurt(sh.dmg, self.parts):
                             self.score += 100
                             self.spores = max(0, self.spores - 50)
+                            self.shake = max(self.shake, 5)
                             self._split(e, charged=(sh.level >= 2))
                             self._maybe_drop(e)
                         sh.dead = True
@@ -2146,7 +2245,13 @@ class Game:
                     if self.boss.weak_open > 0 and overlap(*sh.rect(), *self.boss.weak_rect()):
                         dmg *= 2
                         self.parts.spark(sh.x, sh.y, (150, 255, 180), 8, 260)
+                        self.shake = max(self.shake, 10)
+                        self.hitstop = max(self.hitstop, 0.04)
+                    else:
+                        self.shake = max(self.shake, 4)
                     if self.boss.hurt(dmg, self.parts):
+                        self.shake = max(self.shake, 18)
+                        self.hitstop = max(self.hitstop, 0.08)
                         self.state = STATE_WIN
                         first = self.mission not in self.cleared
                         self.cleared.add(self.mission)
@@ -2165,6 +2270,9 @@ class Game:
         # enemy contact damage
         for e in self.enemies:
             if not e.dead and overlap(*e.rect(), *p.rect()):
+                if p.iframe <= 0 and p.dash_t <= 0:
+                    self.shake = max(self.shake, 7)
+                    self.hitstop = max(self.hitstop, 0.05)
                 p.hurt(e.dmg, self.parts)
                 self.snd.play("hit")
         self.enemies = [e for e in self.enemies if not e.dead]
@@ -2232,6 +2340,23 @@ class Game:
 
     # -- draw ---------------------------------------------------------------- #
     def draw(self, t):
+        # screen shake: render the scene to a buffer, then blit it jittered
+        if self.state == STATE_PLAY and self.shake > 0.6:
+            if getattr(self, "_buf", None) is None:
+                self._buf = pygame.Surface((WIDTH, HEIGHT))
+            real = self.screen
+            self.screen = self._buf
+            self._draw_scene(t)
+            self.screen = real
+            m = min(self.shake, 14)
+            ox = random.uniform(-m, m)
+            oy = random.uniform(-m, m)
+            real.fill((0, 0, 0))
+            real.blit(self._buf, (int(ox), int(oy)))
+        else:
+            self._draw_scene(t)
+
+    def _draw_scene(self, t):
         s = self.screen
         s.blit(self.bg, (0, 0))
         cam = self.cam
