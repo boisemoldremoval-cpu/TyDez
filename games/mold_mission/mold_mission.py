@@ -139,8 +139,12 @@ WEAPONS = {
                   "dmg": 5, "spd": 780, "cd": 0.26},
     "fogger":    {"name": "THERMAL FOGGER", "color": (255, 176, 84),
                   "dmg": 2, "spd": 560, "cd": 0.08},
+    "sealant":   {"name": "SEALANT APPLICATOR", "color": (120, 236, 180),
+                  "dmg": 4, "spd": 620, "cd": 0.18},
+    "grenade":   {"name": "PURIFICATION GRENADE", "color": (150, 240, 90),
+                  "dmg": 6, "spd": 470, "cd": 0.32},
 }
-WEAPON_ORDER = ["disinfect", "uvcannon", "fogger"]
+WEAPON_ORDER = ["disinfect", "uvcannon", "fogger", "sealant", "grenade"]
 
 
 def overlap(ax, ay, aw, ah, bx, by, bw, bh):
@@ -205,7 +209,10 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "rex", "rex_2", "purcore", "sporead", "sporead_gloat",
                "ty_disinfect", "ty_disinfect_fire", "ty_uvcannon",
                "ty_uvcannon_fire", "ty_fogger", "ty_fogger_fire",
-               "wpn_disinfect", "wpn_uvcannon", "wpn_fogger")
+               "ty_sealant", "ty_sealant_fire", "ty_grenade",
+               "ty_grenade_fire",
+               "wpn_disinfect", "wpn_uvcannon", "wpn_fogger",
+               "wpn_sealant", "wpn_grenade")
 
 
 def split_asset(path, parts=2, dest_dirs=None):
