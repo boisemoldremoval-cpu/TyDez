@@ -651,8 +651,12 @@ class Enemy:
             bob = -abs(math.sin(self.t * 9)) * 3.0
         else:
             bob = math.sin(self.t * 3) * 1.5      # gentle idle breathing
+        # apply the motion bob to EVERY draw path (sprite or vector) so a moving
+        # character always reads as moving, even without dedicated animation art
+        y += bob
+        cy += bob
         if assets.has(want):
-            assets.blit_fit(s, want, cx, cy + bob, self.w * 1.5, self.h * 1.5,
+            assets.blit_fit(s, want, cx, cy, self.w * 1.5, self.h * 1.5,
                             flip=self.vx < 0)
         elif self.kind == "sentinel":
             orrect(s, (x + 4, y + 8, self.w - 8, self.h - 8), C_LAB_DK, 6)
