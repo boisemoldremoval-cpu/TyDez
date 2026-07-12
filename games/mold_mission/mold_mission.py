@@ -325,11 +325,11 @@ class Particles:
                       random.uniform(-70, -20), random.uniform(0.5, 1.0),
                       random.uniform(4, 9), (150, 155, 150), -40)
 
-    def muzzle(self, x, y, facing):
+    def muzzle(self, x, y, facing, color=C_CHARGE):
         for _ in range(6):
             self._add(x, y, facing * random.uniform(120, 340),
                       random.uniform(-60, 60), random.uniform(0.1, 0.25),
-                      random.uniform(2, 4), C_CHARGE, 0)
+                      random.uniform(2, 4), color, 0)
 
     def update(self, dt):
         alive = []
@@ -1651,7 +1651,7 @@ class Player:
         muzy = self.y + 24
         if fire and not self.fire_prev:
             shots.append(Shot(muzx, muzy, self.facing * spd, dmg0, 0, color=col))
-            parts.muzzle(muzx, muzy, self.facing)
+            parts.muzzle(muzx, muzy, self.facing, col or C_CHARGE)
             snd.play("shot")
             self.fire_anim = 0.16
             self.charging = True
@@ -1662,13 +1662,13 @@ class Player:
             if self.charge >= 0.9:
                 shots.append(Shot(muzx, muzy, self.facing * (spd + 60),
                                   dmg0 + 4, 2, color=col))
-                parts.muzzle(muzx, muzy, self.facing)
+                parts.muzzle(muzx, muzy, self.facing, col or C_CHARGE)
                 snd.play("charge")
                 self.fire_anim = 0.22
             elif self.charge >= 0.4:
                 shots.append(Shot(muzx, muzy, self.facing * (spd + 30),
                                   dmg0 + 2, 1, color=col))
-                parts.muzzle(muzx, muzy, self.facing)
+                parts.muzzle(muzx, muzy, self.facing, col or C_CHARGE)
                 snd.play("shot")
                 self.fire_anim = 0.20
             self.charging = False
@@ -1696,8 +1696,9 @@ class Player:
         if not blink:
             if self.charging and self.charge > 0.4:
                 cr = 10 + self.charge * 12
+                gcol = WEAPONS[self.weapon]["color"] if self.weapon else C_CHARGE
                 glow(s, x + (self.w if self.facing > 0 else 0),
-                     y + 24, cr, C_CHARGE, 150)
+                     y + 24, cr, gcol, 150)
             if self.dash_t > 0:
                 for k in range(3):
                     fcircle(s, cx - self.facing * k * 12, y + self.h / 2,
@@ -2130,6 +2131,7 @@ class Game:
             else:
                 for e in self.enemies:
                     if not e.dead and overlap(*sh.rect(), *e.rect()):
+                        self.parts.spark(sh.x, sh.y, sh.color or C_SHOT, 6, 200)
                         if e.hurt(sh.dmg, self.parts):
                             self.score += 100
                             self.spores = max(0, self.spores - 50)
@@ -2140,6 +2142,7 @@ class Game:
                 if not sh.dead and not getattr(sh, "from_turret", False) \
                         and self.boss and overlap(*sh.rect(), *self.boss.rect()):
                     dmg = sh.dmg
+                    self.parts.spark(sh.x, sh.y, sh.color or C_SHOT, 6, 200)
                     if self.boss.weak_open > 0 and overlap(*sh.rect(), *self.boss.weak_rect()):
                         dmg *= 2
                         self.parts.spark(sh.x, sh.y, (150, 255, 180), 8, 260)
