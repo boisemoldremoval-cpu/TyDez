@@ -183,7 +183,7 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "boss5", "shot", "shot_charged", "toxic", "coin",
                "background", "background2", "background3", "background4",
                "background5", "platform", "platform2", "platform3",
-               "platform4", "platform5", "ellis", "molde")
+               "platform4", "platform5", "ellis", "molde", "turret")
 
 
 class AssetPack:
@@ -1269,6 +1269,62 @@ class Pickup:
             pygame.draw.rect(s, (210, 240, 255), (int(sx - 3), int(yy - 12), 6, 4))
 
 
+class Turret:
+    """Allied auto-defense tower (TWR_001): locks onto the nearest mold enemy
+    in range and fires a disinfection beam. Stands on the ground."""
+    RANGE = 360
+    DW, DH = 56, 94
+
+    def __init__(self, x):
+        self.x = float(x)                 # left edge
+        self.cd = random.uniform(0.0, 0.8)
+        self.flash = 0.0
+        self.face = 1
+
+    def cannon(self):
+        return self.x + self.DW / 2, GROUND_Y - self.DH * 0.66
+
+    def update(self, dt, enemies, shots):
+        self.cd -= dt
+        self.flash = max(0.0, self.flash - dt)
+        cx, cy = self.cannon()
+        best, bestd = None, self.RANGE
+        for e in enemies:
+            if e.dead:
+                continue
+            ex, ey = e.x + e.w / 2, e.y + e.h / 2
+            if abs(ey - cy) > 150:
+                continue
+            d = abs(ex - cx)
+            if d < bestd:
+                bestd, best = d, e
+        if best and self.cd <= 0:
+            self.face = 1 if (best.x + best.w / 2) >= cx else -1
+            shots.append(Shot(cx + self.face * self.DW * 0.4, cy,
+                              self.face * 560, 7, 1, hostile=False))
+            self.cd = 0.85
+            self.flash = 0.12
+
+    def draw(self, s, cam, assets):
+        cx = self.x + self.DW / 2 - cam
+        _, cy = self.cannon()
+        if self.flash > 0:
+            pygame.draw.line(s, C_SHOT, (cx + self.face * 18, cy),
+                             (cx + self.face * 320, cy), 3)
+            glow(s, cx + self.face * 20, cy, 13, C_SHOT, 160)
+        if assets.has("turret"):
+            assets.blit_fit(s, "turret", cx, GROUND_Y - self.DH / 2,
+                            self.DW, self.DH, flip=self.face < 0)
+        else:
+            x = cx - self.DW / 2
+            orrect(s, (x + 6, GROUND_Y - self.DH + 30, self.DW - 12,
+                       self.DH - 30), (206, 222, 234), radius=5)
+            orrect(s, (x + 3, GROUND_Y - self.DH, self.DW - 6, 30),
+                   (58, 108, 188), radius=7)
+            fcircle(s, cx, GROUND_Y - self.DH + 15, 9, C_TEAL_LT)
+            fcircle(s, cx, GROUND_Y - 24, 6, (150, 240, 90))
+
+
 # --------------------------------------------------------------------------- #
 # Player
 # --------------------------------------------------------------------------- #
@@ -1784,6 +1840,8 @@ class Game:
         self.molde_y = self.player.y - 30
         self.molde_face = 1
         self.molde_t = 0.0
+        # allied auto-defense turrets (TWR_001) stationed along the level
+        self.turrets = [Turret(880), Turret(2000)]
 
     BOSS_QUOTE = {1: "\"THIS HOME... IS MINE!\"",
                   2: "\"YOU CANNOT WASH AWAY PERFECTION.\"",
@@ -1813,6 +1871,10 @@ class Game:
         self.molde_x += (tx - self.molde_x) * k
         self.molde_y += (ty - self.molde_y) * k
         self.molde_face = p.facing
+
+        # allied turrets scan and fire at nearby mold enemies
+        for tr in self.turrets:
+            tr.update(dt, self.enemies, self.shots)
 
         # camera
         if self.boss:
@@ -2076,6 +2138,8 @@ class Game:
             else:
                 pygame.draw.rect(s, (46, 40, 34), (int(sx), int(y), int(w), int(h)))
                 pygame.draw.rect(s, (70, 104, 52), (int(sx), int(y), int(w), 6))
+        for tr in self.turrets:
+            tr.draw(s, cam, self.assets)
         for hz in self.hazards:
             hz.draw(s, cam, t)
         for c in self.coins:
