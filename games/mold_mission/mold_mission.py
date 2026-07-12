@@ -407,6 +407,11 @@ class Enemy:
         self.home_y = float(y)
         self.dive_t = random.uniform(1.5, 3.0)
         self.diving = 0.0
+        # melee lunge/pounce state (telegraph -> launch)
+        self.lunge_cd = random.uniform(1.0, 2.4)
+        self.windup = 0.0
+        self.lunging = 0.0
+        self.lunge_vx = 0.0
         self.gen = 0                  # ventswarm split generation
         self.bat_speed = 80
         if kind == "sporebot":
@@ -488,11 +493,8 @@ class Enemy:
             # patrol turn-around on level edges / simple bounds
             if self.x < 60 or self.x > LEVEL_W - 100:
                 self.vx *= -1
-        elif self.kind == "moldcrawler":
-            d = player.x - self.x
-            self.x += (30 if d > 0 else -30) * dt
         elif self.kind in ("moldbat", "moldbat2", "ventstalker"):
-            # circle the player, then dive (Mk II / Vent Stalker dive faster)
+            # circle the player, then dive-bomb (Mk II / Vent Stalker dive faster)
             d = player.x - self.x
             self.x += (1 if d > 0 else -1) * self.bat_speed * dt
             self.dive_t -= dt
@@ -502,29 +504,71 @@ class Enemy:
                 self.dive_t = random.uniform(gap, gap + 1.4)
             if self.diving > 0:
                 self.diving -= dt
+                self.atk_anim = 0.3            # dive is the attack
                 self.y += (player.y - self.y) * min(1.0, dt * (5 if self.kind == "moldbat2" else 4))
             else:
                 self.y += (self.home_y + math.sin(self.t * 3) * 26 - self.y) \
                     * min(1.0, dt * 3)
-        elif self.kind in ("steammite", "moldmite", "mudstalker", "centipede",
-                            "sporeworm", "sentinel"):
+        elif self.kind in ("moldcrawler", "steammite", "moldmite", "mudstalker",
+                            "centipede", "sporeworm", "sentinel", "creeper"):
+            # ground stalkers: chase, telegraph (rear back), then pounce
             d = player.x - self.x
-            sp = {"steammite": 165, "moldmite": 190, "mudstalker": 90,
-                  "centipede": 85, "sporeworm": 155, "sentinel": 60}[self.kind]
-            self.x += (1 if d > 0 else -1) * sp * dt
-        elif self.kind == "creeper":
-            d = player.x - self.x
-            self.x += (1 if d > 0 else -1) * 45 * dt
+            face = 1 if d > 0 else -1
+            sp = {"moldcrawler": 60, "steammite": 165, "moldmite": 190,
+                  "mudstalker": 90, "centipede": 85, "sporeworm": 155,
+                  "sentinel": 55, "creeper": 45}[self.kind]
+            self.lunge_cd = max(0.0, self.lunge_cd - dt)
+            if self.windup > 0:                        # telegraph the pounce
+                self.windup -= dt
+                self.x -= face * 46 * dt
+                self.vx = 0
+                if self.windup <= 0:
+                    self.lunge_vx = face * (360 if self.kind == "sentinel" else 520)
+                    self.lunging = 0.30
+                    self.atk_anim = 0.45
+            elif self.lunging > 0:                      # the pounce itself
+                self.lunging -= dt
+                self.x += self.lunge_vx * dt
+                self.vx = self.lunge_vx
+            elif self.kind == "creeper":                # slime lobs acid, no pounce
+                self.x += face * sp * dt
+                self.vx = face * sp
+                self.shoot_t -= dt
+                if self.shoot_t <= 0 and 100 < abs(d) < 360:
+                    self.shoot_t = random.uniform(2.0, 3.4)
+                    self.atk_anim = 0.4
+                    blob = Shot(self.x + self.w / 2, self.y, face * 150, 4, -1,
+                                hostile=True)
+                    blob.vy = -300
+                    blob.grav = 900
+                    shots.append(blob)
+            elif self.lunge_cd <= 0 and abs(d) < 150:   # in range -> wind up
+                self.windup = 0.30
+                self.lunge_cd = random.uniform(2.2, 3.6)
+                self.vx = 0
+            else:                                        # normal chase
+                self.x += face * sp * dt
+                self.vx = face * sp
         elif self.kind in ("gaspod", "reactorspore"):
-            # stationary; puffs a spread when the player is near
+            # stationary emplacements: gaspod puffs upward gas, reactorspore
+            # detonates a radial energy burst
             self.shoot_t -= dt
-            rng = 320 if self.kind == "reactorspore" else 260
+            rng = 340 if self.kind == "reactorspore" else 260
             if self.shoot_t <= 0 and abs(player.x - self.x) < rng:
-                self.shoot_t = random.uniform(1.6, 2.6)
-                for dvx in (-90, 90):
-                    sh = Shot(self.x + self.w / 2, self.y, dvx, 4, -1, hostile=True)
-                    sh.vy = -40
-                    shots.append(sh)
+                self.shoot_t = random.uniform(1.8, 2.8)
+                self.atk_anim = 0.4
+                cx, cy = self.x + self.w / 2, self.y + self.h / 2
+                if self.kind == "reactorspore":
+                    for ang in range(0, 360, 60):       # 6-way radial burst
+                        a = math.radians(ang)
+                        sh = Shot(cx, cy, math.cos(a) * 210, 4, -1, hostile=True)
+                        sh.vy = math.sin(a) * 210
+                        shots.append(sh)
+                else:
+                    for dvx in (-100, 0, 100):          # gas puff spread up
+                        sh = Shot(cx, self.y, dvx, 4, -1, hostile=True)
+                        sh.vy = -70
+                        shots.append(sh)
         elif self.kind in ("ventswarm", "cultureswarm"):
             d = player.x - self.x
             self.x += (1 if d > 0 else -1) * 55 * dt
@@ -2237,6 +2281,9 @@ class Game:
             vy = getattr(sh, "vy", None)
             if vy is not None:
                 sh.y += vy * dt
+                g = getattr(sh, "grav", 0)
+                if g:
+                    sh.vy += g * dt
             if sh.hostile:
                 if overlap(*sh.rect(), *p.rect()):
                     if p.iframe <= 0 and p.dash_t <= 0:
