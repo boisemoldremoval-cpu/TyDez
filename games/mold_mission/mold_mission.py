@@ -27,6 +27,8 @@ Headless smoke test (no window):
     python3 mold_mission.py --selftest
 """
 
+import io
+import json
 import math
 import os
 import random
@@ -190,20 +192,66 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "mira", "engineer", "medic", "molde_alert", "molde_scan")
 
 
+def split_asset(path, parts=2, dest_dirs=None):
+    """Split a too-big asset file into byte-parts stored across DIFFERENT
+    folders, plus a <name>.split.json manifest, then remove the original.
+    AssetPack reassembles it transparently, so the app still sees one file."""
+    data = open(path, "rb").read()
+    folder = os.path.dirname(path)
+    name = os.path.splitext(os.path.basename(path))[0]
+    if dest_dirs is None:
+        dest_dirs = [os.path.join(folder, "split_a"),
+                     os.path.join(folder, "split_b")]
+    chunk = math.ceil(len(data) / parts)
+    rel = []
+    for i in range(parts):
+        d = dest_dirs[i % len(dest_dirs)]
+        os.makedirs(d, exist_ok=True)
+        pth = os.path.join(d, "%s.p%d" % (name, i))
+        with open(pth, "wb") as fh:
+            fh.write(data[i * chunk:(i + 1) * chunk])
+        rel.append(os.path.relpath(pth, folder))
+    with open(os.path.join(folder, name + ".split.json"), "w") as fh:
+        json.dump({"parts": rel, "orig": os.path.basename(path)}, fh)
+    os.remove(path)
+    return rel
+
+
 class AssetPack:
     def __init__(self, folder):
         self.imgs = {}
         self._scaled = {}
+        self.folder = folder
         for name in ASSET_NAMES:
             # base sprite + optional state variants (enemy/boss animations):
             # <name>_run / _hurt / _attack drop in and animate automatically
             for key in (name, name + "_run", name + "_hurt", name + "_attack"):
-                p = os.path.join(folder, key + ".png")
-                if os.path.isfile(p):
-                    try:
-                        self.imgs[key] = pygame.image.load(p).convert_alpha()
-                    except Exception:
-                        pass
+                surf = self._load(key)
+                if surf is not None:
+                    self.imgs[key] = surf
+
+    def _load(self, key):
+        """Load <key>.png, or transparently reassemble it from byte-parts
+        spread across other folders when it was split (see <key>.split.json)."""
+        p = os.path.join(self.folder, key + ".png")
+        if os.path.isfile(p):
+            try:
+                return pygame.image.load(p).convert_alpha()
+            except Exception:
+                return None
+        mani = os.path.join(self.folder, key + ".split.json")
+        if os.path.isfile(mani):
+            try:
+                parts = json.load(open(mani))["parts"]
+                data = b"".join(
+                    open(pp if os.path.isabs(pp)
+                         else os.path.join(self.folder, pp), "rb").read()
+                    for pp in parts)
+                return pygame.image.load(io.BytesIO(data),
+                                         key + ".png").convert_alpha()
+            except Exception:
+                return None
+        return None
 
     def has(self, name):
         return name in self.imgs
