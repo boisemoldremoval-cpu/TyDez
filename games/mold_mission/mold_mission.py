@@ -8,9 +8,11 @@ boss MOLDTIUS, the Source of Contamination.
 
 Controls
     Left / Right  (A / D) ..... move
-    Up / W / Space ............ jump
-    J  (hold to charge) ....... fire Disinfect Blaster  (tap = pew, hold = charge shot)
-    L / Left-Shift ............ HEPA Vac Dash (quick dash, briefly invulnerable)
+    Up / W / Space ............ jump (press again in the air for a double jump)
+    Down / S .................. crouch (duck under shots)
+    J  (hold to charge) ....... fire Disinfect Blaster  (tap = pew, hold = charge) · X also fires
+    K  (hold) ................. HEPA Vacuum — suction beam (pull/finish enemies, eat spores)
+    L / Left-Shift ............ dash (quick, briefly invulnerable)
     Enter ..................... start / restart      M sound      Esc quit
 
 All art is drop-in: put transparent PNGs in ./assets (player, sporebot,
@@ -1300,9 +1302,13 @@ class Turret:
                 bestd, best = d, e
         if best and self.cd <= 0:
             self.face = 1 if (best.x + best.w / 2) >= cx else -1
-            shots.append(Shot(cx + self.face * self.DW * 0.4, cy,
-                              self.face * 560, 7, 1, hostile=False))
-            self.cd = 0.85
+            # level 2 => counts as a charged kill (won't split ventswarm/
+            # centipede/cultureswarm); from_turret => stays out of boss fights
+            sh = Shot(cx + self.face * self.DW * 0.4, cy,
+                      self.face * 560, 7, 2, hostile=False)
+            sh.from_turret = True
+            shots.append(sh)
+            self.cd = 0.9
             self.flash = 0.12
 
     def draw(self, s, cam, assets):
@@ -1364,6 +1370,9 @@ class Player:
         self.slow = 0.0
 
     def rect(self):
+        if self.crouching:                 # duck: shorter hurtbox, feet fixed
+            ch = self.h * 0.6
+            return (self.x, self.y + self.h - ch, self.w, ch)
         return (self.x, self.y, self.w, self.h)
 
     def vacuum_rect(self):
@@ -1781,6 +1790,7 @@ class Game:
         self.cursor = 0
         self.mission = 1
         self.unlocked = 1        # highest mission unlocked
+        self.cleared = set()     # missions beaten at least once (full reward)
         self.reset()
         self.state = STATE_MENU
 
@@ -1791,7 +1801,7 @@ class Game:
 
     def hq_cost(self, i):
         lvl = (0, 0, self.armor, self.battery, self.speed)[i]
-        return 5 + lvl * 4
+        return 40 + lvl * 30
 
     def _make_bg(self, mission):
         key = {1: "background", 2: "background2", 3: "background3",
@@ -1847,15 +1857,15 @@ class Game:
         self.molde_y = self.player.y - 30
         self.molde_face = 1
         self.molde_t = 0.0
-        # allied auto-defense turrets (TWR_001) stationed along the level
-        self.turrets = [Turret(880), Turret(2000)]
+        # allied auto-defense turrets (TWR_001) stationed on clear ground
+        self.turrets = [Turret(880), Turret(1850)]
 
     BOSS_QUOTE = {1: "\"THIS HOME... IS MINE!\"",
                   2: "\"YOU CANNOT WASH AWAY PERFECTION.\"",
                   3: "\"THE SKY BELONGS TO THE HIVE.\"",
                   4: "\"THE FOUNDATION ROTS WITH ME.\"",
                   5: "\"I AM EVERY SPORE YOU HAVE EVER FOUGHT.\""}
-    REWARD_CASSETTES = {1: 500, 2: 750, 3: 1000, 4: 1500, 5: 2500}
+    REWARD_CASSETTES = {1: 120, 2: 180, 3: 250, 4: 350, 5: 500}
 
     def spawn_boss(self):
         self.boss = {1: Boss, 2: ShowerBeast, 3: SporeQueen,
@@ -1951,14 +1961,20 @@ class Game:
                             self._maybe_drop(e)
                         sh.dead = True
                         break
-                if not sh.dead and self.boss and overlap(*sh.rect(), *self.boss.rect()):
+                if not sh.dead and not getattr(sh, "from_turret", False) \
+                        and self.boss and overlap(*sh.rect(), *self.boss.rect()):
                     dmg = sh.dmg
                     if self.boss.weak_open > 0 and overlap(*sh.rect(), *self.boss.weak_rect()):
                         dmg *= 2
                         self.parts.spark(sh.x, sh.y, (150, 255, 180), 8, 260)
                     if self.boss.hurt(dmg, self.parts):
                         self.state = STATE_WIN
-                        self.bank += self.cassettes + self.REWARD_CASSETTES[self.mission]
+                        first = self.mission not in self.cleared
+                        self.cleared.add(self.mission)
+                        reward = self.REWARD_CASSETTES[self.mission]
+                        if not first:            # replays give a fraction only
+                            reward //= 5
+                        self.bank += self.cassettes + reward
                         self.unlocked = max(self.unlocked,
                                             min(self.mission + 1, len(MISSIONS)))
                         self.snd.play("win")
@@ -2245,6 +2261,8 @@ class Game:
                             self.speed += 1
                         self.snd.play("coin")
         elif self.state in (STATE_WIN, STATE_OVER) and key == pygame.K_RETURN:
+            if self.state == STATE_WIN:
+                self.mission = self.unlocked   # advance selection to next mission
             self.cursor = 0
             self.state = STATE_HQ
 
@@ -2290,6 +2308,10 @@ def run(selftest=False):
 
         results = [play_mission(m) for m in (1, 2, 3, 4, 5)]
         pygame.quit()
+        if not all(r == STATE_WIN for r in results):
+            print("SELFTEST FAILED:", results)
+            raise SystemExit(1)
+        print("selftest OK: all 5 missions win")
         return tuple(results)
 
     running = True
