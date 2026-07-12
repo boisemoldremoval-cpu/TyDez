@@ -981,8 +981,11 @@ class SporeQueen:
         x, y = self.x - cam, self.y + self.bob
         cx, cy = x + self.w / 2, y + self.h / 2
         glow(s, cx, cy, self.w * 0.6, (150, 130, 60), 70)
-        if assets.has("boss3"):
-            assets.blit_fit(s, "boss3", cx, cy, self.w * 1.2, self.h * 1.2)
+        bkey = "boss3"
+        if self.weak_open > 0 and assets.has("boss3_hurt"):
+            bkey = "boss3_hurt"
+        if assets.has(bkey):
+            assets.blit_fit(s, bkey, cx, cy, self.w * 1.2, self.h * 1.2)
         else:
             # spore-membrane wings
             for wdir in (-1, 1):
@@ -1217,8 +1220,11 @@ class MoldiusPrime:
         glow(s, cx, cy, self.w * 0.6, C_PRIME, 90)
         if self.slam > 0:
             pygame.draw.rect(s, C_PRIME, (0, GROUND_Y - 4, WIDTH, 4))
-        if assets.has("boss5"):
-            assets.blit_fit(s, "boss5", cx, cy, self.w * 1.15, self.h * 1.15)
+        bkey = "boss5"
+        if self.weak_open > 0 and assets.has("boss5_hurt"):
+            bkey = "boss5_hurt"     # rears into enrage while the core is exposed
+        if assets.has(bkey):
+            assets.blit_fit(s, bkey, cx, cy, self.w * 1.15, self.h * 1.15)
         else:
             pygame.draw.ellipse(s, C_PRIME_DK, (int(x), int(y + 20), self.w, self.h - 20))
             pygame.draw.ellipse(s, (100, 66, 130), (int(x + 20), int(y + 34),
