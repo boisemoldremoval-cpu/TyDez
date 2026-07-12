@@ -183,7 +183,7 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "boss5", "shot", "shot_charged", "toxic", "coin",
                "background", "background2", "background3", "background4",
                "background5", "platform", "platform2", "platform3",
-               "platform4", "platform5", "ellis", "molde")
+               "platform4", "platform5", "ellis", "molde", "blaster")
 
 
 class AssetPack:
@@ -1968,6 +1968,11 @@ class Game:
                 self.assets.blit_fit(s, "ellis", 78, 350, 138, 300)
                 tag = self.small.render("CMDR. ELLIS", True, C_TEAL_LT)
                 s.blit(tag, (78 - tag.get_width() // 2, 182))
+            # HEPA Vacuum Blaster (WPN_001) by the Engineering Bay upgrades
+            if self.assets.has("blaster"):
+                self.assets.blit_fit(s, "blaster", 886, 356, 146, 92)
+                tag = self.small.render("HEPA BLASTER", True, C_TEAL_LT)
+                s.blit(tag, (886 - tag.get_width() // 2, 300))
             self._center(self.big, "DESILPOWER HQ", 92, C_TEAL_LT)
             self._center(self.small,
                          "Mission Command · Research Lab · Engineering Bay",
