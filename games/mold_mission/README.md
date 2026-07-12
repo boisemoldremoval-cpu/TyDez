@@ -77,7 +77,7 @@ names fall back automatically. Recognized names:
 `player` (idle) and optional state frames `player_run`, `player_jump`,
 `player_fall`, `player_dash`, `player_crouch`, `player_shoot`, `player_hurt`;
 `sporebot`, `moldcrawler`, `toxicsprayer`, `boss`, `shot`, `shot_charged`,
-`toxic`, `coin`, `background`, `platform`; `ellis` (Commander Ellis at HQ); `molde` (MOLD-E companion drone that trails Ty); `blaster` (HEPA Blaster shown at HQ).
+`toxic`, `coin`, `background`, `platform`; `ellis` (Commander Ellis at HQ); `molde` (MOLD-E companion drone that trails Ty); `blaster`, `disinfect` (Ty's weapon loadout shown at HQ).
 
 The art direction is the **Mold Mission design sheet** in `art_reference/`.
 See the game's tuning constants at the top of `mold_mission.py`.
