@@ -183,7 +183,7 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "boss5", "shot", "shot_charged", "toxic", "coin",
                "background", "background2", "background3", "background4",
                "background5", "platform", "platform2", "platform3",
-               "platform4", "platform5")
+               "platform4", "platform5", "ellis")
 
 
 class AssetPack:
@@ -1949,6 +1949,11 @@ class Game:
 
         if self.state == STATE_MENU:
             # DesilPower HQ hub (Ch 3)
+            # Commander Ellis (CHR_002) presides over Mission Command
+            if self.assets.has("ellis"):
+                self.assets.blit_fit(s, "ellis", 78, 350, 138, 300)
+                tag = self.small.render("CMDR. ELLIS", True, C_TEAL_LT)
+                s.blit(tag, (78 - tag.get_width() // 2, 182))
             self._center(self.big, "DESILPOWER HQ", 92, C_TEAL_LT)
             self._center(self.small,
                          "Mission Command · Research Lab · Engineering Bay",
