@@ -1349,6 +1349,7 @@ class Player:
         self.fire_prev = False
         self.charge = 0.0
         self.charging = False
+        self.fire_anim = 0.0        # brief window showing the shoot pose per shot
         self.dash_t = 0.0
         self.dash_cd = 0.0
         self.anim = 0.0
@@ -1384,6 +1385,7 @@ class Player:
     def update(self, dt, keys, plats, shots, parts, snd):
         self.iframe = max(0.0, self.iframe - dt)
         self.dash_cd = max(0.0, self.dash_cd - dt)
+        self.fire_anim = max(0.0, self.fire_anim - dt)
         left = keys[pygame.K_LEFT] or keys[pygame.K_a]
         right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
         up = keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]
@@ -1491,6 +1493,7 @@ class Player:
             shots.append(Shot(muzx, muzy, self.facing * 620, 2, 0))
             parts.muzzle(muzx, muzy, self.facing)
             snd.play("shot")
+            self.fire_anim = 0.16
             self.charging = True
             self.charge = 0.0
         if fire and self.charging:
@@ -1500,10 +1503,12 @@ class Player:
                 shots.append(Shot(muzx, muzy, self.facing * 680, 6, 2))
                 parts.muzzle(muzx, muzy, self.facing)
                 snd.play("charge")
+                self.fire_anim = 0.22
             elif self.charge >= 0.4:
                 shots.append(Shot(muzx, muzy, self.facing * 650, 4, 1))
                 parts.muzzle(muzx, muzy, self.facing)
                 snd.play("shot")
+                self.fire_anim = 0.20
             self.charging = False
             self.charge = 0.0
         self.fire_prev = fire
@@ -1541,12 +1546,14 @@ class Player:
                     want = "player_hurt"
                 elif self.dash_t > 0:
                     want = "player_dash"
+                elif self.fire_anim > 0:
+                    want = "player_shoot"          # a bullet just came out
                 elif self.crouching:
                     want = "player_crouch"
                 elif not self.on_ground:
                     want = "player_fall" if self.vy > 0 else "player_jump"
-                elif self.charging or self.fire_prev:
-                    want = "player_shoot"
+                elif self.charging:
+                    want = "player_shoot"          # holding to charge / aiming
                 elif abs(self.vx) > 1:
                     want = "player_run"
                 else:
