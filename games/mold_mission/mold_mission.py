@@ -212,7 +212,9 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "ty_sealant", "ty_sealant_fire", "ty_grenade",
                "ty_grenade_fire",
                "wpn_disinfect", "wpn_uvcannon", "wpn_fogger",
-               "wpn_sealant", "wpn_grenade")
+               "wpn_sealant", "wpn_grenade",
+               "prop_generator", "prop_station", "prop_vent", "prop_fusebox",
+               "prop_panel", "prop_bench")
 
 
 def split_asset(path, parts=2, dest_dirs=None):
@@ -2186,6 +2188,21 @@ class Game:
         self.weapon_msg_t = 0.0
         self.shake = 0.0            # screen-shake magnitude (decays)
         self.hitstop = 0.0          # brief freeze on big impacts (juice)
+        # non-interactive background props (Batch 6) — set-dressing on the ground
+        propset = {
+            1: [("prop_fusebox", 430, 64), ("prop_generator", 1180, 74),
+                ("prop_panel", 2050, 62), ("prop_generator", 2760, 74)],
+            2: [("prop_vent", 520, 60), ("prop_panel", 1360, 62),
+                ("prop_vent", 2120, 60), ("prop_fusebox", 2820, 64)],
+            3: [("prop_bench", 380, 70), ("prop_generator", 1240, 74),
+                ("prop_bench", 2260, 70)],
+            4: [("prop_station", 560, 86), ("prop_generator", 1420, 74),
+                ("prop_fusebox", 2320, 64), ("prop_panel", 2900, 62)],
+            5: [("prop_station", 470, 86), ("prop_vent", 1120, 60),
+                ("prop_panel", 1720, 62), ("prop_station", 2440, 86),
+                ("prop_generator", 3020, 74)],
+        }
+        self.props = propset.get(self.mission, [])
 
     BOSS_QUOTE = {1: "\"THIS HOME... IS MINE!\"",
                   2: "\"YOU CANNOT WASH AWAY PERFECTION.\"",
@@ -2551,6 +2568,19 @@ class Game:
 
     def _draw_world(self, t):
         s, cam = self.screen, self.cam
+        # background props (Batch 6): non-interactive set-dressing on the ground,
+        # drawn behind platforms/enemies and dimmed so they read as background
+        for key, px, ph in getattr(self, "props", []):
+            sx = px - cam
+            if sx < -120 or sx > WIDTH + 120 or not self.assets.has(key):
+                continue
+            img = self.assets.imgs[key]
+            aw, ah = img.get_size()
+            sc = ph / ah
+            dw, dh = max(1, int(aw * sc)), max(1, int(ah * sc))
+            sp = pygame.transform.smoothscale(img, (dw, dh)).copy()
+            sp.fill((150, 165, 150, 255), special_flags=pygame.BLEND_RGBA_MULT)
+            s.blit(sp, (int(sx - dw / 2), int(GROUND_Y - dh)))
         # platforms
         for (x, y, w, h) in self.plats:
             sx = x - cam
