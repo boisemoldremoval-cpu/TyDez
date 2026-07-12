@@ -183,7 +183,7 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "boss5", "shot", "shot_charged", "toxic", "coin",
                "background", "background2", "background3", "background4",
                "background5", "platform", "platform2", "platform3",
-               "platform4", "platform5", "ellis")
+               "platform4", "platform5", "ellis", "molde")
 
 
 class AssetPack:
@@ -1779,6 +1779,11 @@ class Game:
         self.cassettes = 0
         self.cassettes_total = len(self.coins)
         self.boss_intro = 0.0
+        # MOLD-E companion drone (CHR_003) trails Ty
+        self.molde_x = self.player.x - 44
+        self.molde_y = self.player.y - 30
+        self.molde_face = 1
+        self.molde_t = 0.0
 
     BOSS_QUOTE = {1: "\"THIS HOME... IS MINE!\"",
                   2: "\"YOU CANNOT WASH AWAY PERFECTION.\"",
@@ -1799,6 +1804,15 @@ class Game:
             return
         p = self.player
         p.update(dt, keys, self.plats, self.shots, self.parts, self.snd)
+
+        # MOLD-E companion: ease toward a spot just behind & above Ty
+        self.molde_t += dt
+        tx = p.x + p.w / 2 - p.facing * 46
+        ty = p.y - 24
+        k = min(1.0, dt * 5.0)
+        self.molde_x += (tx - self.molde_x) * k
+        self.molde_y += (ty - self.molde_y) * k
+        self.molde_face = p.facing
 
         # camera
         if self.boss:
@@ -2074,6 +2088,12 @@ class Game:
             e.draw(s, cam, self.assets)
         if self.boss:
             self.boss.draw(s, cam, self.assets)
+        # MOLD-E companion drone hovers behind Ty (drawn before him)
+        if self.assets.has("molde"):
+            bob = math.sin(self.molde_t * 3.2) * 4
+            self.assets.blit_fit(s, "molde", self.molde_x - cam,
+                                 self.molde_y + bob, 48, 48,
+                                 flip=self.molde_face < 0)
         self.player.draw(s, cam, self.assets, t)
         for sh in self.shots:
             sh.draw(s, cam, self.assets)
