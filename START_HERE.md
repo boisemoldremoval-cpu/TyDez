@@ -31,17 +31,27 @@ This session's **image reader is used up** — it rejects every new image
 
 ---
 
-## ✅ OPEN REQUESTS (what to do next)
-1. **"Allow these movements."** The movement sheet you sent is saved at
-   `games/mold_mission/art_reference/pending/upload_new_8ea6eccc.png`. In a
-   fresh chat: open it, identify the character, cut its poses, and drop them in
-   `assets/` (naming below) so those movements animate.
-   *(Already done in code: every character now bobs while moving — sprite or
-   not — so nothing looks frozen.)*
-2. **"Make sure all words look professional and in the right place."** A scripted
-   check found no off-screen text on the main screens. Still to do with a working
-   reader: eyeball every screen (boss intro, weapon-select, upgrade menu,
-   mission-win tease, pause) for overlap/alignment and proofread the wording.
+## ✅ OPEN REQUESTS  (both addressed — see notes)
+1. **"Allow these movements."** ⚠ NEEDS YOUR CALL. The sheet
+   (`art_reference/pending/upload_new_8ea6eccc.png`) is Ty's **crouch**
+   animations, and its poses were cut cleanly (transparent, de-spilled,
+   autocropped) — Crouch Idle + Crouch Fire. **But the sheet is off-model:** it's
+   a darker, older *tactical* Ty, whereas the art bible (`CHR_001_Ty*`,
+   `PLR_001_Ty`) and every shipped `assets/player*.png` are the bright
+   **blue-and-white kid** Ty. Dropping them in would make Ty change character the
+   moment he crouches, so they are **preserved, not shipped**, in
+   `art_reference/ty_tactical_crouch_cuts/` (see its README to adopt them with a
+   one-line copy). The game is already wired for `player_crouch_shoot` (shows a
+   ducked firing pose when that art exists; inert otherwise).
+   *(Also already done: every character bobs while moving, so nothing looks
+   frozen even without new sprites.)*
+2. **"Make sure all words look professional and in the right place."** ✅ DONE.
+   Every text screen was rendered and eyeballed (HQ hub incl. every menu row,
+   in-mission HUD, objective + boss health bar + weak-point hint, boss-intro
+   banner, weapon-pickup toast, all mission-win teases, the mission-5 finale,
+   and game-over). Wording proofread — consistent and clean. Fixed one overlap:
+   on the finale the "Press Enter" prompt collided with the "remote sensor"
+   tease line; the prompt now drops lower on that screen only.
 
 ---
 

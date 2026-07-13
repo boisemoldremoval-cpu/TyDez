@@ -194,7 +194,8 @@ def glow(s, cx, cy, r, color, strength=120):
 # Assets (drop-in PNGs override the vector art)
 # --------------------------------------------------------------------------- #
 ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
-               "player_dash", "player_crouch", "player_shoot", "player_hurt",
+               "player_dash", "player_crouch", "player_crouch_shoot",
+               "player_shoot", "player_hurt",
                "player_aim", "player_victory",
                "sporebot", "moldcrawler", "toxicsprayer", "moldbat",
                "steammite", "ventswarm", "sporehawk", "roofleech", "moldmite",
@@ -1767,6 +1768,11 @@ class Player:
                 elif self.dash_t > 0:
                     # dash reuses the run pose unless dedicated dash art exists
                     want = "player_dash" if assets.has("player_dash") else "player_run"
+                elif (self.crouching and self.fire_anim > 0
+                      and assets.has("player_crouch_shoot")):
+                    # stay ducked while firing instead of popping to a stand
+                    # (only when dedicated crouch-fire art is present)
+                    want = "player_crouch_shoot"
                 elif self.fire_anim > 0:
                     want = "player_shoot"          # a bullet just came out
                 elif self.crouching:
@@ -2545,7 +2551,7 @@ class Game:
                     self._center(self.small, ln, HEIGHT // 2 - 8 + i * 24, C_DIM)
                 self._center(self.small,
                              "...a remote sensor detects a faint signal in an "
-                             "unexplored region.", HEIGHT // 2 + 74, C_TOXIC)
+                             "unexplored region.", HEIGHT // 2 + 64, C_TOXIC)
             elif self.state == STATE_WIN:
                 m = MISSIONS[self.mission]
                 self._center(self.big, m["name"] + " RESTORED", HEIGHT // 2 - 92, C_TEAL_LT)
@@ -2568,7 +2574,12 @@ class Game:
                 self._center(self.big, "TECHNICIAN DOWN", HEIGHT // 2 - 40, C_DANGER)
                 self._center(self.mid, f"The mold won this time.  Score {self.score}",
                              HEIGHT // 2 + 16, C_TEXT)
-            self._center(self.mid, "Press Enter — return to DesilPower HQ", HEIGHT // 2 + 66, C_TEAL_LT)
+            # the finale carries an extra tease line, so drop the prompt lower
+            # there to avoid colliding with it
+            pe_y = HEIGHT // 2 + (104 if (self.state == STATE_WIN
+                                          and self.mission == 5) else 66)
+            self._center(self.mid, "Press Enter — return to DesilPower HQ",
+                         pe_y, C_TEAL_LT)
 
     def _draw_world(self, t):
         s, cam = self.screen, self.cam
