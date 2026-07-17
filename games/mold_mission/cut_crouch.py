@@ -1,30 +1,45 @@
 #!/usr/bin/env python3
-"""Cut Ty's crouch poses from the Batch-4 chroma-green animation sheet.
+"""Cut Ty's full crouch move-set from the Batch-4 chroma-green animation sheet
+(art_reference/pending/upload_new_8ea6eccc.png, "TY - CROUCHING ANIMATIONS").
+
+All 15 poses in the 5x3 grid are cut into assets/ and wired into gameplay
+(crouch walk / slide / roll / jump / fire / aim / melee / reload / hurt / low
+health / item, plus cover + interact art). See mold_mission.py for how each
+pose is selected.
 
 Recipe (matches the one used throughout the project):
   crop the pose from the sheet -> flood-fill the solid green background from
   the edges -> keep the largest connected shape (protects enclosed lime armor
   accents / eyes) -> light green de-spill -> autocrop.
-
-NOTE: this sheet is OFF-MODEL. The official art bible (CHR_001 / PLR_001) and
-every shipped player sprite draw Ty as the blue-and-white armored kid; this
-sheet is a darker, older tactical design. So the cuts are written to
-art_reference/ (preserved, one rename from use) and are NOT dropped into
-assets/ -- shipping them would make Ty change character whenever he crouches.
-See ty_tactical_crouch_cuts/README.md.
 """
 import os
 from collections import deque
 from PIL import Image
 
 SHEET = "art_reference/pending/upload_new_8ea6eccc.png"
-OUT = "art_reference/ty_tactical_crouch_cuts"
+OUT = "assets"
 
-# (dest_key, (left, top, right, bottom)) on the 1536x1024 sheet.
-POSES = {
-    "player_crouch": (18, 150, 285, 345),          # 1. CROUCH IDLE (gun ready)
-    "player_crouch_shoot": (1230, 150, 1520, 345),  # 5. CROUCH FIRE (muzzle flash)
-}
+# The sheet is a uniform 5-col x 3-row grid; these column/row spans were
+# verified by cutting + montage. keep_largest() drops any neighbour bleed.
+_COLS = [(18, 312), (316, 614), (618, 916), (920, 1216), (1220, 1519)]
+_ROWS = [(145, 340), (358, 560), (590, 735)]
+_KEYS = [
+    # row 1
+    "player_crouch", "player_crouch_walk", "player_crouch_aim",
+    "player_crouch_aim_ds", "player_crouch_shoot",
+    # row 2
+    "player_crouch_reload", "player_crouch_melee", "player_crouch_hurt",
+    "player_crouch_low", "player_crouch_roll",
+    # row 3
+    "player_crouch_slide", "player_crouch_cover", "player_crouch_interact",
+    "player_crouch_item", "player_crouch_jump",
+]
+POSES = {}
+_i = 0
+for _t, _b in _ROWS:
+    for _l, _r in _COLS:
+        POSES[_KEYS[_i]] = (_l, _t, _r, _b)
+        _i += 1
 
 
 def is_bg(r, g, b):

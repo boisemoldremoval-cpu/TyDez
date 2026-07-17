@@ -9,10 +9,12 @@ boss MOLDTIUS, the Source of Contamination.
 Controls
     Left / Right  (A / D) ..... move
     Up / W / Space ............ jump (press again in the air for a double jump)
-    Down / S .................. crouch (duck under shots)
+    Down / S .................. crouch (duck under shots); hold + Left/Right to
+                               sneak-walk low. Ty stays ducked to fire & aim.
     J  (hold to charge) ....... fire Disinfect Blaster  (tap = pew, hold = charge) · X also fires
     K  (hold) ................. HEPA Vacuum — suction beam (pull/finish enemies, eat spores)
-    L / Left-Shift ............ dash (quick, briefly invulnerable)
+    L / Left-Shift ............ dash (quick, briefly invulnerable). While crouched:
+                               L + direction = low SLIDE, L standing still = MELEE swing.
     Enter ..................... start / restart      M sound      Esc quit
 
 All art is drop-in: put transparent PNGs in ./assets (player, sporebot,
@@ -77,6 +79,9 @@ JUMP_V = 760.0
 DASH_SPEED = 620.0
 DASH_TIME = 0.22
 DASH_CD = 0.55
+CROUCH_MULT = 0.45      # crouch-walk speed as a fraction of MOVE_SPEED
+MELEE_TIME = 0.30       # crouch-melee swing duration
+MELEE_DMG = 5           # crouch-melee damage
 
 PLAYER_HP = 100
 IFRAMES = 1.0
@@ -194,9 +199,16 @@ def glow(s, cx, cy, r, color, strength=120):
 # Assets (drop-in PNGs override the vector art)
 # --------------------------------------------------------------------------- #
 ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
-               "player_dash", "player_crouch", "player_crouch_shoot",
-               "player_shoot", "player_hurt",
+               "player_dash", "player_shoot", "player_hurt",
                "player_aim", "player_victory",
+               # Ty crouch move-set (15-pose sheet)
+               "player_crouch", "player_crouch_walk", "player_crouch_aim",
+               "player_crouch_aim_ds", "player_crouch_shoot",
+               "player_crouch_reload", "player_crouch_melee",
+               "player_crouch_hurt", "player_crouch_low", "player_crouch_roll",
+               "player_crouch_slide", "player_crouch_cover",
+               "player_crouch_interact", "player_crouch_item",
+               "player_crouch_jump",
                "sporebot", "moldcrawler", "toxicsprayer", "moldbat",
                "steammite", "ventswarm", "sporehawk", "roofleech", "moldmite",
                "creeper", "mudstalker", "centipede", "pipeparasite", "gaspod",
@@ -1564,13 +1576,28 @@ class Player:
         self.crouching = False
         self.sliding = False
         self.slow = 0.0
+        # crouch move-set timers / flags (drive the 15-pose crouch sheet)
+        self.crouch_slide = False   # this dash is a low slide (stay ducked)
+        self.cjump_t = 0.0          # just sprang up out of a crouch
+        self.melee_t = 0.0          # crouch-melee swing in progress
+        self.melee_fire = False     # one-shot: Game applies the melee hit
+        self.item_t = 0.0           # crouched pickup grab (item pose)
         self.weapon = None          # equipped pick-up weapon id (None = blaster)
 
     def rect(self):
-        if self.crouching:                 # duck: shorter hurtbox, feet fixed
+        if self.crouching or self.crouch_slide:   # duck: shorter hurtbox, feet fixed
             ch = self.h * 0.6
             return (self.x, self.y + self.h - ch, self.w, ch)
         return (self.x, self.y, self.w, self.h)
+
+    def melee_rect(self):
+        """Short reach in front of a crouching Ty for the melee swing."""
+        reach = 74
+        ch = self.h * 0.6
+        top = self.y + self.h - ch
+        if self.facing >= 0:
+            return (self.x + self.w, top, reach, ch)
+        return (self.x - reach, top, reach, ch)
 
     def vacuum_rect(self):
         reach = 200
@@ -1592,29 +1619,53 @@ class Player:
         self.iframe = max(0.0, self.iframe - dt)
         self.dash_cd = max(0.0, self.dash_cd - dt)
         self.fire_anim = max(0.0, self.fire_anim - dt)
+        self.cjump_t = max(0.0, self.cjump_t - dt)
+        self.melee_t = max(0.0, self.melee_t - dt)
+        self.item_t = max(0.0, self.item_t - dt)
         left = keys[pygame.K_LEFT] or keys[pygame.K_a]
         right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
         up = keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]
         down = keys[pygame.K_DOWN] or keys[pygame.K_s]
+        moving = (1 if right else 0) - (1 if left else 0)
         self.wj_lock = max(0.0, self.wj_lock - dt)
         self.slow = max(0.0, self.slow - dt)
         water_mult = 0.5 if self.slow > 0 else 1.0
 
-        # dash
+        # dash key: a plain dash, or — while ducking — a low SLIDE (moving) or a
+        # MELEE swing (standing still). The slide keeps Ty's short hurtbox.
+        crouch_hold = down and self.on_ground and self.dash_t <= 0
         if (keys[pygame.K_l] or keys[pygame.K_LSHIFT]) and self.dash_cd <= 0 \
-                and self.dash_t <= 0:
-            self.dash_t = DASH_TIME
-            self.dash_cd = DASH_CD
-            snd.play("dash")
+                and self.dash_t <= 0 and self.melee_t <= 0:
+            if crouch_hold and moving == 0:
+                self.melee_t = MELEE_TIME       # rooted crouch melee
+                self.melee_fire = True          # Game applies the hit once
+                self.dash_cd = DASH_CD
+                snd.play("shot")
+            else:
+                self.dash_t = DASH_TIME
+                self.dash_cd = DASH_CD
+                self.crouch_slide = down and self.on_ground
+                if self.crouch_slide and moving:
+                    self.facing = moving        # slide the way you steer
+                snd.play("dash")
 
         self.crouching = down and self.on_ground and self.dash_t <= 0
         if self.dash_t > 0:
             self.dash_t -= dt
-            self.vx = self.facing * DASH_SPEED
+            self.vx = self.facing * DASH_SPEED * (0.9 if self.crouch_slide else 1.0)
+            if self.dash_t <= 0:
+                self.crouch_slide = False
+        elif self.melee_t > 0:
+            self.vx = 0.0                        # rooted during the swing
         elif self.wj_lock > 0:
             self.vx = self.wj_dir * MOVE_SPEED * self.speed_mult
         elif self.crouching:
-            self.vx = 0.0
+            # crouch-walk: shuffle along, staying ducked (slower than upright)
+            self.vx = moving * MOVE_SPEED * self.speed_mult * CROUCH_MULT * water_mult
+            if right:
+                self.facing = 1
+            elif left:
+                self.facing = -1
         else:
             self.vx = (right - left) * MOVE_SPEED * self.speed_mult * water_mult
             if right:
@@ -1650,6 +1701,8 @@ class Player:
                 self.vy = -JUMP_V
                 self.jumps = 1
                 self.coyote = 0.0
+                if down:                    # springing up out of a crouch
+                    self.cjump_t = 0.32
                 snd.play("jump")
             elif self.wall != 0:
                 self.vy = -JUMP_V
@@ -1733,6 +1786,27 @@ class Player:
             self.charge = 0.0
         self.fire_prev = fire
 
+    def _crouch_pose(self, assets):
+        """Pick the ducked pose for the current crouch state (fire / aim /
+        item / walk / low-energy / low-health / idle)."""
+        if self.fire_anim > 0:
+            k = "player_crouch_shoot"
+        elif self.charging and self.charge >= 0.9:
+            k = "player_crouch_aim_ds"          # full charge = aim down sights
+        elif self.charging:
+            k = "player_crouch_aim"
+        elif self.item_t > 0:
+            k = "player_crouch_item"            # just grabbed a pickup
+        elif abs(self.vx) > 1:
+            k = "player_crouch_walk"
+        elif self.energy < 0.22 * self.maxenergy:
+            k = "player_crouch_reload"          # low energy = recharging
+        elif self.hp < 0.30 * self.maxhp:
+            k = "player_crouch_low"             # battered, low health
+        else:
+            k = "player_crouch"
+        return k if assets.has(k) else "player_crouch"
+
     def draw(self, s, cam, assets, t):
         x, y = self.x - cam, self.y
         cx = x + self.w / 2
@@ -1763,22 +1837,24 @@ class Player:
                             8 - k * 2, (*C_TEAL_LT, 90))
             if assets.has("player"):
                 # pick an animation sprite by state, fall back to 'player'
-                if self.iframe > 0:
-                    want = "player_hurt"
+                if self.crouch_slide and self.dash_t > 0:
+                    want = "player_crouch_slide"   # low evasive slide
+                elif self.iframe > 0:
+                    # take-damage flinch — ducked variant while crouched
+                    want = "player_crouch_hurt" if self.crouching else "player_hurt"
                 elif self.dash_t > 0:
                     # dash reuses the run pose unless dedicated dash art exists
                     want = "player_dash" if assets.has("player_dash") else "player_run"
-                elif (self.crouching and self.fire_anim > 0
-                      and assets.has("player_crouch_shoot")):
-                    # stay ducked while firing instead of popping to a stand
-                    # (only when dedicated crouch-fire art is present)
-                    want = "player_crouch_shoot"
+                elif self.melee_t > 0:
+                    want = "player_crouch_melee"   # crouch melee swing
+                elif self.crouching:
+                    want = self._crouch_pose(assets)
                 elif self.fire_anim > 0:
                     want = "player_shoot"          # a bullet just came out
-                elif self.crouching:
-                    want = "player_crouch"
                 elif not self.on_ground:
-                    if self.vy > 0:                # falling shares the jump pose
+                    if self.cjump_t > 0 and assets.has("player_crouch_jump"):
+                        want = "player_crouch_jump"  # springing up out of a crouch
+                    elif self.vy > 0:              # falling shares the jump pose
                         want = "player_fall" if assets.has("player_fall") else "player_jump"
                     else:
                         want = "player_jump"
@@ -1788,6 +1864,13 @@ class Player:
                     want = "player_run"
                 else:
                     want = "player"
+                # crouch art missing? duck-fallback instead of popping upright
+                if not assets.has(want):
+                    if want.startswith("player_crouch"):
+                        want = ("player_crouch" if assets.has("player_crouch")
+                                else "player")
+                    else:
+                        want = "player"
                 # equipped weapon: show Ty holding / firing it (Batch 4)
                 if self.weapon and assets.has("ty_" + self.weapon):
                     wk = "ty_" + self.weapon
@@ -2347,22 +2430,39 @@ class Game:
                         self.shake = max(self.shake, 4)
                         self.snd.play("bosshit")
                     if self.boss.hurt(dmg, self.parts):
-                        self.shake = max(self.shake, 18)
-                        self.hitstop = max(self.hitstop, 0.08)
-                        self.state = STATE_WIN
-                        first = self.mission not in self.cleared
-                        self.cleared.add(self.mission)
-                        reward = self.REWARD_CASSETTES[self.mission]
-                        if not first:            # replays give a fraction only
-                            reward //= 5
-                        self.bank += self.cassettes + reward
-                        self.unlocked = max(self.unlocked,
-                                            min(self.mission + 1, len(MISSIONS)))
-                        self.snd.play("win")
+                        self._boss_defeated()
                     sh.dead = True
         self.shots = [s for s in self.shots if not s.dead]
         if self._new_enemies:
             self.enemies.extend(self._new_enemies)
+
+        # crouch melee: a short front swing that clears nearby mold (and can
+        # chip a boss / crack an open weak point)
+        if p.melee_fire:
+            p.melee_fire = False
+            mr = p.melee_rect()
+            self.shake = max(self.shake, 5)
+            for e in self.enemies:
+                if not e.dead and overlap(*mr, *e.rect()):
+                    self.parts.spark(e.x + e.w / 2, e.y + e.h / 2,
+                                     C_TEAL_LT, 8, 240)
+                    e.x += 20 * p.facing                    # knockback
+                    if e.hurt(MELEE_DMG, self.parts):
+                        self.score += 100
+                        self.spores = max(0, self.spores - 50)
+                        self.snd.play("kill")
+                        self._split(e, charged=False)
+                        self._maybe_drop(e)
+            self.enemies = [e for e in self.enemies if not e.dead]
+            if self.boss and overlap(*mr, *self.boss.rect()):
+                if self.boss.weak_open > 0 and overlap(*mr, *self.boss.weak_rect()):
+                    self.snd.play("weak")
+                    if self.boss.hurt(MELEE_DMG * 2, self.parts):
+                        self._boss_defeated()
+                else:
+                    self.snd.play("bosshit")
+                    if self.boss.hurt(MELEE_DMG, self.parts):
+                        self._boss_defeated()
 
         # enemy contact damage
         for e in self.enemies:
@@ -2382,6 +2482,8 @@ class Game:
                 c.got = True
                 self.score += 50
                 self.cassettes += 1
+                if p.crouching:            # grabbing it low = item pose
+                    p.item_t = 0.5
                 self.snd.play("coin")
         self.coins = [c for c in self.coins if not c.got]
 
@@ -2389,6 +2491,8 @@ class Game:
         for pk in self.pickups:
             if not pk.got and overlap(pk.x - 12, pk.y - 12, 24, 24, *p.rect()):
                 pk.got = True
+                if p.crouching:                # grabbed low = item pose
+                    p.item_t = 0.5
                 if pk.kind == "health":
                     p.hp = min(p.maxhp, p.hp + HP_PACK)
                     self.snd.play("health")
@@ -2416,6 +2520,21 @@ class Game:
 
         self.boss_intro = max(0.0, self.boss_intro - dt)
         self.parts.update(dt)
+
+    def _boss_defeated(self):
+        """Shared mission-win bookkeeping (a shot or a melee can land it)."""
+        self.shake = max(self.shake, 18)
+        self.hitstop = max(self.hitstop, 0.08)
+        self.state = STATE_WIN
+        first = self.mission not in self.cleared
+        self.cleared.add(self.mission)
+        reward = self.REWARD_CASSETTES[self.mission]
+        if not first:                # replays give a fraction only
+            reward //= 5
+        self.bank += self.cassettes + reward
+        self.unlocked = max(self.unlocked,
+                            min(self.mission + 1, len(MISSIONS)))
+        self.snd.play("win")
 
     def _maybe_drop(self, e):
         r = random.random()
@@ -2505,12 +2624,16 @@ class Game:
                                      (WIDTH // 2 - 330, y - 15, 660, 32), border_radius=8)
                 self._center(self.small if i else self.mid, txt, y, col)
             self._center(self.small, "↑/↓ select   ◀ ▶ change mission   Enter: deploy / buy",
-                         HEIGHT - 96, C_DIM)
+                         HEIGHT - 102, C_DIM)
             self._center(self.small,
-                         "In-mission:  Move A/D · Jump (double) · Crouch · "
+                         "In-mission:  Move A/D · Jump (double) · "
                          "J blaster (charge) · K HEPA vacuum · L dash",
-                         HEIGHT - 70, C_DIM)
-            self._center(self.mid, MISSIONS[self.mission]["briefing"], HEIGHT - 40, C_TOXIC)
+                         HEIGHT - 80, C_DIM)
+            self._center(self.small,
+                         "Crouch ↓/S:  move to sneak-walk · fire & aim stay ducked · "
+                         "L+direction = slide · L (still) = melee",
+                         HEIGHT - 60, C_TEAL_LT)
+            self._center(self.mid, MISSIONS[self.mission]["briefing"], HEIGHT - 36, C_TOXIC)
             return
 
         self._draw_world(t)

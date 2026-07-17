@@ -31,20 +31,31 @@ This session's **image reader is used up** — it rejects every new image
 
 ---
 
-## ✅ OPEN REQUESTS  (both addressed — see notes)
-1. **"Allow these movements."** ⚠ NEEDS YOUR CALL. The sheet
-   (`art_reference/pending/upload_new_8ea6eccc.png`) is Ty's **crouch**
-   animations, and its poses were cut cleanly (transparent, de-spilled,
-   autocropped) — Crouch Idle + Crouch Fire. **But the sheet is off-model:** it's
-   a darker, older *tactical* Ty, whereas the art bible (`CHR_001_Ty*`,
-   `PLR_001_Ty`) and every shipped `assets/player*.png` are the bright
-   **blue-and-white kid** Ty. Dropping them in would make Ty change character the
-   moment he crouches, so they are **preserved, not shipped**, in
-   `art_reference/ty_tactical_crouch_cuts/` (see its README to adopt them with a
-   one-line copy). The game is already wired for `player_crouch_shoot` (shows a
-   ducked firing pose when that art exists; inert otherwise).
-   *(Also already done: every character bobs while moving, so nothing looks
-   frozen even without new sprites.)*
+## ✅ OPEN REQUESTS  (both done — see notes)
+1. **"Allow these movements."** ✅ DONE. The sheet
+   (`art_reference/pending/upload_new_8ea6eccc.png`) is Ty's **crouch** move-set.
+   All **15 poses** were cut cleanly (transparent, de-spilled, autocropped) via
+   `cut_crouch.py` into `assets/player_crouch*.png`, and the crouch state was
+   rebuilt from a frozen duck into a full move-set that the gameplay drives:
+   - **Crouch-walk** — hold ↓/S + Left/Right to shuffle along while ducked
+     (slower, short hurtbox) → `player_crouch_walk`.
+   - **Crouch slide** — L/Shift + a direction while ducked = a low evasive slide
+     (keeps the short hurtbox) → `player_crouch_slide`.
+   - **Crouch melee** — L/Shift while ducked and still = a short front swing that
+     clears nearby mold (and chips a boss / open weak point) →
+     `player_crouch_melee`.
+   - **Crouch jump** — springing up out of a crouch → `player_crouch_jump`.
+   - **Ducked combat/status** — fire (`_shoot`), charge-aim (`_aim`/`_aim_ds`),
+     take-damage (`_hurt`), low-health (`_low`), low-energy (`_reload`), and a
+     pickup grab (`_item`) all pick the matching crouch pose automatically.
+   - `player_crouch_roll`, `player_crouch_cover` + `player_crouch_interact` are
+     also cut and loaded; roll overlaps the slide dodge, and cover/interact
+     embed set-dressing (crate / console), so these are kept available for
+     scripted moments rather than auto-shown.
+   Note: this sheet is a darker *tactical* Ty, while the standing sprites are the
+   art-bible blue-and-white kid — so Ty's look shifts a little when he ducks (a
+   deliberate choice — you asked to use these animations for TyGuy).
+   *(Also: every character bobs while moving, so nothing looks frozen.)*
 2. **"Make sure all words look professional and in the right place."** ✅ DONE.
    Every text screen was rendered and eyeballed (HQ hub incl. every menu row,
    in-mission HUD, objective + boss health bar + weak-point hint, boss-intro
