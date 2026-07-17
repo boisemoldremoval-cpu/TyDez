@@ -324,16 +324,19 @@ class AssetPack:
             self._scaled[key] = sp
         s.blit(sp, (int(cx - dw / 2), int(cy - dh / 2)))
 
-    def blit_char(self, s, name, feet_x, feet_y, draw_h, flip=False):
+    def blit_char(self, s, name, feet_x, feet_y, draw_h, flip=False, squash=1.0):
         """Draw a CHARACTER sprite at a consistent size: scaled uniformly so its
         rendered height == draw_h, and anchored at the feet (bottom-centre at
         feet_x/feet_y). Unlike blit_fit this never lets a wide effect pose (a
         muzzle flash, a slide's dust) shrink the figure — height is the anchor,
-        so a character keeps the same on-screen size across every pose/screen."""
+        so a character keeps the same on-screen size across every pose/screen.
+        `squash` <1 flattens+widens (landing splat), >1 stretches+narrows
+        (a jump / a breath) while roughly preserving volume — the juice."""
         img = self.imgs[name]
         aw, ah = img.get_size()
         sc = draw_h / ah
-        dw, dh = max(1, int(aw * sc)), max(1, int(ah * sc))
+        dw = max(1, int(aw * sc / squash))
+        dh = max(1, int(ah * sc * squash))
         key = ("C", name, dw, dh, flip)
         sp = self._scaled.get(key)
         if sp is None:
@@ -703,8 +706,13 @@ class Enemy:
         y += bob
         cy += bob
         if assets.has(want):
+            # idle breathing pulse + a quick squash on hit, so every enemy is
+            # visibly alive even between its keyframes
+            breath = 1.0 + 0.045 * math.sin(self.t * 3.2 + self.x * 0.01)
+            if self.hit > 0:
+                breath *= 0.9
             assets.blit_char(s, want, cx, y + self.h, self.h * CHAR_H,
-                             flip=self.vx < 0)
+                             flip=self.vx < 0, squash=breath)
         elif self.kind == "sentinel":
             orrect(s, (x + 4, y + 8, self.w - 8, self.h - 8), C_LAB_DK, 6)
             orrect(s, (x + 8, y + 12, self.w - 16, 12), C_LAB, 4)
@@ -923,7 +931,8 @@ class Boss:
             bkey = "boss_hurt"     # rears/enrages while the chest valve is open
         if assets.has(bkey):
             assets.blit_char(s, bkey, cx, cy + self.h / 2, self.h * BOSS_H,
-                             flip=True)
+                             flip=True,
+                             squash=1.0 + 0.03 * math.sin(self.t * 2.4))
         else:
             pygame.draw.ellipse(s, C_BOSS_DK, (int(x), int(y + 20), self.w, self.h - 20))
             pygame.draw.ellipse(s, C_BOSS, (int(x + 16), int(y + 30),
@@ -1048,7 +1057,8 @@ class ShowerBeast:
         if self.weak_open > 0 and assets.has("boss2_hurt"):
             bkey = "boss2_hurt"    # phase-shift glow while the core is exposed
         if assets.has(bkey):
-            assets.blit_char(s, bkey, cx, cy + self.h / 2, self.h * BOSS_H)
+            assets.blit_char(s, bkey, cx, cy + self.h / 2, self.h * BOSS_H,
+                             squash=1.0 + 0.03 * math.sin(self.t * 2.4))
         else:
             # bathtub/tile creature
             pygame.draw.ellipse(s, C_TILE_DK, (int(x), int(y + 30), self.w, self.h - 30))
@@ -1170,7 +1180,8 @@ class SporeQueen:
         if self.weak_open > 0 and assets.has("boss3_hurt"):
             bkey = "boss3_hurt"
         if assets.has(bkey):
-            assets.blit_char(s, bkey, cx, cy + self.h / 2, self.h * BOSS_H)
+            assets.blit_char(s, bkey, cx, cy + self.h / 2, self.h * BOSS_H,
+                             squash=1.0 + 0.03 * math.sin(self.t * 2.4))
         else:
             # spore-membrane wings
             for wdir in (-1, 1):
@@ -1292,7 +1303,8 @@ class CrawlorBoss:
         if self.weak_open > 0 and assets.has("boss4_hurt"):
             bkey = "boss4_hurt"    # roaring maw while the cores are exposed
         if assets.has(bkey):
-            assets.blit_char(s, bkey, cx, cy + self.h / 2, self.h * BOSS_H)
+            assets.blit_char(s, bkey, cx, cy + self.h / 2, self.h * BOSS_H,
+                             squash=1.0 + 0.03 * math.sin(self.t * 2.4))
         else:
             # segmented armored worm
             for k in range(6):
@@ -1412,7 +1424,8 @@ class MoldiusPrime:
         if self.weak_open > 0 and assets.has("boss5_hurt"):
             bkey = "boss5_hurt"     # rears into enrage while the core is exposed
         if assets.has(bkey):
-            assets.blit_char(s, bkey, cx, cy + self.h / 2, self.h * BOSS_H)
+            assets.blit_char(s, bkey, cx, cy + self.h / 2, self.h * BOSS_H,
+                             squash=1.0 + 0.03 * math.sin(self.t * 2.4))
         else:
             pygame.draw.ellipse(s, C_PRIME_DK, (int(x), int(y + 20), self.w, self.h - 20))
             pygame.draw.ellipse(s, (100, 66, 130), (int(x + 20), int(y + 34),
@@ -1605,6 +1618,8 @@ class Player:
         self.jump_prev = False
         self.jumps = 2          # ground jump + one air (double) jump
         self.climbing = False   # on a ladder (Mega Man style)
+        self.ride = None        # moving platform Ty is standing on
+        self.land_t = 0.0       # landing-squash animation timer
         self.wall = 0           # -1 wall on left, 1 wall on right, 0 none
         self.wj_lock = 0.0      # wall-jump horizontal lockout
         self.wj_dir = 0
@@ -1657,6 +1672,7 @@ class Player:
         self.cjump_t = max(0.0, self.cjump_t - dt)
         self.melee_t = max(0.0, self.melee_t - dt)
         self.item_t = max(0.0, self.item_t - dt)
+        self.land_t = max(0.0, self.land_t - dt)
         left = keys[pygame.K_LEFT] or keys[pygame.K_a]
         right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
         up_key = keys[pygame.K_UP] or keys[pygame.K_w]
@@ -1796,6 +1812,8 @@ class Player:
                     self.vy = 0
         if self.on_ground and was_air and fall_v > 240:
             snd.play("land")            # thud on touchdown from a real fall
+            self.land_t = 0.14          # squash-on-landing juice
+            parts.spark(self.x + self.w / 2, self.y + self.h, C_DIM, 4, 120)
         if self.on_ground:
             self.jumps = 2
             self.coyote = COYOTE
@@ -1993,8 +2011,15 @@ class Player:
                 ducking = (self.crouching or self.crouch_slide
                            or self.melee_t > 0)
                 dh = self.h * CHAR_H * (DUCK_RATIO if ducking else 1.0)
+                # squash on landing, stretch on the rise — classic platformer juice
+                if self.land_t > 0:
+                    sq = 1.0 - 0.20 * (self.land_t / 0.14)
+                elif not self.on_ground and self.vy < -200 and not self.climbing:
+                    sq = 1.10
+                else:
+                    sq = 1.0
                 assets.blit_char(s, name, cx, y + self.h, dh,
-                                 flip=self.facing < 0)
+                                 flip=self.facing < 0, squash=sq)
             else:
                 bob = abs(math.sin(self.anim * 9)) * 3 if self.on_ground else 0
                 orrect(s, (x + 4, y + 14 - bob, self.w - 8, 26), C_TEAL_DK, 6)
@@ -2211,6 +2236,63 @@ class Hazard:
             fcircle(s, sx + math.sin(t * 3 + k) * 12, yy, 18, (*C_STEAM, int(120 * self.on)))
 
 
+class Mover:
+    """A moving platform (Mega Man style). Modes: 'h' patrols horizontally, 'v'
+    is a vertical elevator, 'fall' collapses shortly after Ty steps on and then
+    respawns, 'belt' is a conveyor that shoves whatever stands on it. Riders are
+    carried by (dx, dy) every frame, so standing on one imparts real momentum."""
+    def __init__(self, x, y, w, mode="h", span=180, speed=90, thick=18,
+                 phase=0.0, push=140.0):
+        self.x0, self.y0 = float(x), float(y)
+        self.x, self.y = float(x), float(y)
+        self.w, self.h = w, thick
+        self.mode = mode
+        self.amp = span / 2.0
+        self.omega = speed / max(20.0, self.amp)
+        self.t = phase
+        self.push = push
+        self.dx = self.dy = 0.0
+        self.vy = 0.0
+        self.state = "idle"     # 'fall': idle -> shaking -> falling -> gone
+        self.timer = 0.0
+        self.shk = 0.0
+
+    def update(self, dt, ridden):
+        px, py = self.x, self.y
+        self.t += dt
+        self.shk = max(0.0, self.shk - dt * 6)
+        if self.mode == "h" or self.mode == "belt":
+            self.x = self.x0 + self.amp * math.sin(self.t * self.omega)
+            self.y = self.y0
+        elif self.mode == "v":
+            self.y = self.y0 + self.amp * math.sin(self.t * self.omega)
+            self.x = self.x0
+        elif self.mode == "fall":
+            if self.state == "idle" and ridden:
+                self.state, self.timer = "shaking", 0.45
+            elif self.state == "shaking":
+                self.timer -= dt
+                self.shk = 3.0
+                if self.timer <= 0:
+                    self.state, self.vy = "falling", 0.0
+            elif self.state == "falling":
+                self.vy += 2000 * dt
+                self.y += self.vy * dt
+                if self.y > HEIGHT + 80:
+                    self.state, self.timer = "gone", 2.4
+            elif self.state == "gone":
+                self.timer -= dt
+                if self.timer <= 0:
+                    self.state, self.x, self.y = "idle", self.x0, self.y0
+        self.dx, self.dy = self.x - px, self.y - py
+
+    def solid(self):
+        return self.state != "gone"
+
+    def rect(self):
+        return (self.x, self.y, self.w, self.h)
+
+
 def _ground(pits):
     """Solid ground segments with gaps (pits) carved out — a fall through a pit
     is instant death, Mega Man style. Start and the boss approach stay solid."""
@@ -2243,9 +2325,29 @@ def build_level(mission=1):
                  4: [(1300, 48)], 5: [(1340, 64)]}
     ladders_by = {1: [(1020, 400)], 2: [(1060, 320), (2090, 340)],
                   3: [(1120, 350)], 4: [(940, 400)], 5: [(1220, 300)]}
+    # moving level dynamics (kept above the ground lane so they're bonus routes)
+    movers_by = {
+        1: [Mover(700, 300, 96, "h", span=230, speed=95),
+            Mover(1500, 250, 84, "v", span=150, speed=70),
+            Mover(2050, 300, 80, "fall")],
+        2: [Mover(560, 260, 90, "v", span=170, speed=80),
+            Mover(1180, 300, 96, "h", span=240, speed=110),
+            Mover(1650, 280, 80, "fall")],
+        3: [Mover(640, 300, 96, "h", span=260, speed=120),
+            Mover(1360, 240, 84, "v", span=180, speed=85),
+            Mover(2000, 300, 80, "fall")],
+        4: [Mover(700, 320, 100, "belt", span=150, speed=70, push=170),
+            Mover(1180, 300, 90, "v", span=160, speed=75),
+            Mover(1900, 300, 84, "h", span=230, speed=100)],
+        5: [Mover(560, 300, 96, "h", span=250, speed=130),
+            Mover(1000, 250, 84, "v", span=190, speed=90),
+            Mover(1780, 300, 80, "fall"),
+            Mover(2120, 300, 96, "belt", span=140, speed=60, push=190)],
+    }
     pits = pits_by[mission]
     plats = _ground(pits)
     ladders = _ladders(ladders_by[mission])
+    movers = movers_by[mission]
     hazards = [Hazard(sx, GROUND_Y, "spike", h=sw)
                for (sx, sw) in spikes_by[mission]]
     if mission == 1:
@@ -2339,7 +2441,10 @@ def build_level(mission=1):
              if not _over_pit(x)]
     for (lx, top) in ladders_by[mission]:
         coins.append(Coin(lx + 9, top - 26))
-    return plats, enemies, coins, hazards, ladders
+    # a coin riding each moving platform, to reward using the dynamics
+    for m in movers:
+        coins.append(Coin(m.x0 + m.w / 2, m.y0 - 24))
+    return plats, enemies, coins, hazards, ladders, movers
 
 
 # --------------------------------------------------------------------------- #
@@ -2409,7 +2514,7 @@ class Game:
 
     def reset(self):
         (self.plats, self.enemies, self.coins, self.hazards,
-         self.ladders) = build_level(self.mission)
+         self.ladders, self.movers) = build_level(self.mission)
         self.bg = self._make_bg(self.mission)
         self.player = Player()
         # apply persistent HQ upgrades
@@ -2487,8 +2592,29 @@ class Game:
             self.parts.update(dt)          # let particles keep popping
             return
         p = self.player
-        p.update(dt, keys, self.plats, self.shots, self.parts, self.snd,
+        # moving platforms (Mega Man dynamics): update, then carry whatever Ty
+        # is riding by the platform's per-frame delta so momentum feels real
+        ride = getattr(p, "ride", None)
+        for m in self.movers:
+            m.update(dt, ridden=(m is ride))
+        if ride is not None and ride.solid():
+            p.x += ride.dx
+            p.y += ride.dy
+            if ride.mode == "belt" and p.on_ground:   # conveyor shove
+                p.x += ride.push * dt
+        all_plats = self.plats + [m.rect() for m in self.movers if m.solid()]
+        p.update(dt, keys, all_plats, self.shots, self.parts, self.snd,
                  self.ladders)
+        # figure out which platform Ty is standing on now (for next-frame carry)
+        p.ride = None
+        for m in self.movers:
+            if not m.solid():
+                continue
+            mx, my, mw, mh = m.rect()
+            if p.on_ground and abs((p.y + p.h) - my) < 4 \
+                    and p.x + p.w > mx + 2 and p.x < mx + mw - 2:
+                p.ride = m
+                break
 
         # MOLD-E companion: ease toward a spot just behind & above Ty
         self.molde_t += dt
@@ -2933,6 +3059,36 @@ class Game:
             for ry in range(int(ly), int(ly + lh), 15):
                 pygame.draw.line(s, C_TEAL, (int(sx), ry),
                                  (int(sx + lw), ry), 3)
+        # moving platforms (Mega Man dynamics)
+        for m in self.movers:
+            if not m.solid():
+                continue
+            mx, my, mw, mh = m.rect()
+            sx = mx - cam + (math.sin(t * 40) * m.shk)
+            if sx + mw < 0 or sx > WIDTH:
+                continue
+            base = {"fall": (120, 96, 60), "belt": (60, 92, 96)}.get(
+                m.mode, (60, 80, 110))
+            edge = {"fall": (180, 150, 90), "belt": (120, 200, 210)}.get(
+                m.mode, (120, 150, 200))
+            pygame.draw.rect(s, base, (int(sx), int(my), int(mw), int(mh)),
+                             border_radius=4)
+            pygame.draw.rect(s, edge, (int(sx), int(my), int(mw), 4),
+                             border_radius=4)
+            if m.mode == "belt":                 # scrolling conveyor chevrons
+                off = int(t * 90) % 24
+                for cxp in range(-24, int(mw) + 24, 24):
+                    bx = int(sx) + cxp + off
+                    pygame.draw.line(s, edge, (bx, int(my) + mh - 5),
+                                     (bx + 8, int(my) + 4), 2)
+            elif m.mode == "v":                  # elevator up-arrow
+                pygame.draw.polygon(s, edge, [
+                    (sx + mw / 2, my - 5), (sx + mw / 2 - 5, my + 2),
+                    (sx + mw / 2 + 5, my + 2)])
+            elif m.mode == "h":                  # side thrust markers
+                midy = int(my + mh / 2)
+                pygame.draw.circle(s, edge, (int(sx + 6), midy), 3)
+                pygame.draw.circle(s, edge, (int(sx + mw - 6), midy), 3)
         for tr in self.turrets:
             tr.draw(s, cam, self.assets)
         for hz in self.hazards:

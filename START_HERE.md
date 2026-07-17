@@ -86,9 +86,18 @@ python3 mold_mission.py --selftest # must print: selftest OK: all 5 missions win
 - **Levels:** each stage is a Mega Man platforming run — **pits** (a fall is
   instant death), **spike** strips to leap, **ladders** up to bonus platforms
   with pickups, floating platforms, and a solid boss approach.
+- **Moving dynamics (`Mover` class):** horizontal patrol platforms, vertical
+  **elevators**, **collapsing** platforms (step on → shake → fall → respawn),
+  and **conveyor belts** that shove you. Whatever Ty rides carries him by the
+  platform's per-frame delta, so momentum feels real; each carries a coin as a
+  reward for using it.
 - **Consistent sizing:** every character is drawn at one size across all its
   poses/screens, scaled to its collision box and planted at the feet
   (`blit_char` + `CHAR_H`/`BOSS_H`) — no more pose-to-pose size popping.
+- **Animation juice:** `blit_char` takes a `squash` factor — Ty squashes on
+  landing (with a dust puff) and stretches on the rise; every enemy has an idle
+  breathing pulse + a hit-squash; all 5 bosses breathe. Sprite enemies still
+  walk-cycle / hurt / attack on top of that.
 
 ## 🧩 WHAT'S BUILT (91 sprites; self-test passes all 5)
 - **Ty** — full animation: idle/run/jump/fall/dash/crouch/aim/shoot/victory.
