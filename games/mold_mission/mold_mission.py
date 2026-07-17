@@ -6,16 +6,22 @@ Blaster. Hold fire to CHARGE a bigger shot (like Mega Man's buster). Clear the
 Basement of Spore Bots, Mold Crawlers and Toxic Sprayers, then defeat the end
 boss MOLDTIUS, the Source of Contamination.
 
-Controls
-    Left / Right  (A / D) ..... move
-    Up / W / Space ............ jump (press again in the air for a double jump)
+Controls (Mega Man style)
+    Left / Right  (A / D) ..... move / walk
+    Space / W / Z ............. jump — hold for a higher jump, tap for a short
+                               hop (variable height); press again for a double jump
     Down / S .................. crouch (duck under shots); hold + Left/Right to
                                sneak-walk low. Ty stays ducked to fire & aim.
+    Down + Jump .............. SLIDE (Mega Man slide — scoot under things, low profile)
+    Up / Down (on a ladder) .. climb ladders
     J  (hold to charge) ....... fire Disinfect Blaster  (tap = pew, hold = charge) · X also fires
     K  (hold) ................. HEPA Vacuum — suction beam (pull/finish enemies, eat spores)
     L / Left-Shift ............ dash (quick, briefly invulnerable). While crouched:
                                L + direction = low SLIDE, L standing still = MELEE swing.
     Enter ..................... start / restart      M sound      Esc quit
+
+    Levels are Mega Man style: jump the PITS (a fall is death), leap the SPIKES,
+    and climb LADDERS to reach the upper platforms and their pickups.
 
 All art is drop-in: put transparent PNGs in ./assets (player, sporebot,
 moldcrawler, toxicsprayer, boss, shot, shot_charged, toxic, coin, background,
@@ -82,6 +88,15 @@ DASH_CD = 0.55
 CROUCH_MULT = 0.45      # crouch-walk speed as a fraction of MOVE_SPEED
 MELEE_TIME = 0.30       # crouch-melee swing duration
 MELEE_DMG = 5           # crouch-melee damage
+SLIDE_TIME = 0.30       # Mega Man slide (Down + Jump) duration
+JUMP_CUT = 300.0        # release jump early -> rise is capped here (variable height)
+CLIMB_SPEED = 160.0     # ladder climb speed (Mega Man)
+# Consistent character sizing: every character sprite is drawn at
+# (collision height x CHAR_H), anchored at the feet, so one character keeps the
+# same on-screen size across all poses/screens and sizes track collision boxes.
+CHAR_H = 1.42
+DUCK_RATIO = 0.74       # a ducked pose renders this fraction of standing height
+BOSS_H = 1.34           # boss sprite height as a multiple of its collision height
 
 PLAYER_HP = 100
 IFRAMES = 1.0
@@ -308,6 +323,25 @@ class AssetPack:
                 sp = pygame.transform.flip(sp, True, False)
             self._scaled[key] = sp
         s.blit(sp, (int(cx - dw / 2), int(cy - dh / 2)))
+
+    def blit_char(self, s, name, feet_x, feet_y, draw_h, flip=False):
+        """Draw a CHARACTER sprite at a consistent size: scaled uniformly so its
+        rendered height == draw_h, and anchored at the feet (bottom-centre at
+        feet_x/feet_y). Unlike blit_fit this never lets a wide effect pose (a
+        muzzle flash, a slide's dust) shrink the figure — height is the anchor,
+        so a character keeps the same on-screen size across every pose/screen."""
+        img = self.imgs[name]
+        aw, ah = img.get_size()
+        sc = draw_h / ah
+        dw, dh = max(1, int(aw * sc)), max(1, int(ah * sc))
+        key = ("C", name, dw, dh, flip)
+        sp = self._scaled.get(key)
+        if sp is None:
+            sp = pygame.transform.smoothscale(img, (dw, dh))
+            if flip:
+                sp = pygame.transform.flip(sp, True, False)
+            self._scaled[key] = sp
+        s.blit(sp, (int(feet_x - dw / 2), int(feet_y - dh)))
 
 
 # --------------------------------------------------------------------------- #
@@ -669,8 +703,8 @@ class Enemy:
         y += bob
         cy += bob
         if assets.has(want):
-            assets.blit_fit(s, want, cx, cy, self.w * 1.5, self.h * 1.5,
-                            flip=self.vx < 0)
+            assets.blit_char(s, want, cx, y + self.h, self.h * CHAR_H,
+                             flip=self.vx < 0)
         elif self.kind == "sentinel":
             orrect(s, (x + 4, y + 8, self.w - 8, self.h - 8), C_LAB_DK, 6)
             orrect(s, (x + 8, y + 12, self.w - 16, 12), C_LAB, 4)
@@ -888,8 +922,8 @@ class Boss:
         elif self.weak_open > 0 and assets.has("boss_hurt"):
             bkey = "boss_hurt"     # rears/enrages while the chest valve is open
         if assets.has(bkey):
-            assets.blit_fit(s, bkey, cx, cy, self.w * 1.15, self.h * 1.15,
-                            flip=True)
+            assets.blit_char(s, bkey, cx, cy + self.h / 2, self.h * BOSS_H,
+                             flip=True)
         else:
             pygame.draw.ellipse(s, C_BOSS_DK, (int(x), int(y + 20), self.w, self.h - 20))
             pygame.draw.ellipse(s, C_BOSS, (int(x + 16), int(y + 30),
@@ -1014,7 +1048,7 @@ class ShowerBeast:
         if self.weak_open > 0 and assets.has("boss2_hurt"):
             bkey = "boss2_hurt"    # phase-shift glow while the core is exposed
         if assets.has(bkey):
-            assets.blit_fit(s, bkey, cx, cy, self.w * 1.15, self.h * 1.15)
+            assets.blit_char(s, bkey, cx, cy + self.h / 2, self.h * BOSS_H)
         else:
             # bathtub/tile creature
             pygame.draw.ellipse(s, C_TILE_DK, (int(x), int(y + 30), self.w, self.h - 30))
@@ -1136,7 +1170,7 @@ class SporeQueen:
         if self.weak_open > 0 and assets.has("boss3_hurt"):
             bkey = "boss3_hurt"
         if assets.has(bkey):
-            assets.blit_fit(s, bkey, cx, cy, self.w * 1.2, self.h * 1.2)
+            assets.blit_char(s, bkey, cx, cy + self.h / 2, self.h * BOSS_H)
         else:
             # spore-membrane wings
             for wdir in (-1, 1):
@@ -1258,7 +1292,7 @@ class CrawlorBoss:
         if self.weak_open > 0 and assets.has("boss4_hurt"):
             bkey = "boss4_hurt"    # roaring maw while the cores are exposed
         if assets.has(bkey):
-            assets.blit_fit(s, bkey, cx, cy, self.w * 1.15, self.h * 1.3)
+            assets.blit_char(s, bkey, cx, cy + self.h / 2, self.h * BOSS_H)
         else:
             # segmented armored worm
             for k in range(6):
@@ -1378,7 +1412,7 @@ class MoldiusPrime:
         if self.weak_open > 0 and assets.has("boss5_hurt"):
             bkey = "boss5_hurt"     # rears into enrage while the core is exposed
         if assets.has(bkey):
-            assets.blit_fit(s, bkey, cx, cy, self.w * 1.15, self.h * 1.15)
+            assets.blit_char(s, bkey, cx, cy + self.h / 2, self.h * BOSS_H)
         else:
             pygame.draw.ellipse(s, C_PRIME_DK, (int(x), int(y + 20), self.w, self.h - 20))
             pygame.draw.ellipse(s, (100, 66, 130), (int(x + 20), int(y + 34),
@@ -1570,6 +1604,7 @@ class Player:
         self.dead = False
         self.jump_prev = False
         self.jumps = 2          # ground jump + one air (double) jump
+        self.climbing = False   # on a ladder (Mega Man style)
         self.wall = 0           # -1 wall on left, 1 wall on right, 0 none
         self.wj_lock = 0.0      # wall-jump horizontal lockout
         self.wj_dir = 0
@@ -1615,7 +1650,7 @@ class Player:
             self.hp = 0
             self.dead = True
 
-    def update(self, dt, keys, plats, shots, parts, snd):
+    def update(self, dt, keys, plats, shots, parts, snd, ladders=()):
         self.iframe = max(0.0, self.iframe - dt)
         self.dash_cd = max(0.0, self.dash_cd - dt)
         self.fire_anim = max(0.0, self.fire_anim - dt)
@@ -1624,12 +1659,32 @@ class Player:
         self.item_t = max(0.0, self.item_t - dt)
         left = keys[pygame.K_LEFT] or keys[pygame.K_a]
         right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
-        up = keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]
+        up_key = keys[pygame.K_UP] or keys[pygame.K_w]
         down = keys[pygame.K_DOWN] or keys[pygame.K_s]
+        # ladder Ty is straddling (Mega Man climbing)
+        cxc = self.x + self.w / 2
+        lad = None
+        for (lx, ly, lw, lh) in ladders:
+            if lx - 8 <= cxc <= lx + lw + 8 and self.y + self.h > ly + 2 \
+                    and self.y < ly + lh:
+                lad = (lx, ly, lw, lh)
+                break
+        # jump: Space / Z always; Up / W too, but only when NOT on a ladder so
+        # that Up climbs instead of jumping
+        jump = (keys[pygame.K_SPACE] or keys[pygame.K_z]
+                or (up_key and lad is None and not self.climbing))
+        up = jump
         moving = (1 if right else 0) - (1 if left else 0)
         self.wj_lock = max(0.0, self.wj_lock - dt)
         self.slow = max(0.0, self.slow - dt)
         water_mult = 0.5 if self.slow > 0 else 1.0
+
+        # ladder climbing — a self-contained movement path
+        if self.climbing or lad is not None:
+            self._climb(dt, lad, up_key, down, jump, snd)
+            if self.climbing:
+                self._weapons(dt, keys, shots, parts, snd)
+                return
 
         # dash key: a plain dash, or — while ducking — a low SLIDE (moving) or a
         # MELEE swing (standing still). The slide keeps Ty's short hurtbox.
@@ -1696,13 +1751,17 @@ class Player:
         # jump: edge-triggered — ground (with coyote time), wall, or air jump
         jump_edge = up and not self.jump_prev
         self.jump_prev = up
-        if jump_edge and self.dash_t <= 0:
-            if self.on_ground or self.coyote > 0:
+        if jump_edge and self.dash_t <= 0 and self.melee_t <= 0:
+            if down and self.on_ground:
+                # Mega Man slide: Down + Jump on the ground = a quick low dash
+                self.dash_t = SLIDE_TIME
+                self.dash_cd = DASH_CD
+                self.crouch_slide = True
+                snd.play("dash")
+            elif self.on_ground or self.coyote > 0:
                 self.vy = -JUMP_V
                 self.jumps = 1
                 self.coyote = 0.0
-                if down:                    # springing up out of a crouch
-                    self.cjump_t = 0.32
                 snd.play("jump")
             elif self.wall != 0:
                 self.vy = -JUMP_V
@@ -1715,6 +1774,11 @@ class Player:
                 self.vy = -JUMP_V * 0.92
                 self.jumps -= 1
                 snd.play("djump")
+
+        # variable jump height (Mega Man feel): let go of jump while still
+        # rising and the hop is cut short; hold it for the full arc
+        if (not up) and self.vy < -JUMP_CUT and self.wj_lock <= 0:
+            self.vy = -JUMP_CUT
 
         # -- vertical move + resolve --
         was_air = not self.on_ground
@@ -1740,6 +1804,49 @@ class Player:
         if abs(self.vx) > 1 and self.on_ground:
             self.anim += dt
 
+        self._weapons(dt, keys, shots, parts, snd)
+
+    def _climb(self, dt, lad, up_key, down, jump, snd):
+        """Mega Man ladder climbing. Grabs when Up/Down is pressed on a ladder,
+        locks Ty to its centre, climbs with Up/Down, steps off at the top, and
+        hops off with the jump button."""
+        if lad is None:
+            self.climbing = False
+            return
+        lx, ly, lw, lh = lad
+        top = ly
+        feet = self.y + self.h
+        if not self.climbing:
+            if (up_key or down) and top < feet < ly + lh + 12:
+                self.climbing = True
+            else:
+                return
+        # hop off with a jump press
+        if jump and not self.jump_prev:
+            self.climbing = False
+            self.vy = -JUMP_V * 0.6
+            self.jumps = 1
+            self.jump_prev = True
+            return
+        self.jump_prev = jump
+        # lock onto the ladder and climb
+        self.x = lx + lw / 2 - self.w / 2
+        self.vx = 0.0
+        self.on_ground = False
+        self.crouching = self.crouch_slide = self.sliding = False
+        vdir = (1 if down else 0) - (1 if up_key else 0)
+        self.vy = vdir * CLIMB_SPEED
+        self.y += self.vy * dt
+        self.anim += abs(vdir) * dt * 4
+        if self.y + self.h <= top + 2:          # reached the top -> step off
+            self.y = top - self.h
+            self.on_ground = True
+            self.jumps = 2
+            self.climbing = False
+        elif self.y > ly + lh:                  # slid off the bottom
+            self.climbing = False
+
+    def _weapons(self, dt, keys, shots, parts, snd):
         # HEPA Vacuum (hold K) — drains energy; Game applies the suction.
         vac_prev = self.vacuuming
         self.vacuuming = (keys[pygame.K_k] and self.energy > 0
@@ -1837,7 +1944,9 @@ class Player:
                             8 - k * 2, (*C_TEAL_LT, 90))
             if assets.has("player"):
                 # pick an animation sprite by state, fall back to 'player'
-                if self.crouch_slide and self.dash_t > 0:
+                if self.climbing:
+                    want = "player_jump"           # on a ladder — upright climb
+                elif self.crouch_slide and self.dash_t > 0:
                     want = "player_crouch_slide"   # low evasive slide
                 elif self.iframe > 0:
                     # take-damage flinch — ducked variant while crouched
@@ -1880,8 +1989,12 @@ class Player:
                                   "player_shoot"):
                         want = wk
                 name = want if assets.has(want) else "player"
-                assets.blit_fit(s, name, cx, y + self.h / 2,
-                                self.w * 2.1, self.h * 1.25, flip=self.facing < 0)
+                # consistent size, feet planted; ducked poses render shorter
+                ducking = (self.crouching or self.crouch_slide
+                           or self.melee_t > 0)
+                dh = self.h * CHAR_H * (DUCK_RATIO if ducking else 1.0)
+                assets.blit_char(s, name, cx, y + self.h, dh,
+                                 flip=self.facing < 0)
             else:
                 bob = abs(math.sin(self.anim * 9)) * 3 if self.on_ground else 0
                 orrect(s, (x + 4, y + 14 - bob, self.w - 8, 26), C_TEAL_DK, 6)
@@ -2053,11 +2166,13 @@ class Hazard:
             return (self.x - 40, self.y - self.zh, 80, self.zh)
         if self.kind == "water":
             return (self.x - 80, self.y - 8, 160, 30)
+        if self.kind == "spike":                       # x = left edge, zh = width
+            return (self.x, GROUND_Y - 18, self.zh, 18)
         return (self.x - 34, self.y - 90, 68, 100)
 
     def update(self, dt):
         self.t += dt
-        if self.kind in ("updraft", "water"):
+        if self.kind in ("updraft", "water", "spike"):
             self.on = 1.0
             return
         self.t2 = getattr(self, "t2", random.uniform(0, 3)) - dt
@@ -2068,6 +2183,14 @@ class Hazard:
 
     def draw(self, s, cam, t):
         sx = self.x - cam
+        if self.kind == "spike":
+            w = int(self.zh)
+            for k in range(max(1, w // 16)):
+                bx = int(sx) + k * 16
+                pts = [(bx, GROUND_Y), (bx + 8, GROUND_Y - 18), (bx + 16, GROUND_Y)]
+                pygame.draw.polygon(s, (176, 186, 198), pts)
+                pygame.draw.polygon(s, (70, 80, 92), pts, 1)
+            return
         if self.kind == "updraft":
             for k in range(7):
                 yy = self.y - (t * 120 + k * 30) % self.zh
@@ -2088,9 +2211,43 @@ class Hazard:
             fcircle(s, sx + math.sin(t * 3 + k) * 12, yy, 18, (*C_STEAM, int(120 * self.on)))
 
 
+def _ground(pits):
+    """Solid ground segments with gaps (pits) carved out — a fall through a pit
+    is instant death, Mega Man style. Start and the boss approach stay solid."""
+    segs = []
+    x = 0
+    for (ps, pw) in sorted(pits):
+        if ps > x:
+            segs.append((x, GROUND_Y, ps - x, HEIGHT - GROUND_Y))
+        x = ps + pw
+    if x < LEVEL_W:
+        segs.append((x, GROUND_Y, LEVEL_W - x, HEIGHT - GROUND_Y))
+    return segs
+
+
+def _ladders(defs):
+    """defs: (x, platform_top) -> a climbable rect from that platform to the
+    ground."""
+    return [(lx, top, 18, GROUND_Y - top) for (lx, top) in defs]
+
+
 def build_level(mission=1):
-    plats = [(0, GROUND_Y, LEVEL_W, HEIGHT - GROUND_Y)]
-    hazards = []
+    # per-mission Mega Man geometry: pits (fall = death), spike strips (jump
+    # them), and ladders up to bonus platforms.
+    pits_by = {1: [(1180, 90), (1720, 90)],
+               2: [(860, 90), (1900, 90)],
+               3: [(1180, 90), (1700, 90)],
+               4: [(860, 88), (1540, 84)],
+               5: [(820, 88), (1600, 84)]}
+    spikes_by = {1: [(900, 48)], 2: [(1400, 48)], 3: [(1520, 48)],
+                 4: [(1300, 48)], 5: [(1340, 64)]}
+    ladders_by = {1: [(1020, 400)], 2: [(1060, 320), (2090, 340)],
+                  3: [(1120, 350)], 4: [(940, 400)], 5: [(1220, 300)]}
+    pits = pits_by[mission]
+    plats = _ground(pits)
+    ladders = _ladders(ladders_by[mission])
+    hazards = [Hazard(sx, GROUND_Y, "spike", h=sw)
+               for (sx, sw) in spikes_by[mission]]
     if mission == 1:
         for (x, y, w) in [(360, 410, 140), (620, 340, 150), (980, 400, 160),
                           (1300, 330, 150), (1600, 410, 180), (1980, 360, 160),
@@ -2123,7 +2280,7 @@ def build_level(mission=1):
             Enemy("steammite", 2050, GROUND_Y - 22),
             Enemy("moldbat2", 2300, 240),
         ]
-        hazards = [Hazard(x, GROUND_Y, "steam") for x in (640, 1150, 1650, 2150)]
+        hazards += [Hazard(x, GROUND_Y, "steam") for x in (640, 1150, 1650, 2150)]
     elif mission == 3:  # Level 3 — Attic: rafters, air-current updrafts
         for (x, y, w) in [(300, 410, 110), (560, 330, 120), (820, 250, 120),
                           (1080, 350, 120), (1340, 260, 120), (1600, 360, 130),
@@ -2140,7 +2297,7 @@ def build_level(mission=1):
             Enemy("roofleech", 2100, 120),
             Enemy("moldmite", 2300, GROUND_Y - 18), Enemy("moldmite", 2324, GROUND_Y - 18),
         ]
-        hazards = [Hazard(x, GROUND_Y, "updraft", h=260) for x in (700, 1250, 1750, 2250)]
+        hazards += [Hazard(x, GROUND_Y, "updraft", h=260) for x in (700, 1250, 1750, 2250)]
     elif mission == 4:  # Level 4 — Crawlspace: piers/beams, standing water
         for (x, y, w) in [(360, 440, 120), (640, 430, 110), (900, 400, 120),
                           (1180, 440, 120), (1460, 410, 120), (1740, 440, 130),
@@ -2157,7 +2314,7 @@ def build_level(mission=1):
             Enemy("mudstalker", 2180, GROUND_Y - 30),
             Enemy("gaspod", 2360, GROUND_Y - 40),
         ]
-        hazards = [Hazard(x, GROUND_Y, "water", h=30) for x in (560, 1080, 1600, 2100)]
+        hazards += [Hazard(x, GROUND_Y, "water", h=30) for x in (560, 1080, 1600, 2100)]
     else:  # Level 5 — Research Facility: elite roster, lab platforms
         for (x, y, w) in [(340, 400, 130), (620, 320, 120), (900, 400, 130),
                           (1180, 300, 120), (1460, 400, 140), (1740, 320, 120),
@@ -2174,9 +2331,15 @@ def build_level(mission=1):
             Enemy("cultureswarm", 2180, 300),
             Enemy("reactorspore", 2360, GROUND_Y - 44),
         ]
-        hazards = []
-    coins = [Coin(x, GROUND_Y - 60) for x in range(300, 2400, 190)]
-    return plats, enemies, coins, hazards
+    # coins along the ground (skip any hovering over a pit) plus a few perched
+    # on the ladder-reached platforms as a Mega Man style reward
+    def _over_pit(cx):
+        return any(ps - 14 < cx < ps + pw + 14 for (ps, pw) in pits)
+    coins = [Coin(x, GROUND_Y - 60) for x in range(300, 2400, 190)
+             if not _over_pit(x)]
+    for (lx, top) in ladders_by[mission]:
+        coins.append(Coin(lx + 9, top - 26))
+    return plats, enemies, coins, hazards, ladders
 
 
 # --------------------------------------------------------------------------- #
@@ -2245,7 +2408,8 @@ class Game:
         return bg
 
     def reset(self):
-        self.plats, self.enemies, self.coins, self.hazards = build_level(self.mission)
+        (self.plats, self.enemies, self.coins, self.hazards,
+         self.ladders) = build_level(self.mission)
         self.bg = self._make_bg(self.mission)
         self.player = Player()
         # apply persistent HQ upgrades
@@ -2323,7 +2487,8 @@ class Game:
             self.parts.update(dt)          # let particles keep popping
             return
         p = self.player
-        p.update(dt, keys, self.plats, self.shots, self.parts, self.snd)
+        p.update(dt, keys, self.plats, self.shots, self.parts, self.snd,
+                 self.ladders)
 
         # MOLD-E companion: ease toward a spot just behind & above Ty
         self.molde_t += dt
@@ -2352,7 +2517,8 @@ class Game:
         if self.boss:
             self.boss.update(dt, p, self.shots, self.parts, self.enemies)
 
-        # hazards: steam damages (L2), updraft lifts (L3), water slows (L4)
+        # hazards: steam damages (L2), updraft lifts (L3), water slows (L4),
+        # spikes are instant death (Mega Man)
         for hz in self.hazards:
             hz.update(dt)
             if overlap(*hz.rect(), *p.rect()):
@@ -2361,8 +2527,21 @@ class Game:
                     p.jumps = 2
                 elif hz.kind == "water":
                     p.slow = 0.12
+                elif hz.kind == "spike":
+                    if p.iframe <= 0 and not p.dead:
+                        p.hp = 0
+                        p.dead = True
+                        self.parts.spark(p.x + p.w / 2, p.y + p.h,
+                                         C_DANGER, 16, 320)
+                        self.shake = max(self.shake, 10)
                 elif hz.on > 0:
                     p.hurt(3, self.parts)
+
+        # fell down a pit — instant death (Mega Man)
+        if p.y > HEIGHT + 30 and not p.dead:
+            p.hp = 0
+            p.dead = True
+            self.snd.play("lose")
 
         # HEPA Vacuum (V2C3): pull enemies in, finish weakened ones, eat spores
         if p.vacuuming:
@@ -2626,12 +2805,12 @@ class Game:
             self._center(self.small, "↑/↓ select   ◀ ▶ change mission   Enter: deploy / buy",
                          HEIGHT - 102, C_DIM)
             self._center(self.small,
-                         "In-mission:  Move A/D · Jump (double) · "
-                         "J blaster (charge) · K HEPA vacuum · L dash",
+                         "In-mission:  Move A/D · Jump Space/W (hold = higher) · "
+                         "J blaster (hold = charge) · K HEPA vacuum · ↑↓ climb ladders",
                          HEIGHT - 80, C_DIM)
             self._center(self.small,
-                         "Crouch ↓/S:  move to sneak-walk · fire & aim stay ducked · "
-                         "L+direction = slide · L (still) = melee",
+                         "Slide: ↓+Jump  ·  Crouch ↓/S (sneak-walk, ducked fire/aim)  ·  "
+                         "L dash  ·  crouch+L = slide / melee  ·  mind the pits & spikes!",
                          HEIGHT - 60, C_TEAL_LT)
             self._center(self.mid, MISSIONS[self.mission]["briefing"], HEIGHT - 36, C_TOXIC)
             return
@@ -2744,6 +2923,16 @@ class Game:
             else:
                 pygame.draw.rect(s, (46, 40, 34), (int(sx), int(y), int(w), int(h)))
                 pygame.draw.rect(s, (70, 104, 52), (int(sx), int(y), int(w), 6))
+        # ladders (Mega Man): two rails + rungs
+        for (lx, ly, lw, lh) in self.ladders:
+            sx = lx - cam
+            if sx + lw < 0 or sx > WIDTH:
+                continue
+            pygame.draw.rect(s, C_TEAL_DK, (int(sx), int(ly), 4, int(lh)))
+            pygame.draw.rect(s, C_TEAL_DK, (int(sx + lw - 4), int(ly), 4, int(lh)))
+            for ry in range(int(ly), int(ly + lh), 15):
+                pygame.draw.line(s, C_TEAL, (int(sx), ry),
+                                 (int(sx + lw), ry), 3)
         for tr in self.turrets:
             tr.draw(s, cam, self.assets)
         for hz in self.hazards:
@@ -2913,6 +3102,89 @@ class Game:
 # --------------------------------------------------------------------------- #
 # Entry
 # --------------------------------------------------------------------------- #
+class _AutoKeys(dict):
+    """dict of held keys that defaults missing keys to 'not pressed'."""
+    def __missing__(self, _):
+        return False
+
+
+def _bot_keys(game, st, i):
+    """World-aware auto-player used by --selftest and --demo. Walks Ty to the
+    boss along the ground path: fires the blaster, holds jumps for full height
+    (variable-jump) with a mid-air double-jump to clear pits, leaps spikes /
+    steam vents / blocking enemies, then ducks-and-hops to dodge at the boss.
+    (Ladders are an optional player route, so the bot ignores them.)"""
+    K = _AutoKeys()
+    p = game.player
+    K[pygame.K_j] = (i % 6) < 2                 # keep the blaster firing
+    front = p.x + p.w
+
+    def solid_below(x):
+        fy = p.y + p.h
+        for (px, py, pw, ph) in game.plats:
+            if px - 2 <= x <= px + pw + 2 and fy - 12 <= py <= fy + 180:
+                return True
+        return False
+
+    def hazard_ahead():
+        for hz in game.hazards:
+            if hz.kind == "spike":
+                left, right = hz.x, hz.x + hz.zh
+            elif hz.kind == "steam":
+                left, right = hz.x - 34, hz.x + 34
+            else:
+                continue
+            if front + 4 < right and left < front + 62:
+                return True
+        return False
+
+    def enemy_block():
+        return any(not e.dead and 0 < (e.x - p.x) < 88 and abs(e.y - p.y) < 72
+                   for e in game.enemies)
+
+    if game.boss is not None:
+        # boss: hold the line and fire; duck to shrink the hitbox, and hop to
+        # dodge — vertical dodging while keeping the blaster on target
+        K[pygame.K_j] = (i % 5) < 2
+        want = False
+        if st.get("jt", 0) > 0:
+            st["jt"] -= 1
+            want = True
+        else:
+            phase = (i // 22) % 3
+            if phase == 2 and p.on_ground and not st.get("sp", False):
+                st["jt"] = 10                    # hop
+                want = True
+            elif p.on_ground:
+                K[pygame.K_DOWN] = True          # duck (low hitbox, still fires)
+        K[pygame.K_SPACE] = want
+        st["sp"] = want
+        return K
+
+    # jump state machine: holds a jump for full height, and re-presses (a real
+    # edge) for a mid-air double jump when still stranded over a pit. Releasing
+    # for a frame before re-pressing is what creates the edge.
+    want_space = False
+    if st.get("jt", 0) > 0:                     # still holding the current jump
+        st["jt"] -= 1
+        want_space = True
+    else:
+        pit = not solid_below(front + 18)       # gap just ahead on the ground
+        stranded = (not p.on_ground and p.vy > 30 and p.jumps > 0
+                    and not solid_below(front + 6))   # falling into a pit
+        boss_hop = game.boss is not None and p.on_ground and i % 48 == 0
+        ground_danger = p.on_ground and (pit or hazard_ahead() or enemy_block())
+        if ground_danger or stranded or boss_hop:
+            if not st.get("sp", False):         # need a release first for an edge
+                st["jt"] = 20
+                want_space = True
+    K[pygame.K_SPACE] = want_space
+    st["sp"] = want_space
+
+    K[pygame.K_RIGHT] = game.boss is None
+    return K
+
+
 def run(selftest=False, demo=False):
     if selftest:
         os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
@@ -2925,21 +3197,14 @@ def run(selftest=False, demo=False):
     game = Game(screen, snd)
 
     if selftest:
-        class _Keys(dict):
-            def __missing__(self, _):
-                return False
-
         def play_mission(m):
             game.mission = m
             game.unlocked = max(game.unlocked, m)
             game.reset()
             game.state = STATE_PLAY
+            st = {}
             for i in range(9000):
-                keys = _Keys()
-                keys[pygame.K_RIGHT] = game.boss is None
-                keys[pygame.K_j] = (i % 6) < 2
-                if i % 50 == 0:
-                    keys[pygame.K_SPACE] = True
+                keys = _bot_keys(game, st, i)
                 game.update(1 / FPS, keys)
                 game.draw(i / FPS)
                 if game.state in (STATE_WIN, STATE_OVER):
@@ -2959,10 +3224,6 @@ def run(selftest=False, demo=False):
 
     if demo:
         # watchable auto-playthrough: the bot walks Ty through all 5 missions
-        class _K(dict):
-            def __missing__(self, _):
-                return False
-
         def _pump():
             for e in pygame.event.get():
                 if e.type == pygame.QUIT or (
@@ -2975,16 +3236,13 @@ def run(selftest=False, demo=False):
             game.unlocked = max(game.unlocked, m)
             game.reset()
             game.state = STATE_PLAY
+            st = {}
             for i in range(9000):
                 clock.tick(FPS)
                 if not _pump():
                     pygame.quit()
                     return
-                keys = _K()
-                keys[pygame.K_RIGHT] = game.boss is None
-                keys[pygame.K_j] = (i % 6) < 3
-                if i % 50 == 0:
-                    keys[pygame.K_SPACE] = True
+                keys = _bot_keys(game, st, i)
                 game.update(1 / FPS, keys)
                 game.draw(pygame.time.get_ticks() / 1000.0)
                 pygame.display.flip()

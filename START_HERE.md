@@ -77,6 +77,19 @@ python3 mold_mission.py --demo     # watch an auto-playthrough of all 5 missions
 python3 mold_mission.py --selftest # must print: selftest OK: all 5 missions win
 ```
 
+### 🕹 Mega Man feel (moves · levels · buttons)
+- **Moves:** variable-height jump (hold higher / tap hop) + double jump; the
+  Mega Man **slide** (↓+Jump); a full crouch move-set (sneak-walk, ducked
+  fire/aim, slide, melee); hold-to-**charge** buster; ladder **climbing**;
+  dash. Buttons: A/D move · Space/W/Z jump · J fire · K vacuum · ↑↓ climb ·
+  L dash · ↓+Jump slide.
+- **Levels:** each stage is a Mega Man platforming run — **pits** (a fall is
+  instant death), **spike** strips to leap, **ladders** up to bonus platforms
+  with pickups, floating platforms, and a solid boss approach.
+- **Consistent sizing:** every character is drawn at one size across all its
+  poses/screens, scaled to its collision box and planted at the feet
+  (`blit_char` + `CHAR_H`/`BOSS_H`) — no more pose-to-pose size popping.
+
 ## 🧩 WHAT'S BUILT (91 sprites; self-test passes all 5)
 - **Ty** — full animation: idle/run/jump/fall/dash/crouch/aim/shoot/victory.
 - **Weapons** — 5 pickup weapons Ty finds & fires; gunfire colour matches the
