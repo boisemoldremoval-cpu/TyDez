@@ -15,19 +15,20 @@ from PIL import Image
 SHEET = "art_reference/pending/tyguy_full_animation_guide_magenta.png"
 OUT = "assets"
 
-# (key, (l, t, r, b), keep_largest)
+# (key, (l, t, r, b), keep_largest). Boxes are each figure's exact connected
+# silhouette bounds + a 2px margin, so no limb/gun/foot is ever clipped.
 POSES = [
-    ("player",         (47, 132, 103, 236), True),   # IDLE
-    ("player_run",     (426, 132, 508, 236), True),  # RUN
-    ("player_dash",    (694, 132, 803, 236), True),  # DASH / SPRINT
-    ("player_jump",    (850, 128, 913, 236), True),  # JUMP UP
-    ("player_fall",    (1181, 128, 1257, 238), True),  # JUMP DOWN
-    ("player_aim",     (24, 502, 104, 598), True),   # AIM (IDLE)
-    ("player_shoot",   (197, 502, 335, 598), True),  # SHOOT
-    ("player_hurt",    (1009, 502, 1063, 598), True),  # TAKE DAMAGE (LIGHT)
-    ("player_reload",  (446, 502, 512, 598), True),  # RELOAD
-    ("player_victory", (34, 770, 92, 852), False),   # VICTORY
-    ("player_climb",   (997, 256, 1044, 344), False),  # CLIMB LADDER (front)
+    ("player",         (49, 124, 102, 224), True),    # IDLE
+    ("player_run",     (424, 132, 513, 222), True),   # RUN
+    ("player_dash",    (665, 133, 818, 223), True),   # DASH / SPRINT
+    ("player_jump",    (850, 125, 925, 221), True),   # JUMP UP
+    ("player_fall",    (1179, 132, 1257, 222), True),  # JUMP DOWN
+    ("player_aim",     (25, 496, 101, 583), True),    # AIM (IDLE)
+    ("player_shoot",   (197, 497, 281, 582), True),   # SHOOT
+    ("player_hurt",    (1010, 499, 1062, 580), True),  # TAKE DAMAGE (LIGHT)
+    ("player_reload",  (446, 499, 518, 582), True),   # RELOAD
+    ("player_victory", (35, 768, 89, 843), True),     # VICTORY
+    ("player_climb",   (996, 222, 1045, 336), True),  # CLIMB LADDER (front)
 ]
 
 
