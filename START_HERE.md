@@ -77,6 +77,13 @@ python3 mold_mission.py --demo     # watch an auto-playthrough of all 5 missions
 python3 mold_mission.py --selftest # must print: selftest OK: all 5 missions win
 ```
 
+### 🦸 TyGuy character art (unified)
+Ty is now the **tactical TyGuy** everywhere. Standing / run / dash / jump / fall
+/ aim / shoot / hurt / victory were cut from the bright chroma-green
+`art_reference/pending/tyguy_full_animation_guide_green.png` (see `cut_tyguy.py`)
+and the crouch move-set from the crouch sheet — one consistent character in
+every pose (no more blue-kid-standing vs tactical-crouch mismatch).
+
 ### 🕹 Mega Man feel (moves · levels · buttons)
 - **Moves:** variable-height jump (hold higher / tap hop) + double jump; the
   Mega Man **slide** (↓+Jump); a full crouch move-set (sneak-walk, ducked
