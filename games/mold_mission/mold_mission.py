@@ -91,6 +91,7 @@ MELEE_DMG = 5           # crouch-melee damage
 SLIDE_TIME = 0.30       # Mega Man slide (Down + Jump) duration
 JUMP_CUT = 300.0        # release jump early -> rise is capped here (variable height)
 CLIMB_SPEED = 160.0     # ladder climb speed (Mega Man)
+MIRA_HEAL_RATE = 9.0    # HP/sec Dr. Mira's heal beam restores to Ty
 # Consistent character sizing: every character sprite is drawn at
 # (collision height x CHAR_H), anchored at the feet, so one character keeps the
 # same on-screen size across all poses/screens and sizes track collision boxes.
@@ -233,7 +234,8 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "background", "background2", "background3", "background4",
                "background5", "platform", "platform2", "platform3",
                "platform4", "platform5", "ellis", "molde", "turret",
-               "mira", "engineer", "medic", "molde_alert", "molde_scan",
+               "mira", "mira_run", "mira_heal",
+               "engineer", "medic", "molde_alert", "molde_scan",
                "rex", "rex_2", "purcore", "sporead", "sporead_gloat",
                "ty_disinfect", "ty_disinfect_fire", "ty_uvcannon",
                "ty_uvcannon_fire", "ty_fogger", "ty_fogger_fire",
@@ -2454,6 +2456,70 @@ def build_level(mission=1):
 
 
 # --------------------------------------------------------------------------- #
+# Dr. Mira — support ally
+# --------------------------------------------------------------------------- #
+class Ally:
+    """Dr. Mira (CHR — Field Scientist / Support Specialist). She deploys with
+    Ty, trails just behind him, and fires a Bio-Cleaner HEAL BEAM whenever his
+    health drops — keeping the run sustainable and the boss fights winnable.
+    She's a non-combatant: enemies pass through her and she takes no damage."""
+    def __init__(self, x):
+        self.w, self.h = 30, 52
+        self.x = float(x)
+        self.y = float(GROUND_Y - self.h)
+        self.facing = 1
+        self.anim = 0.0
+        self.moving = False
+        self.heal_t = 0.0
+        self.beam_cd = 0.0
+
+    def update(self, dt, p, parts, snd):
+        self.anim += dt
+        self.beam_cd = max(0.0, self.beam_cd - dt)
+        # trail behind Ty, easing toward a spot just behind him at his level
+        tx = p.x + p.w / 2 - p.facing * 78 - self.w / 2
+        ty = p.y + p.h - self.h
+        self.x += (tx - self.x) * min(1.0, dt * 3.0)
+        self.y += (ty - self.y) * min(1.0, dt * 4.5)
+        self.moving = abs(tx - self.x) > 8
+        self.facing = 1 if p.x + p.w / 2 >= self.x + self.w / 2 else -1
+        # heal beam: top Ty up when he drops below ~65% health
+        if self.heal_t > 0:
+            self.heal_t -= dt
+            p.hp = min(p.maxhp, p.hp + MIRA_HEAL_RATE * dt)
+        elif not p.dead and p.hp < p.maxhp * 0.65 and self.beam_cd <= 0:
+            self.heal_t = 1.5
+            self.beam_cd = 4.5
+            snd.play("health")
+
+    def draw(self, s, cam, assets, t, p):
+        healing = self.heal_t > 0
+        if healing:                       # green heal beam from Mira to Ty
+            ex = self.x - cam + self.w / 2 + self.facing * 13
+            ey = self.y + 20
+            tx = p.x - cam + p.w / 2
+            ty = p.y + p.h * 0.45
+            pulse = 150 + int(80 * math.sin(t * 22))
+            pygame.draw.line(s, (*C_HP, 70), (ex, ey), (tx, ty), 7)
+            pygame.draw.line(s, (150, 255, 190, pulse), (ex, ey), (tx, ty), 3)
+            glow(s, tx, ty, 16, C_HP, 120)
+            denom = (tx - ex) or 1.0
+            for _ in range(2):
+                fx = random.uniform(min(ex, tx), max(ex, tx))
+                fy = ey + (ty - ey) * (fx - ex) / denom
+                fcircle(s, fx, fy + random.uniform(-4, 4), 2, (190, 255, 205))
+        name = ("mira_heal" if healing and assets.has("mira_heal")
+                else "mira_run" if self.moving and assets.has("mira_run")
+                else "mira")
+        if not assets.has(name):
+            name = "mira" if assets.has("mira") else None
+        if name:
+            breath = 1.0 + 0.05 * math.sin(t * 3.0 + self.x * 0.02)
+            assets.blit_char(s, name, self.x - cam + self.w / 2, self.y + self.h,
+                             self.h * CHAR_H, flip=self.facing < 0, squash=breath)
+
+
+# --------------------------------------------------------------------------- #
 # Game
 # --------------------------------------------------------------------------- #
 class Game:
@@ -2544,6 +2610,8 @@ class Game:
         self.molde_y = self.player.y - 30
         self.molde_face = 1
         self.molde_t = 0.0
+        # Dr. Mira — support ally who trails Ty and heals him
+        self.mira = Ally(self.player.x - 64)
         # allied auto-defense turrets (TWR_001) stationed on clear ground
         self.turrets = [Turret(880), Turret(1850)]
         # pick-up weapons dropped through the level (Batch 4): a different one
@@ -2621,6 +2689,9 @@ class Game:
                     and p.x + p.w > mx + 2 and p.x < mx + mw - 2:
                 p.ride = m
                 break
+
+        # Dr. Mira support ally: trail Ty and heal him when he's hurt
+        self.mira.update(dt, p, self.parts, self.snd)
 
         # MOLD-E companion: ease toward a spot just behind & above Ty
         self.molde_t += dt
@@ -3126,6 +3197,7 @@ class Game:
             self.assets.blit_fit(s, mkey, self.molde_x - cam,
                                  self.molde_y + bob, 48, 48,
                                  flip=self.molde_face < 0)
+        self.mira.draw(s, cam, self.assets, t, self.player)
         self.player.draw(s, cam, self.assets, t)
         for sh in self.shots:
             sh.draw(s, cam, self.assets)

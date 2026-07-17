@@ -88,6 +88,15 @@ character in every pose. `player_climb` shows front-on while on a ladder
 (ladders recoloured to warm wood so the pose's own grip blends), and
 `player_reload` shows when Ty stands with his energy drained.
 
+### 🧬 Dr. Mira — support ally (`Ally` class)
+Dr. Mira (Field Scientist) now **deploys with Ty in every mission**. She trails
+just behind him (idle / run / heal-cast sprites cut from her magenta sheet via
+`cut_mira.py`) and fires a green **Bio-Cleaner heal beam** whenever his health
+drops below ~65%, restoring HP over ~1.5s (beam drawn in-engine so it always
+reaches Ty). She's a non-combatant — enemies pass through her, she takes no
+damage — so she smooths the run and the tough boss fights without disrupting the
+core game. Her HQ portrait now uses the same art.
+
 ### 🕹 Mega Man feel (moves · levels · buttons)
 - **Moves:** variable-height jump (hold higher / tap hop) + double jump; the
   Mega Man **slide** (↓+Jump); a full crouch move-set (sneak-walk, ducked
