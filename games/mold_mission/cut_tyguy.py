@@ -27,6 +27,8 @@ POSES = [
     ("player_shoot",   (183, 484, 322, 604), True),  # SHOOT
     ("player_hurt",    (983, 484, 1048, 604), True),  # TAKE DAMAGE (LIGHT)
     ("player_victory", (22, 768, 108, 858), False),  # VICTORY
+    ("player_reload",  (450, 484, 520, 604), True),  # RELOAD (out of energy)
+    ("player_climb",   (1024, 254, 1070, 348), False),  # CLIMB LADDER (front, frame 2)
 ]
 
 

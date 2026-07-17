@@ -215,7 +215,7 @@ def glow(s, cx, cy, r, color, strength=120):
 # --------------------------------------------------------------------------- #
 ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "player_dash", "player_shoot", "player_hurt",
-               "player_aim", "player_victory",
+               "player_aim", "player_victory", "player_reload", "player_climb",
                # Ty crouch move-set (15-pose sheet)
                "player_crouch", "player_crouch_walk", "player_crouch_aim",
                "player_crouch_aim_ds", "player_crouch_shoot",
@@ -1963,7 +1963,8 @@ class Player:
             if assets.has("player"):
                 # pick an animation sprite by state, fall back to 'player'
                 if self.climbing:
-                    want = "player_jump"           # on a ladder — upright climb
+                    want = ("player_climb" if assets.has("player_climb")
+                            else "player_jump")     # on a ladder
                 elif self.crouch_slide and self.dash_t > 0:
                     want = "player_crouch_slide"   # low evasive slide
                 elif self.iframe > 0:
@@ -1989,6 +1990,9 @@ class Player:
                     want = "player_aim"            # holding to charge = aim pose
                 elif abs(self.vx) > 1:
                     want = "player_run"
+                elif self.energy < 0.22 * self.maxenergy \
+                        and assets.has("player_reload"):
+                    want = "player_reload"         # standing, recharging energy
                 else:
                     want = "player"
                 # crouch art missing? duck-fallback instead of popping upright
@@ -2018,8 +2022,10 @@ class Player:
                     sq = 1.10
                 else:
                     sq = 1.0
+                # the ladder-climb pose is drawn front-on, so don't mirror it
                 assets.blit_char(s, name, cx, y + self.h, dh,
-                                 flip=self.facing < 0, squash=sq)
+                                 flip=(self.facing < 0 and not self.climbing),
+                                 squash=sq)
             else:
                 bob = abs(math.sin(self.anim * 9)) * 3 if self.on_ground else 0
                 orrect(s, (x + 4, y + 14 - bob, self.w - 8, 26), C_TEAL_DK, 6)
@@ -3054,10 +3060,12 @@ class Game:
             sx = lx - cam
             if sx + lw < 0 or sx > WIDTH:
                 continue
-            pygame.draw.rect(s, C_TEAL_DK, (int(sx), int(ly), 4, int(lh)))
-            pygame.draw.rect(s, C_TEAL_DK, (int(sx + lw - 4), int(ly), 4, int(lh)))
+            # warm metal/wood tone so Ty's climb pose (which carries its own
+            # ladder grip) blends onto it
+            pygame.draw.rect(s, (120, 108, 74), (int(sx), int(ly), 4, int(lh)))
+            pygame.draw.rect(s, (120, 108, 74), (int(sx + lw - 4), int(ly), 4, int(lh)))
             for ry in range(int(ly), int(ly + lh), 15):
-                pygame.draw.line(s, C_TEAL, (int(sx), ry),
+                pygame.draw.line(s, (176, 162, 116), (int(sx), ry),
                                  (int(sx + lw), ry), 3)
         # moving platforms (Mega Man dynamics)
         for m in self.movers:
