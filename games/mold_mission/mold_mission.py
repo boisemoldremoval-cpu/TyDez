@@ -21,7 +21,9 @@ Controls (Mega Man style)
     Enter ..................... start / restart      M sound      Esc quit
 
     Levels are Mega Man style: jump the PITS (a fall is death), leap the SPIKES,
-    and climb LADDERS to reach the upper platforms and their pickups.
+    and climb LADDERS to reach the upper platforms and their pickups. Get hit and
+    Ty is knocked back with a brief stagger, Mega Man style. Every fire — shots
+    and muzzle flash — leaves the tip of the blaster.
 
 All art is drop-in: put transparent PNGs in ./assets (player, sporebot,
 moldcrawler, toxicsprayer, boss, shot, shot_charged, toxic, coin, background,
@@ -1634,6 +1636,10 @@ class Player:
         self.melee_t = 0.0          # crouch-melee swing in progress
         self.melee_fire = False     # one-shot: Game applies the melee hit
         self.item_t = 0.0           # crouched pickup grab (item pose)
+        self.crouch_recent = 0.0    # was crouched a moment ago (for crouch-jump)
+        self.kb_t = 0.0             # hit-knockback control lockout (Mega Man)
+        self.near_prop = False      # crouched beside cover (set by Game)
+        self.near_pickup = False    # crouched over a pickup (set by Game)
         self.weapon = None          # equipped pick-up weapon id (None = blaster)
 
     def rect(self):
@@ -1641,6 +1647,15 @@ class Player:
             ch = self.h * 0.6
             return (self.x, self.y + self.h - ch, self.w, ch)
         return (self.x, self.y, self.w, self.h)
+
+    def muzzle(self):
+        """Gun-barrel tip in world space — shots and the muzzle flash spawn from
+        here so fire actually leaves the end of the blaster, at the right height
+        for the stance (lower when ducked)."""
+        ducking = self.crouching or self.crouch_slide
+        reach = self.w / 2 + (42 if ducking else 46)
+        gy = self.y + (self.h * 0.66 if ducking else self.h * 0.40)
+        return (self.x + self.w / 2 + self.facing * reach, gy)
 
     def melee_rect(self):
         """Short reach in front of a crouching Ty for the melee swing."""
@@ -1657,11 +1672,19 @@ class Player:
             return (self.x + self.w, self.y - 12, reach, self.h + 24)
         return (self.x - reach, self.y - 12, reach, self.h + 24)
 
-    def hurt(self, dmg, parts):
+    def hurt(self, dmg, parts, kb_dir=None):
         if self.iframe > 0 or self.dash_t > 0:
             return
         self.hp -= dmg
         self.iframe = IFRAMES
+        # Mega Man hit-stagger: shoved back off your feet with a brief control
+        # lockout (kb_t). Cancels a charge, like the classic games.
+        d = kb_dir if kb_dir is not None else -self.facing
+        self.vx = d * 170
+        self.vy = min(self.vy, -210)
+        self.kb_t = 0.16
+        self.charging = False
+        self.charge = 0.0
         parts.spark(self.x + self.w / 2, self.y + self.h / 2, C_DANGER, 10, 260)
         if self.hp <= 0:
             self.hp = 0
@@ -1722,12 +1745,16 @@ class Player:
                     self.facing = moving        # slide the way you steer
                 snd.play("dash")
 
-        self.crouching = down and self.on_ground and self.dash_t <= 0
+        self.crouching = (down and self.on_ground and self.dash_t <= 0
+                          and self.kb_t <= 0)
+        self.crouch_recent = 0.16 if self.crouching else max(0.0, self.crouch_recent - dt)
         if self.dash_t > 0:
             self.dash_t -= dt
             self.vx = self.facing * DASH_SPEED * (0.9 if self.crouch_slide else 1.0)
             if self.dash_t <= 0:
                 self.crouch_slide = False
+        elif self.kb_t > 0:
+            self.kb_t -= dt                      # hit-stagger: knocked back, no control
         elif self.melee_t > 0:
             self.vx = 0.0                        # rooted during the swing
         elif self.wj_lock > 0:
@@ -1780,6 +1807,8 @@ class Player:
                 self.vy = -JUMP_V
                 self.jumps = 1
                 self.coyote = 0.0
+                if self.crouch_recent > 0:      # springing up out of a crouch
+                    self.cjump_t = 0.30
                 snd.play("jump")
             elif self.wall != 0:
                 self.vy = -JUMP_V
@@ -1885,8 +1914,7 @@ class Player:
         dmg0 = w["dmg"] if w else 2
         spd = w["spd"] if w else 620
         fire = keys[pygame.K_j] or keys[pygame.K_x]
-        muzx = self.x + (self.w if self.facing > 0 else 0)
-        muzy = self.y + 24
+        muzx, muzy = self.muzzle()
         if fire and not self.fire_prev:
             shots.append(Shot(muzx, muzy, self.facing * spd, dmg0, 0, color=col))
             parts.muzzle(muzx, muzy, self.facing, col or C_CHARGE)
@@ -1926,6 +1954,10 @@ class Player:
             k = "player_crouch_item"            # just grabbed a pickup
         elif abs(self.vx) > 1:
             k = "player_crouch_walk"
+        elif self.near_pickup:
+            k = "player_crouch_interact"        # ducked over a pickup / console
+        elif self.near_prop:
+            k = "player_crouch_cover"           # ducked beside cover
         elif self.energy < 0.22 * self.maxenergy:
             k = "player_crouch_reload"          # low energy = recharging
         elif self.hp < 0.30 * self.maxhp:
@@ -1956,8 +1988,8 @@ class Player:
             if self.charging and self.charge > 0.4:
                 cr = 10 + self.charge * 12
                 gcol = WEAPONS[self.weapon]["color"] if self.weapon else C_CHARGE
-                glow(s, x + (self.w if self.facing > 0 else 0),
-                     y + 24, cr, gcol, 150)
+                mgx, mgy = self.muzzle()          # charge glows at the barrel tip
+                glow(s, mgx - cam, mgy, cr, gcol, 150)
             if self.dash_t > 0:
                 for k in range(3):
                     fcircle(s, cx - self.facing * k * 12, y + self.h / 2,
@@ -1968,7 +2000,9 @@ class Player:
                     want = ("player_climb" if assets.has("player_climb")
                             else "player_jump")     # on a ladder
                 elif self.crouch_slide and self.dash_t > 0:
-                    want = "player_crouch_slide"   # low evasive slide
+                    # tuck into a roll, then stretch into the slide
+                    want = ("player_crouch_roll" if self.dash_t > SLIDE_TIME * 0.5
+                            else "player_crouch_slide")
                 elif self.iframe > 0:
                     # take-damage flinch — ducked variant while crouched
                     want = "player_crouch_hurt" if self.crouching else "player_hurt"
@@ -2689,6 +2723,14 @@ class Game:
                     and p.x + p.w > mx + 2 and p.x < mx + mw - 2:
                 p.ride = m
                 break
+
+        # crouch-context poses: beside cover (a background prop) or over a pickup
+        pcx = p.x + p.w / 2
+        p.near_prop = p.crouching and any(
+            abs(px - pcx) < 48 for (_key, px, _sz) in self.props)
+        p.near_pickup = p.crouching and (
+            any(not c.got and abs(c.x - pcx) < 32 for c in self.coins)
+            or any(not wp.got and abs(wp.x - pcx) < 40 for wp in self.weapons))
 
         # Dr. Mira support ally: trail Ty and heal him when he's hurt
         self.mira.update(dt, p, self.parts, self.snd)
