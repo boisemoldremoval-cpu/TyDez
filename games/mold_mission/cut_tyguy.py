@@ -32,7 +32,12 @@ POSES = [
 
 
 def is_bg(r, g, b):
-    return r > 150 and g < 120 and b > 72 and (r - g) > 55
+    return r > 140 and g < 125 and b > 62 and (r - g) > 45
+
+
+def is_pinkish(r, g, b):
+    # a magenta-fringe blend pixel (leftover halo on the figure's edge)
+    return r > g + 16 and r > b - 12 and b > 42 and g < 155
 
 
 def keep_largest(alpha, w, h):
@@ -73,19 +78,30 @@ def cut(sheet, box, klargest):
                       for y in range(h) for x in range(w))
     if klargest:
         alpha = keep_largest(alpha, w, h)
+
+    def is_edge(x, y):
+        i = y * w + x
+        return (x == 0 or y == 0 or x == w - 1 or y == h - 1
+                or not alpha[i - 1] or not alpha[i + 1]
+                or (y > 0 and not alpha[i - w])
+                or (y < h - 1 and not alpha[i + w]))
+
+    # peel the magenta halo: erode edge pixels that are still pink-tinted
+    for _ in range(2):
+        clear = [y * w + x for y in range(h) for x in range(w)
+                 if alpha[y * w + x] and is_edge(x, y) and is_pinkish(*px[x, y])]
+        for i in clear:
+            alpha[i] = 0
+
     out = Image.new("RGBA", (w, h))
     op = out.load()
     for y in range(h):
         for x in range(w):
             if alpha[y * w + x]:
                 r, g, b = px[x, y]
-                edge = (x == 0 or y == 0 or x == w - 1 or y == h - 1
-                        or not alpha[y * w + x - 1] or not alpha[y * w + x + 1]
-                        or (y > 0 and not alpha[(y - 1) * w + x])
-                        or (y < h - 1 and not alpha[(y + 1) * w + x]))
-                if edge and r > g + 22 and r > b + 12:   # de-spill pink fringe
-                    r = min(r, int((g + b) * 0.72) + 20)
-                    b = min(b, g + 30)
+                if is_edge(x, y) and r > g + 14 and r > b - 10:  # de-spill fringe
+                    r = min(r, max(g, b))
+                    b = min(b, g + 24)
                 op[x, y] = (r, g, b, 255)
             else:
                 op[x, y] = (0, 0, 0, 0)
