@@ -80,12 +80,13 @@ python3 mold_mission.py --selftest # must print: selftest OK: all 5 missions win
 ### 🦸 TyGuy character art (unified)
 Ty is now the **tactical TyGuy** everywhere. Standing / run / dash / jump / fall
 / aim / shoot / hurt / victory / reload / ladder-climb were cut from the bright
-chroma-green `art_reference/pending/tyguy_full_animation_guide_green.png` (see
-`cut_tyguy.py`) and the crouch move-set from the crouch sheet — one consistent
-character in every pose (no more blue-kid-standing vs tactical-crouch mismatch).
-`player_climb` shows front-on while on a ladder (ladders recoloured to warm
-wood so the pose's own grip blends), and `player_reload` shows when Ty stands
-with his energy drained.
+**magenta** chroma sheet
+`art_reference/pending/tyguy_full_animation_guide_magenta.png` (see
+`cut_tyguy.py` — magenta shares no colour with Ty, so it keys cleanest and cuts
+at higher res) and the crouch move-set from the crouch sheet — one consistent
+character in every pose. `player_climb` shows front-on while on a ladder
+(ladders recoloured to warm wood so the pose's own grip blends), and
+`player_reload` shows when Ty stands with his energy drained.
 
 ### 🕹 Mega Man feel (moves · levels · buttons)
 - **Moves:** variable-height jump (hold higher / tap hop) + double jump; the

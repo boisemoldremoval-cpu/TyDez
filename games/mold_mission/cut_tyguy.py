@@ -1,39 +1,38 @@
 #!/usr/bin/env python3
-"""Cut TyGuy's standing / movement / combat sprites from the bright chroma-green
-"TYGUY — Complete Animation Guide" sheet and drop them into assets/, replacing
-the earlier placeholder player art so the WHOLE character is the tactical TyGuy
-(matching the crouch move-set already cut from the crouch sheet).
+"""Cut TyGuy's sprites from the bright MAGENTA "TYGUY — Complete Animation Guide"
+sheet into assets/, so the whole player character is the tactical TyGuy.
 
-Recipe: crop one frame -> flood-fill the solid green background from the edges
--> keep the largest connected shape (drops the cell's label text) -> autocrop.
-`victory` skips keep-largest (its pose splits into two blobs) and instead uses a
-tight box that already excludes the label / panel.
+The magenta chroma shares no colour with Ty (dark armour, lime accents, tan
+skin), so background is removed GLOBALLY (every magenta pixel, including regions
+enclosed by the ladder in the climb pose) rather than by an edge flood. Then
+keep the largest blob (drops the cell's label text), de-spill the pink fringe,
+and autocrop.
 """
 import os
 from collections import deque
 from PIL import Image
 
-SHEET = "art_reference/pending/tyguy_full_animation_guide_green.png"
+SHEET = "art_reference/pending/tyguy_full_animation_guide_magenta.png"
 OUT = "assets"
 
 # (key, (l, t, r, b), keep_largest)
 POSES = [
-    ("player",         (44, 112, 108, 252), True),   # IDLE
-    ("player_run",     (449, 112, 520, 252), True),  # RUN
-    ("player_dash",    (650, 112, 752, 252), True),  # DASH / SPRINT
-    ("player_jump",    (789, 108, 851, 252), True),  # JUMP UP
-    ("player_fall",    (1170, 108, 1245, 254), True),  # JUMP DOWN
-    ("player_aim",     (31, 484, 108, 604), True),   # AIM (IDLE)
-    ("player_shoot",   (183, 484, 322, 604), True),  # SHOOT
-    ("player_hurt",    (983, 484, 1048, 604), True),  # TAKE DAMAGE (LIGHT)
-    ("player_victory", (22, 768, 108, 858), False),  # VICTORY
-    ("player_reload",  (450, 484, 520, 604), True),  # RELOAD (out of energy)
-    ("player_climb",   (1024, 254, 1070, 348), False),  # CLIMB LADDER (front, frame 2)
+    ("player",         (47, 132, 103, 236), True),   # IDLE
+    ("player_run",     (426, 132, 508, 236), True),  # RUN
+    ("player_dash",    (694, 132, 803, 236), True),  # DASH / SPRINT
+    ("player_jump",    (850, 128, 913, 236), True),  # JUMP UP
+    ("player_fall",    (1181, 128, 1257, 238), True),  # JUMP DOWN
+    ("player_aim",     (24, 502, 104, 598), True),   # AIM (IDLE)
+    ("player_shoot",   (197, 502, 335, 598), True),  # SHOOT
+    ("player_hurt",    (1009, 502, 1063, 598), True),  # TAKE DAMAGE (LIGHT)
+    ("player_reload",  (446, 502, 512, 598), True),  # RELOAD
+    ("player_victory", (34, 770, 92, 852), False),   # VICTORY
+    ("player_climb",   (997, 256, 1044, 344), False),  # CLIMB LADDER (front)
 ]
 
 
 def is_bg(r, g, b):
-    return b < 48 and g > 60 and (g - r) > 28 and (g - b) > 45
+    return r > 150 and g < 120 and b > 72 and (r - g) > 55
 
 
 def keep_largest(alpha, w, h):
@@ -69,37 +68,27 @@ def cut(sheet, box, klargest):
     crop = sheet.crop(box).convert("RGB")
     w, h = crop.size
     px = crop.load()
-    bg = bytearray(w * h)
-    q = deque()
-    for x in range(w):
-        for y in (0, h - 1):
-            i = y * w + x
-            if not bg[i] and is_bg(*px[x, y]):
-                bg[i] = 1
-                q.append((x, y))
-    for y in range(h):
-        for x in (0, w - 1):
-            i = y * w + x
-            if not bg[i] and is_bg(*px[x, y]):
-                bg[i] = 1
-                q.append((x, y))
-    while q:
-        x, y = q.popleft()
-        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            nx, ny = x + dx, y + dy
-            if 0 <= nx < w and 0 <= ny < h:
-                j = ny * w + nx
-                if not bg[j] and is_bg(*px[nx, ny]):
-                    bg[j] = 1
-                    q.append((nx, ny))
-    alpha = bytearray(0 if bg[i] else 255 for i in range(w * h))
+    # global background removal (Ty has no magenta pixels)
+    alpha = bytearray(0 if is_bg(*px[x, y]) else 255
+                      for y in range(h) for x in range(w))
     if klargest:
         alpha = keep_largest(alpha, w, h)
     out = Image.new("RGBA", (w, h))
     op = out.load()
     for y in range(h):
         for x in range(w):
-            op[x, y] = ((*px[x, y], 255) if alpha[y * w + x] else (0, 0, 0, 0))
+            if alpha[y * w + x]:
+                r, g, b = px[x, y]
+                edge = (x == 0 or y == 0 or x == w - 1 or y == h - 1
+                        or not alpha[y * w + x - 1] or not alpha[y * w + x + 1]
+                        or (y > 0 and not alpha[(y - 1) * w + x])
+                        or (y < h - 1 and not alpha[(y + 1) * w + x]))
+                if edge and r > g + 22 and r > b + 12:   # de-spill pink fringe
+                    r = min(r, int((g + b) * 0.72) + 20)
+                    b = min(b, g + 30)
+                op[x, y] = (r, g, b, 255)
+            else:
+                op[x, y] = (0, 0, 0, 0)
     bb = out.getbbox()
     return out.crop(bb) if bb else out
 
