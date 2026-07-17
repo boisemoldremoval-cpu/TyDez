@@ -2494,9 +2494,9 @@ class Ally:
 
     def draw(self, s, cam, assets, t, p):
         healing = self.heal_t > 0
-        if healing:                       # green heal beam from Mira to Ty
-            ex = self.x - cam + self.w / 2 + self.facing * 13
-            ey = self.y + 20
+        if healing:                       # green heal beam from Mira's emitter to Ty
+            ex = self.x - cam + self.w / 2 + self.facing * 26
+            ey = self.y + 26
             tx = p.x - cam + p.w / 2
             ty = p.y + p.h * 0.45
             pulse = 150 + int(80 * math.sin(t * 22))

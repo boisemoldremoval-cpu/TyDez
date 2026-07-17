@@ -13,11 +13,13 @@ from PIL import Image
 SHEET = "art_reference/pending/dr_mira_sprite_sheet.png"
 OUT = "assets"
 
-# name -> ("seed", x, y) flood the connected figure, or ("box", l,t,r,b)
+# name -> ("seed", x, y) flood the connected figure, or ("box", l,t,r,b).
+# Box frames are ones cleanly isolated by empty columns, so the whole figure
+# (every limb + the emitter) is captured with no clipping.
 POSES = {
-    "mira":      ("seed", 311, 168),          # IDLE frame (row 1)
-    "mira_run":  ("seed", 1024, 168),         # RUN frame (row 1)
-    "mira_heal": ("box", 936, 553, 1012, 636),  # HEAL BEAM caster (no ally/beam)
+    "mira":      ("seed", 311, 168),            # IDLE frame (row 1)
+    "mira_run":  ("box", 1069, 110, 1147, 216),  # last RUN frame (isolated)
+    "mira_heal": ("box", 20, 544, 150, 653),    # AIM frame — emitter forward (cast)
 }
 
 
