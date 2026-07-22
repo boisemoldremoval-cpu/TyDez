@@ -227,7 +227,7 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "player_crouch_slide", "player_crouch_cover",
                "player_crouch_interact", "player_crouch_item",
                "player_crouch_jump",
-               "micromold",
+               "micromold", "sporedrifter",
                "sporebot", "moldcrawler", "toxicsprayer", "moldbat",
                "steammite", "ventswarm", "sporehawk", "roofleech", "moldmite",
                "creeper", "mudstalker", "centipede", "pipeparasite", "gaspod",
@@ -424,7 +424,11 @@ class Shot:
 
     def update(self, dt):
         self.x += self.vx * dt
-        if self.x < -40 or self.x > LEVEL_W + 40:
+        # cull off-screen on BOTH axes: an aimed shot can travel near-vertically
+        # (never crossing an x bound), so without a y bound it would fly off and
+        # its coordinate would overflow the draw layer
+        if (self.x < -40 or self.x > LEVEL_W + 40
+                or self.y < -400 or self.y > HEIGHT + 400):
             self.dead = True
 
     def draw(self, s, cam, assets):
@@ -499,6 +503,9 @@ class Enemy:
             self.dmg = 4
         elif kind == "micromold":     # Micro Mold — common swarm unit (spore burst)
             self.w, self.h, self.hp = 28, 26, 2
+            self.dmg = 3
+        elif kind == "sporedrifter":  # Spore Drifter — floating spore-shooter
+            self.w, self.h, self.hp = 40, 40, 4
             self.dmg = 3
         elif kind == "moldmite":      # V4C2 — tiny swarm unit
             self.w, self.h, self.hp = 20, 18, 1
@@ -633,6 +640,30 @@ class Enemy:
                         sh = Shot(cx, self.y, dvx, 4, -1, hostile=True)
                         sh.vy = -70
                         shots.append(sh)
+        elif self.kind == "sporedrifter":
+            # Spore Drifter: floats slowly through the air toward Ty, hovering on
+            # a gentle bob, and lobs a spore shot aimed at him (the attack that
+            # damages Ty). Keeps its distance a little so it reads as an air unit.
+            d = player.x - self.x
+            face = 1 if d > 0 else -1
+            if abs(d) > 150:                       # drift in, but hover once close
+                self.x += face * 42 * dt
+                self.vx = face * 42
+            else:
+                self.vx = 0
+            self.y = self.home_y + math.sin(self.t * 2.2) * 22
+            self.shoot_t -= dt
+            if self.shoot_t <= 0 and abs(d) < 320:
+                self.shoot_t = random.uniform(2.0, 3.2)
+                self.atk_anim = 0.4
+                cx, cy = self.x + self.w / 2, self.y + self.h / 2
+                tx = player.x + player.w / 2 - cx
+                ty = player.y + player.h / 2 - cy
+                dist = max(1.0, math.hypot(tx, ty))
+                spd = 210
+                sh = Shot(cx, cy, tx / dist * spd, 3, -1, hostile=True)
+                sh.vy = ty / dist * spd
+                shots.append(sh)
         elif self.kind in ("ventswarm", "cultureswarm"):
             d = player.x - self.x
             self.x += (1 if d > 0 else -1) * 55 * dt
@@ -698,7 +729,8 @@ class Enemy:
                  "sentinel": "sentinel", "ventstalker": "ventstalker",
                  "cultureswarm": "cultureswarm", "reactorspore": "reactorspore",
                  "mycelium": "mycelium",
-                 "micromold": "micromold"}[self.kind]
+                 "micromold": "micromold",
+                 "sporedrifter": "sporedrifter"}[self.kind]
         # state-based pose: hurt > attack > walk-cycle > idle (variants auto-load)
         want = asset
         bob = 0.0
@@ -789,6 +821,15 @@ class Enemy:
         elif self.kind == "moldmite":
             fcircle(s, cx, cy, self.h * 0.5, C_MOLD_DK)
             fcircle(s, cx, cy, self.h * 0.3, (140, 190, 90))
+        elif self.kind == "sporedrifter":            # floating spore jelly
+            glow(s, cx, cy, self.w * 0.8, (150, 210, 90), 55)
+            fcircle(s, cx, cy - 2, self.h * 0.4, (96, 70, 130))
+            for k in range(5):                       # dangling tentacles
+                tx = x + 6 + k * (self.w - 12) / 4
+                pygame.draw.line(s, (70, 50, 100), (tx, cy),
+                                 (tx, y + self.h + math.sin(self.t * 5 + k) * 4), 3)
+            fcircle(s, cx - 6, cy - 2, 4, (180, 240, 120))
+            fcircle(s, cx + 6, cy - 2, 4, (180, 240, 120))
         elif self.kind == "creeper":
             pygame.draw.ellipse(s, C_WOOD_DK, (int(x), int(y + 4), self.w, self.h))
             for k in range(4):
@@ -2497,6 +2538,14 @@ def build_level(mission=1):
     for mx, count in micro_spots[mission]:
         for k in range(count):
             enemies.append(Enemy("micromold", mx + k * 34, GROUND_Y - 26))
+    # Spore Drifter — a floating spore-shooter deployed on certain (air-heavy)
+    # stages only. Each spot is (x, hover_y) placed in the open air lanes, clear
+    # of the spike/pit approaches so its aimed spores harass Ty without turning a
+    # hazard leap into a death trap.
+    drifter_spots = {3: [(300, 210), (2150, 240)],
+                     5: [(480, 200), (1950, 220), (2380, 200)]}
+    for dx, dy in drifter_spots.get(mission, []):
+        enemies.append(Enemy("sporedrifter", dx, dy))
     # coins along the ground (skip any hovering over a pit) plus a few perched
     # on the ladder-reached platforms as a Mega Man style reward
     def _over_pit(cx):

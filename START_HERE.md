@@ -88,6 +88,16 @@ character in every pose. `player_climb` shows front-on while on a ladder
 (ladders recoloured to warm wood so the pose's own grip blends), and
 `player_reload` shows when Ty stands with his energy drained.
 
+### 👾 Enemies added from art sheets
+- **Micro Mold** (`micromold`) — a small common swarm unit cut from its chroma
+  sheet (`cut_micromold.py`). Scattered in clusters across **all 5 missions**;
+  crawls steadily (no pounce) so a swarm can't shove Ty into a spike.
+- **Spore Drifter** (`sporedrifter`) — a floating spore-shooter cut via
+  `cut_sporedrifter.py` (idle / drift / attack / hurt). Deployed on **certain
+  air-heavy stages (missions 3 & 5)**: it hovers in the air lanes and fires an
+  aimed **spore shot** that damages Ty. Placed clear of the spike/pit leaps and
+  short-ranged so its knockback can't turn a hazard jump into a death.
+
 ### 🧬 Dr. Mira — support ally (`Ally` class)
 Dr. Mira (Field Scientist) now **deploys with Ty in every mission**. She trails
 just behind him (idle / run / heal-cast sprites cut from her magenta sheet via
