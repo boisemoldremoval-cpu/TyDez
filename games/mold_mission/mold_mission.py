@@ -3366,7 +3366,10 @@ class Game:
         s = self.screen
         p = self.player
         # ---- player status panel (top-left) ----
-        self._panel(14, 12, 300, 74)
+        # panel is sized to contain the bars AND their right-hand labels; the
+        # widest label ("HP 140/140" at max armor) ends near x333, so the border
+        # sits past that with a clean margin
+        self._panel(14, 12, 332, 74)
         # portrait
         pygame.draw.rect(s, (8, 14, 16), (22, 20, 58, 58), border_radius=6)
         if self.assets.has("player"):
