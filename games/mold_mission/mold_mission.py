@@ -228,6 +228,7 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "player_crouch_interact", "player_crouch_item",
                "player_crouch_jump",
                "micromold", "sporedrifter",
+               "sporedrifter_charge", "sporedrifter_enraged",
                "sporebot", "moldcrawler", "toxicsprayer", "moldbat",
                "steammite", "ventswarm", "sporehawk", "roofleech", "moldmite",
                "creeper", "mudstalker", "centipede", "pipeparasite", "gaspod",
@@ -475,6 +476,8 @@ class Enemy:
         self.lunge_vx = 0.0
         self.gen = 0                  # ventswarm split generation
         self.bat_speed = 80
+        self.spore_wind = 0.0         # Spore Drifter: attack wind-up timer
+        self.enraged = False          # Spore Drifter: low-HP enraged state
         if kind == "sporebot":
             self.w, self.h, self.hp = 40, 40, 4
             self.vx = -70
@@ -641,29 +644,48 @@ class Enemy:
                         sh.vy = -70
                         shots.append(sh)
         elif self.kind == "sporedrifter":
-            # Spore Drifter: floats slowly through the air toward Ty, hovering on
-            # a gentle bob, and lobs a spore shot aimed at him (the attack that
-            # damages Ty). Keeps its distance a little so it reads as an air unit.
+            # Spore Drifter: floats through the air toward Ty, hovering on a
+            # gentle bob, and fires a spore shot aimed at him (the attack that
+            # damages Ty). It telegraphs each shot with a brief CHARGE wind-up,
+            # and once wounded it ENRAGES — drifting/firing faster and loosing a
+            # 3-way spore spread instead of a single bolt.
+            self.enraged = self.hp <= 2
+            drift = 66 if self.enraged else 42
             d = player.x - self.x
             face = 1 if d > 0 else -1
             if abs(d) > 150:                       # drift in, but hover once close
-                self.x += face * 42 * dt
-                self.vx = face * 42
+                self.x += face * drift * dt
+                self.vx = face * drift
             else:
                 self.vx = 0
-            self.y = self.home_y + math.sin(self.t * 2.2) * 22
-            self.shoot_t -= dt
-            if self.shoot_t <= 0 and abs(d) < 320:
-                self.shoot_t = random.uniform(2.0, 3.2)
-                self.atk_anim = 0.4
-                cx, cy = self.x + self.w / 2, self.y + self.h / 2
-                tx = player.x + player.w / 2 - cx
-                ty = player.y + player.h / 2 - cy
-                dist = max(1.0, math.hypot(tx, ty))
-                spd = 210
-                sh = Shot(cx, cy, tx / dist * spd, 3, -1, hostile=True)
-                sh.vy = ty / dist * spd
-                shots.append(sh)
+            # slow vertical float toward Ty's level (uses float-up / float-down)
+            aim_y = min(GROUND_Y - 120, player.y - 40)
+            self.home_y += (aim_y - self.home_y) * min(1.0, dt * 0.5)
+            self.y = self.home_y + math.sin(self.t * (3.0 if self.enraged else 2.2)) * 22
+            if self.spore_wind > 0:                # winding up (charge pose)
+                self.spore_wind -= dt
+                self.vx = 0
+                if self.spore_wind <= 0:           # release the spore(s)
+                    self.atk_anim = 0.35
+                    cx, cy = self.x + self.w / 2, self.y + self.h / 2
+                    tx = player.x + player.w / 2 - cx
+                    ty = player.y + player.h / 2 - cy
+                    dist = max(1.0, math.hypot(tx, ty))
+                    spd = 210
+                    ux, uy = tx / dist, ty / dist
+                    spread = (-0.30, 0.0, 0.30) if self.enraged else (0.0,)
+                    for a in spread:               # rotate the aim vector by a
+                        rx = ux * math.cos(a) - uy * math.sin(a)
+                        ry = ux * math.sin(a) + uy * math.cos(a)
+                        sh = Shot(cx, cy, rx * spd, 3, -1, hostile=True)
+                        sh.vy = ry * spd
+                        shots.append(sh)
+            else:
+                self.shoot_t -= dt
+                if self.shoot_t <= 0 and abs(d) < 320:
+                    self.shoot_t = random.uniform(1.4, 2.2) if self.enraged \
+                        else random.uniform(2.0, 3.2)
+                    self.spore_wind = 0.32         # telegraph before firing
         elif self.kind in ("ventswarm", "cultureswarm"):
             d = player.x - self.x
             self.x += (1 if d > 0 else -1) * 55 * dt
@@ -731,11 +753,19 @@ class Enemy:
                  "mycelium": "mycelium",
                  "micromold": "micromold",
                  "sporedrifter": "sporedrifter"}[self.kind]
-        # state-based pose: hurt > attack > walk-cycle > idle (variants auto-load)
-        want = asset
+        # state-based pose: hurt > charge > attack > walk-cycle > idle (variants
+        # auto-load). The Spore Drifter swaps its idle/drift base for an ENRAGED
+        # look once wounded, and shows a CHARGE pose while winding up a shot.
+        base = asset
+        if self.kind == "sporedrifter" and getattr(self, "enraged", False) \
+                and assets.has(asset + "_enraged"):
+            base = asset + "_enraged"
+        want = base
         bob = 0.0
         if self.hit > 0 and assets.has(asset + "_hurt"):
             want = asset + "_hurt"
+        elif getattr(self, "spore_wind", 0.0) > 0 and assets.has(asset + "_charge"):
+            want = asset + "_charge"
         elif getattr(self, "atk_anim", 0.0) > 0 and assets.has(asset + "_attack"):
             want = asset + "_attack"
         elif abs(self.vx) > 8:
@@ -743,6 +773,8 @@ class Enemy:
             # timer + a little step-bob, so movement reads as motion not a slide
             if int(self.t * 9) % 2 == 0 and assets.has(asset + "_run"):
                 want = asset + "_run"
+            else:
+                want = base
             bob = -abs(math.sin(self.t * 9)) * 3.0
         else:
             bob = math.sin(self.t * 3) * 1.5      # gentle idle breathing

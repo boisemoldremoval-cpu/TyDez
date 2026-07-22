@@ -93,10 +93,13 @@ character in every pose. `player_climb` shows front-on while on a ladder
   sheet (`cut_micromold.py`). Scattered in clusters across **all 5 missions**;
   crawls steadily (no pounce) so a swarm can't shove Ty into a spike.
 - **Spore Drifter** (`sporedrifter`) — a floating spore-shooter cut via
-  `cut_sporedrifter.py` (idle / drift / attack / hurt). Deployed on **certain
-  air-heavy stages (missions 3 & 5)**: it hovers in the air lanes and fires an
-  aimed **spore shot** that damages Ty. Placed clear of the spike/pit leaps and
-  short-ranged so its knockback can't turn a hazard jump into a death.
+  `cut_sporedrifter.py` (idle / drift / attack / hurt / **charge** / **enraged**).
+  Deployed on **certain air-heavy stages (missions 3 & 5)**: it hovers in the air
+  lanes, floats toward Ty's level, and fires an aimed **spore shot** that damages
+  him — telegraphed by a brief **charge** wind-up pose. Once wounded it **enrages**
+  (enraged pose, faster drift/fire, a 3-way spore spread). Placed clear of the
+  spike/pit leaps and short-ranged so its knockback can't turn a hazard jump into
+  a death.
 
 ### 🧬 Dr. Mira — support ally (`Ally` class)
 Dr. Mira (Field Scientist) now **deploys with Ty in every mission**. She trails

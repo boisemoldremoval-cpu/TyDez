@@ -20,6 +20,8 @@ REGIONS = {
     "sporedrifter_attack": (300, 392, 398, 500),   # SPORE SHOT (body only; the
                                                     # engine draws the actual spores)
     "sporedrifter_hurt":   (292, 548, 404, 668),   # HURT (body; drop the spray)
+    "sporedrifter_charge": (300, 700, 440, 812),   # CHARGING ATTACK (wind-up)
+    "sporedrifter_enraged": (572, 700, 726, 812),  # ENRAGED (rare, low-HP state)
 }
 
 
