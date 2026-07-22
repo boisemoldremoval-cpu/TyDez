@@ -227,6 +227,7 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "player_crouch_slide", "player_crouch_cover",
                "player_crouch_interact", "player_crouch_item",
                "player_crouch_jump",
+               "micromold",
                "sporebot", "moldcrawler", "toxicsprayer", "moldbat",
                "steammite", "ventswarm", "sporehawk", "roofleech", "moldmite",
                "creeper", "mudstalker", "centipede", "pipeparasite", "gaspod",
@@ -496,6 +497,9 @@ class Enemy:
         elif kind == "roofleech":     # V4C2 — ceiling, drips down
             self.w, self.h, self.hp = 34, 30, 4
             self.dmg = 4
+        elif kind == "micromold":     # Micro Mold — common swarm unit (spore burst)
+            self.w, self.h, self.hp = 28, 26, 2
+            self.dmg = 3
         elif kind == "moldmite":      # V4C2 — tiny swarm unit
             self.w, self.h, self.hp = 20, 18, 1
             self.dmg = 2
@@ -566,13 +570,14 @@ class Enemy:
                 self.y += (self.home_y + math.sin(self.t * 3) * 26 - self.y) \
                     * min(1.0, dt * 3)
         elif self.kind in ("moldcrawler", "steammite", "moldmite", "mudstalker",
-                            "centipede", "sporeworm", "sentinel", "creeper"):
+                            "centipede", "sporeworm", "sentinel", "creeper",
+                            "micromold"):
             # ground stalkers: chase, telegraph (rear back), then pounce
             d = player.x - self.x
             face = 1 if d > 0 else -1
             sp = {"moldcrawler": 60, "steammite": 165, "moldmite": 190,
                   "mudstalker": 90, "centipede": 85, "sporeworm": 155,
-                  "sentinel": 55, "creeper": 45}[self.kind]
+                  "sentinel": 55, "creeper": 45, "micromold": 120}[self.kind]
             self.lunge_cd = max(0.0, self.lunge_cd - dt)
             if self.windup > 0:                        # telegraph the pounce
                 self.windup -= dt
@@ -598,6 +603,9 @@ class Enemy:
                     blob.vy = -300
                     blob.grav = 900
                     shots.append(blob)
+            elif self.kind == "micromold":              # common swarm: steady crawl,
+                self.x += face * sp * dt                 # no pounce (a lunge could leap
+                self.vx = face * sp                      # into a spike lane and shove Ty)
             elif self.lunge_cd <= 0 and abs(d) < 150:   # in range -> wind up
                 self.windup = 0.30
                 self.lunge_cd = random.uniform(2.2, 3.6)
@@ -689,7 +697,8 @@ class Enemy:
                  "gaspod": "gaspod", "sporeworm": "sporeworm",
                  "sentinel": "sentinel", "ventstalker": "ventstalker",
                  "cultureswarm": "cultureswarm", "reactorspore": "reactorspore",
-                 "mycelium": "mycelium"}[self.kind]
+                 "mycelium": "mycelium",
+                 "micromold": "micromold"}[self.kind]
         # state-based pose: hurt > attack > walk-cycle > idle (variants auto-load)
         want = asset
         bob = 0.0
@@ -2364,7 +2373,7 @@ def build_level(mission=1):
                4: [(860, 88), (1540, 84)],
                5: [(820, 88), (1600, 84)]}
     spikes_by = {1: [(900, 48)], 2: [(1400, 48)], 3: [(1520, 48)],
-                 4: [(1300, 48)], 5: [(1340, 64)]}
+                 4: [(1300, 48)], 5: [(1340, 48)]}
     ladders_by = {1: [(1020, 400)], 2: [(1060, 320), (2090, 340)],
                   3: [(1120, 350)], 4: [(940, 400)], 5: [(1220, 300)]}
     # moving level dynamics (kept above the ground lane so they're bonus routes)
@@ -2468,13 +2477,26 @@ def build_level(mission=1):
             Enemy("sentinel", 470, GROUND_Y - 52),
             Enemy("ventstalker", 720, 220),
             Enemy("cultureswarm", 980, 300),
-            Enemy("mycelium", 1220, GROUND_Y - 46),
-            Enemy("reactorspore", 1450, GROUND_Y - 44),
+            Enemy("mycelium", 1120, GROUND_Y - 46),
+            Enemy("reactorspore", 1500, GROUND_Y - 44),
             Enemy("sentinel", 1700, GROUND_Y - 52),
             Enemy("ventstalker", 1950, 210),
             Enemy("cultureswarm", 2180, 300),
             Enemy("reactorspore", 2360, GROUND_Y - 44),
         ]
+    # Micro Mold — a common swarm enemy scattered across every level (weak alone,
+    # dangerous in numbers). Spawn small clusters on clear ground away from the
+    # pits/spikes and the heavier emplacements so a stretch never becomes a wall.
+    # Each spot is (x, count); the final stage keeps lighter swarms since its
+    # roster is already the densest.
+    micro_spots = {1: [(560, 3), (1000, 3), (1500, 3), (2200, 3)],
+                   2: [(500, 3), (1250, 3), (1660, 3), (2250, 3)],
+                   3: [(650, 3), (1420, 3), (1950, 3), (2280, 3)],
+                   4: [(660, 3), (1250, 3), (1780, 3), (2260, 3)],
+                   5: [(640, 2), (1780, 2), (2050, 2), (2280, 2)]}
+    for mx, count in micro_spots[mission]:
+        for k in range(count):
+            enemies.append(Enemy("micromold", mx + k * 34, GROUND_Y - 26))
     # coins along the ground (skip any hovering over a pit) plus a few perched
     # on the ladder-reached platforms as a Mega Man style reward
     def _over_pit(cx):
