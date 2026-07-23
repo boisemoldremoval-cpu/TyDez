@@ -109,6 +109,11 @@ character in every pose. `player_climb` shows front-on while on a ladder
   gentle no-knockback tick while he stands in it. Enrages when wounded (enraged
   pose, faster, a corrosive spit spread).
 
+- **Corrupt Cyst** (`corruptcyst`) — a slow pulsating eyeball blob cut via
+  `cut_corruptcyst.py` (idle / roll / acid-glob / hurt). It rolls at Ty and lobs
+  arcing acid, and its signature is that it **explodes on death** — a radial
+  8-way spore burst + acid pool (handled in `Game._split`, buffered via
+  `_new_shots`), so a point-blank kill catches Ty in the blast. On missions 3 & 5.
 - **Spore Turret** (`sporeturret`) — a stationary cannon **mounted on the level
   platforms** (cut via `cut_sporeturret.py`: idle / firing / hurt). It never
   moves, rotates to track Ty, and fires an aimed spore down at him — one per

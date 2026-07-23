@@ -232,7 +232,7 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "toxicslime", "toxicslime_enraged",
                "moldcrawler_enraged",
                "fungusbrute", "fungusbrute_enraged",
-               "sporeturret",
+               "sporeturret", "corruptcyst",
                "sporebot", "moldcrawler", "toxicsprayer", "moldbat",
                "steammite", "ventswarm", "sporehawk", "roofleech", "moldmite",
                "creeper", "mudstalker", "centipede", "pipeparasite", "gaspod",
@@ -474,6 +474,7 @@ ENEMY_ASSET = {
     "mycelium": "mycelium", "micromold": "micromold",
     "sporedrifter": "sporedrifter", "toxicslime": "toxicslime",
     "fungusbrute": "fungusbrute", "sporeturret": "sporeturret",
+    "corruptcyst": "corruptcyst",
 }
 
 
@@ -541,6 +542,9 @@ class Enemy:
             self.dmg = 5
         elif kind == "sporeturret":   # Spore Turret — stationary platform cannon
             self.w, self.h, self.hp = 40, 42, 5
+            self.dmg = 4
+        elif kind == "corruptcyst":   # Corrupt Cyst — slow blob, bursts on death
+            self.w, self.h, self.hp = 42, 38, 5
             self.dmg = 4
         elif kind == "moldmite":      # V4C2 — tiny swarm unit
             self.w, self.h, self.hp = 20, 18, 1
@@ -692,6 +696,23 @@ class Enemy:
                         sh = Shot(cx, self.y, dvx, 4, -1, hostile=True)
                         sh.vy = -70
                         shots.append(sh)
+        elif self.kind == "corruptcyst":
+            # Corrupt Cyst: a slow pulsating blob. Rolls toward Ty and lobs an
+            # arcing acid glob; when killed it BURSTS (handled in Game._split) —
+            # a radial spore spatter, so finishing it point-blank is risky.
+            d = player.x - self.x
+            face = 1 if d > 0 else -1
+            self.x += face * 40 * dt
+            self.vx = face * 40
+            self.shoot_t -= dt
+            if self.shoot_t <= 0 and 70 < abs(d) < 340:
+                self.shoot_t = random.uniform(2.2, 3.4)
+                self.atk_anim = 0.4
+                cx = self.x + self.w / 2 + face * self.w * 0.4
+                glob = Shot(cx, self.y + 8, face * 165, 4, -1, hostile=True)
+                glob.vy = -250
+                glob.grav = 780
+                shots.append(glob)
         elif self.kind == "sporeturret":
             # Spore Turret: a STATIONARY platform-mounted cannon. It never moves
             # (mounted on the level's platforms/ledges); it rotates to track Ty
@@ -989,6 +1010,12 @@ class Enemy:
         elif self.kind == "moldmite":
             fcircle(s, cx, cy, self.h * 0.5, C_MOLD_DK)
             fcircle(s, cx, cy, self.h * 0.3, (140, 190, 90))
+        elif self.kind == "corruptcyst":             # pulsating eyeball blob
+            pulse = 1.0 + 0.06 * math.sin(self.t * 4)
+            fcircle(s, cx, cy, self.h * 0.5 * pulse, (96, 74, 110))
+            fcircle(s, cx, cy, self.h * 0.34 * pulse, (120, 90, 60))
+            fcircle(s, cx, cy, self.h * 0.2, C_TOXIC)
+            fcircle(s, cx, cy, self.h * 0.09, (30, 40, 20))
         elif self.kind == "sporeturret":             # stationary platform cannon
             pygame.draw.rect(s, (60, 66, 58), (int(x + 4), int(y + self.h * 0.6),
                                                self.w - 8, int(self.h * 0.4)))
@@ -2761,6 +2788,12 @@ def build_level(mission=1):
                      4: [(2345, 440)], 5: [(2090, 400)]}
     for (tcx, ptop) in turret_mounts.get(mission, []):
         enemies.append(Enemy("sporeturret", tcx - 20, ptop - 42))
+    # Corrupt Cyst — a slow blob that BURSTS on death (radial spores + acid
+    # pool). Placed on open ground clear of the hazard leaps so the death-burst
+    # never shoves Ty into a pit or spike.
+    cyst_spots = {3: [1350], 5: [980]}
+    for cx0 in cyst_spots.get(mission, []):
+        enemies.append(Enemy("corruptcyst", cx0, GROUND_Y - 38))
     # coins along the ground (skip any hovering over a pit) plus a few perched
     # on the ladder-reached platforms as a Mega Man style reward
     def _over_pit(cx):
@@ -3051,6 +3084,7 @@ class Game:
                 self.spawn_boss()
 
         self._new_enemies = []
+        self._new_shots = []      # e.g. Corrupt Cyst death-explosion spores
         for e in self.enemies:
             e.update(dt, p, self.shots, self.parts, self.acids)
         if self.boss:
@@ -3174,6 +3208,9 @@ class Game:
                     if self.boss.hurt(dmg, self.parts):
                         self._boss_defeated()
                     sh.dead = True
+        if self._new_shots:
+            self.shots.extend(self._new_shots)
+            self._new_shots = []
         self.shots = [s for s in self.shots if not s.dead]
         if self._new_enemies:
             self.enemies.extend(self._new_enemies)
@@ -3286,6 +3323,18 @@ class Game:
             self.pickups.append(Pickup(e.x + e.w / 2, e.y, "energy"))
 
     def _split(self, e, charged):
+        # Corrupt Cyst bursts on death — a radial spatter of toxic spores plus a
+        # lingering acid pool, so a point-blank kill catches Ty in the blast.
+        if e.kind == "corruptcyst":
+            cx, cy = e.x + e.w / 2, e.y + e.h / 2
+            self.parts.spark(cx, cy, C_TOXIC, 20, 320)
+            for ang in range(0, 360, 45):          # 8-way spore burst
+                a = math.radians(ang)
+                sh = Shot(cx, cy, math.cos(a) * 190, 4, -1, hostile=True)
+                sh.vy = math.sin(a) * 190
+                self._new_shots.append(sh)
+            self.acids.append([cx, GROUND_Y - 4, 20, 2.2, 2.2])
+            self.shake = max(self.shake, 6)
         # Swarms / Centipede split unless killed by a charged hit
         if e.kind not in ("ventswarm", "centipede", "cultureswarm") \
                 or charged or e.gen >= 2:
