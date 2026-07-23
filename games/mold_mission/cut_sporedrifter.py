@@ -15,13 +15,13 @@ OUT = "assets"
 # name -> region box (l, t, r, b) around a single creature, clear of neighbours
 # and label text. The largest blob inside becomes the sprite.
 REGIONS = {
-    "sporedrifter":        (300, 128, 432, 250),   # IDLE (row 1, frame 1)
+    "sporedrifter":        (300, 128, 432, 276),   # IDLE (row 1, frame 1)
     "sporedrifter_run":    (612, 128, 730, 250),   # DRIFT FORWARD (frame 1)
     "sporedrifter_attack": (300, 392, 398, 500),   # SPORE SHOT (body only; the
                                                     # engine draws the actual spores)
     "sporedrifter_hurt":   (292, 548, 404, 668),   # HURT (body; drop the spray)
     "sporedrifter_charge": (300, 700, 440, 812),   # CHARGING ATTACK (wind-up)
-    "sporedrifter_enraged": (572, 700, 726, 812),  # ENRAGED (rare, low-HP state)
+    "sporedrifter_enraged": (500, 692, 732, 818),  # ENRAGED (rare, low-HP state)
 }
 
 

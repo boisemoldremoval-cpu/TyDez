@@ -783,7 +783,7 @@ class Enemy:
                 sh = Shot(self.x + self.w / 2, self.y + self.h, 0, 4, -1, hostile=True)
                 sh.vy = 300
                 shots.append(sh)
-        elif self.kind in ("pipeparasite", "mycelium"):   # horizontal shooter
+        elif self.kind == "mycelium":                     # ground-level shooter
             self.shoot_t -= dt
             if self.shoot_t <= 0 and abs(player.x - self.x) < 480:
                 self.shoot_t = random.uniform(1.5, 2.5)
@@ -791,6 +791,21 @@ class Enemy:
                 face = 1 if player.x > self.x else -1
                 shots.append(Shot(self.x + self.w / 2, self.y + 18, face * 270,
                                   4, -1, hostile=True))
+        elif self.kind == "pipeparasite":   # clings high, sprays water DOWN at Ty
+            self.shoot_t -= dt
+            if self.shoot_t <= 0 and abs(player.x - self.x) < 460:
+                self.shoot_t = random.uniform(1.5, 2.5)
+                self.atk_anim = 0.4
+                # aim the spray at Ty so it actually reaches the ground lane,
+                # instead of a flat shot that flies over his head
+                cx, cy = self.x + self.w / 2, self.y + self.h
+                tx = player.x + player.w / 2 - cx
+                ty = player.y + player.h / 2 - cy
+                dist = max(1.0, math.hypot(tx, ty))
+                spd = 250
+                sh = Shot(cx, cy, tx / dist * spd, 4, -1, hostile=True)
+                sh.vy = ty / dist * spd
+                shots.append(sh)
         else:  # toxicsprayer shoots
             self.shoot_t -= dt
             if self.shoot_t <= 0 and abs(player.x - self.x) < 520:
