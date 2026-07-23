@@ -531,9 +531,16 @@ ENEMY_ASSET = {
 CROUCH_ONLY = {"moldcrawler", "mudstalker"}
 
 # Grappler walls per mission — (x, y_top, w, h) tall faces seated on a platform.
-# Populated only with placements verified not to trap the ground-running
-# auto-player (it can't wall-climb), so --selftest stays green.
-WALLS_BY = {}
+# Placed on platforms with a big AHEAD-clearance so the ground-running
+# auto-player never jumps into them (it can't wall-climb) — --selftest stays green.
+WALLS_BY = {
+    1: [(980, 260, 26, 140), (2260, 280, 26, 140)],
+    2: [(1520, 210, 26, 140), (300, 260, 26, 140)],
+    3: [(300, 270, 24, 140), (1600, 220, 24, 140)],
+    # M4 (Crawlspace) has a low ceiling and no gap wide enough to seat a wall
+    # clear of the auto-player's jumps, so it keeps its flatter layout.
+    5: [(1180, 160, 26, 140), (340, 260, 26, 140)],
+}
 
 
 class Enemy:
