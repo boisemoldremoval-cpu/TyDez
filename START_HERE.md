@@ -109,6 +109,13 @@ character in every pose. `player_climb` shows front-on while on a ladder
   gentle no-knockback tick while he stands in it. Enrages when wounded (enraged
   pose, faster, a corrosive spit spread).
 
+- **Mold Crawler** (`moldcrawler`) — the Mission-1 crawler now has **real art**
+  (idle / run / attack / hurt / **enraged**) cut via `cut_moldcrawler.py`
+  (its thin legs are detached from the body on the sheet, so the cutter takes
+  the body blob then all non-bg pixels in a small expansion — no leg clipped).
+  It's now a **fast** skitterer (speed 105) that lunges, and goes **INFECTED**
+  (enraged, speed 150) once wounded.
+
 ### 🎯 Enemy hitboxes track the art (accurate hits)
 Sprite enemies are drawn height-normalised (`self.h * CHAR_H`) so their art is
 larger than the raw `(w,h)`. `Enemy.rect()` now returns a collision box that

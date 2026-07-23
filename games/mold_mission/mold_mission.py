@@ -230,6 +230,7 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "micromold", "sporedrifter",
                "sporedrifter_charge", "sporedrifter_enraged",
                "toxicslime", "toxicslime_enraged",
+               "moldcrawler_enraged",
                "sporebot", "moldcrawler", "toxicsprayer", "moldbat",
                "steammite", "ventswarm", "sporehawk", "roofleech", "moldmite",
                "creeper", "mudstalker", "centipede", "pipeparasite", "gaspod",
@@ -500,8 +501,8 @@ class Enemy:
             self.w, self.h, self.hp = 40, 40, 4
             self.vx = -70
             self.dmg = 4
-        elif kind == "moldcrawler":
-            self.w, self.h, self.hp = 46, 34, 9
+        elif kind == "moldcrawler":   # Mold Crawler — fast skittering clawer
+            self.w, self.h, self.hp = 46, 34, 6
             self.dmg = 4
         elif kind in ("moldbat", "moldbat2"):   # flying harassment (V2C5 / V3C2)
             self.w, self.h, self.hp = 36, 26, 3
@@ -617,9 +618,15 @@ class Enemy:
             # ground stalkers: chase, telegraph (rear back), then pounce
             d = player.x - self.x
             face = 1 if d > 0 else -1
-            sp = {"moldcrawler": 60, "steammite": 165, "moldmite": 190,
+            sp = {"moldcrawler": 105, "steammite": 165, "moldmite": 190,
                   "mudstalker": 90, "centipede": 85, "sporeworm": 155,
                   "sentinel": 55, "creeper": 45, "micromold": 120}[self.kind]
+            # the Mold Crawler is a fast skitterer that goes INFECTED (enraged,
+            # even quicker) once wounded
+            if self.kind == "moldcrawler":
+                self.enraged = self.hp <= 2
+                if self.enraged:
+                    sp = 150
             self.lunge_cd = max(0.0, self.lunge_cd - dt)
             if self.windup > 0:                        # telegraph the pounce
                 self.windup -= dt
@@ -811,7 +818,7 @@ class Enemy:
         # auto-load). The Spore Drifter swaps its idle/drift base for an ENRAGED
         # look once wounded, and shows a CHARGE pose while winding up a shot.
         base = asset
-        if self.kind in ("sporedrifter", "toxicslime") \
+        if self.kind in ("sporedrifter", "toxicslime", "moldcrawler") \
                 and getattr(self, "enraged", False) \
                 and assets.has(asset + "_enraged"):
             base = asset + "_enraged"
