@@ -18,7 +18,7 @@ OUT = "assets"
 REGIONS = {
     "fungusbrute":         (300, 112, 376, 230),   # IDLE (row 1, frame 1)
     "fungusbrute_run":     (940, 112, 1055, 230),  # RUN (frame 1)
-    "fungusbrute_attack":  (300, 402, 478, 512),   # CLUB SWING
+    "fungusbrute_attack":  (300, 402, 389, 512),   # CLUB SWING
     "fungusbrute_hurt":    (298, 572, 418, 662),   # HURT
     "fungusbrute_enraged": (298, 724, 452, 804),   # RAGE MODE (glowing)
 }

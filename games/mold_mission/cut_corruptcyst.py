@@ -15,7 +15,7 @@ OUT = "assets"
 # name -> region box (l, t, r, b) around a single blob, clear of neighbours/text.
 REGIONS = {
     "corruptcyst":         (305, 108, 418, 238),   # IDLE (row 1, frame 1)
-    "corruptcyst_run":     (598, 108, 688, 238),   # ROLL / MOVE (frame 1)
+    "corruptcyst_run":     (598, 108, 664, 238),   # ROLL / MOVE (frame 1)
     "corruptcyst_attack":  (300, 282, 424, 414),   # ACID GLOB SHOT (body)
     "corruptcyst_hurt":    (300, 486, 428, 596),   # HURT
 }

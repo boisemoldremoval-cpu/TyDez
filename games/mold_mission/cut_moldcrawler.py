@@ -16,7 +16,7 @@ OUT = "assets"
 # the region (the crawler's thin legs are separated from its body by the magenta,
 # so a connected-blob cut would drop them — we must keep all pixels).
 REGIONS = {
-    "moldcrawler":         (300, 140, 407, 224),   # IDLE (row 1, frame 1)
+    "moldcrawler":         (300, 140, 378, 224),   # IDLE (row 1, frame 1)
     "moldcrawler_run":     (1050, 140, 1162, 224),  # RUN (frame 1)
     "moldcrawler_attack":  (298, 402, 456, 494),   # BITE ATTACK
     "moldcrawler_hurt":    (298, 544, 436, 636),   # HURT
