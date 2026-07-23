@@ -20,12 +20,16 @@ from PIL import Image
 
 OUT = "assets"
 TORSO = "player_aim_2"          # rifle levelled forward (upper-body source)
-CUT_LEG = 0.50                  # keep legs from this fraction of body height down
-CUT_TORSO = 0.60                # keep torso from the top down to this fraction
-# air leg-pose clip -> output air-shoot clip
-CLIPS = {"player_jump": "player_jumpfire",
-         "player_fall": "player_fallfire",
-         "player_peak": "player_peakfire"}
+# leg-pose clip -> (output shoot clip, cut_leg, cut_torso). cut_leg keeps the
+# lower (1-cut_leg) of the legs; cut_torso keeps the top cut_torso of the aim
+# torso; they meet + overlap at the waist. The crouch variant uses a deeper
+# overlap so Ty stays low (ducked) while the rifle still points forward.
+CLIPS = {
+    "player_jump":   ("player_jumpfire",   0.50, 0.60),
+    "player_fall":   ("player_fallfire",   0.50, 0.60),
+    "player_peak":   ("player_peakfire",   0.50, 0.60),
+    "player_crouch": ("player_crouchfire", 0.66, 0.52),
+}
 
 
 def load(name):
@@ -44,13 +48,13 @@ def cx_band(a, y0, y1):
     return xs.mean() if len(xs) else a.shape[1] / 2
 
 
-def composite(legs, torso):
+def composite(legs, torso, cut_leg, cut_torso):
     """Waist-stitch: lower body from `legs`, upper body from `torso`, aligned on
     their waist-band centroids (the torso is drawn on top so it hides the seam)."""
     t, b, l, r = bbox(legs); L = legs[t:b + 1, l:r + 1]
     t, b, l, r = bbox(torso); T = torso[t:b + 1, l:r + 1]
     Lh = L.shape[0]; Th = T.shape[0]
-    yL = int(CUT_LEG * Lh); yT = int(CUT_TORSO * Th)
+    yL = int(cut_leg * Lh); yT = int(cut_torso * Th)
     cxL = cx_band(L, max(0, yL - 6), yL + 6)
     cxT = cx_band(T, max(0, yT - 6), yT + 6)
     upH = yT; loH = Lh - yL
@@ -88,8 +92,8 @@ def frames_of(clip):
     return out
 
 
-def build(clip, outname, torso):
-    comps = [composite(l, torso) for l in frames_of(clip)]
+def build(clip, outname, torso, cut_leg, cut_torso):
+    comps = [composite(l, torso, cut_leg, cut_torso) for l in frames_of(clip)]
     keyed = [(c, *foot_x(c)) for c in comps]
     halfL = max(fx - lx for _, fx, _, _, lx, _ in keyed)
     halfR = max(rx - fx for _, fx, _, _, _, rx in keyed)
@@ -112,8 +116,8 @@ def build(clip, outname, torso):
 
 def main():
     torso = load(TORSO)
-    for clip, outname in CLIPS.items():
-        build(clip, outname, torso)
+    for clip, (outname, cut_leg, cut_torso) in CLIPS.items():
+        build(clip, outname, torso, cut_leg, cut_torso)
 
 
 if __name__ == "__main__":

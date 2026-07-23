@@ -108,7 +108,8 @@ ANIM_FPS = {"player": 6, "player_walk": 11, "player_run": 15, "player_dash": 18,
             "player_land": 14, "player_wallslide": 8, "player_use": 12,
             "player_crouch_run": 15, "player_pickup": 12, "player_carry": 11,
             "player_throw": 16, "player_place": 12,
-            "player_jumpfire": 12, "player_fallfire": 10, "player_peakfire": 8}
+            "player_jumpfire": 12, "player_fallfire": 10, "player_peakfire": 8,
+            "player_crouchfire": 10}
 DUCK_RATIO = 0.74       # a ducked pose renders this fraction of standing height
 BOSS_H = 1.34           # boss sprite height as a multiple of its collision height
 
@@ -2436,7 +2437,9 @@ class Player:
                 elif self.dash_t > 0:
                     want = "player_dash"           # dash / sprint
                 elif self.crouching:
-                    if abs(self.vx) > 90:
+                    if self.fire_anim > 0 and "player_crouchfire" in assets.anims:
+                        want = "player_crouchfire"  # ducked, aiming the rifle
+                    elif abs(self.vx) > 90:
                         want = "player_crouch_run"  # scurrying along, ducked
                     elif abs(self.vx) > 8:
                         want = "player_crouch_walk"  # slow ducked shuffle
