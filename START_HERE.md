@@ -56,6 +56,21 @@ This session's **image reader is used up** — it rejects every new image
    art-bible blue-and-white kid — so Ty's look shifts a little when he ducks (a
    deliberate choice — you asked to use these animations for TyGuy).
    *(Also: every character bobs while moving, so nothing looks frozen.)*
+1b. **"Use these animations in the gameplay. We will allow item pick up."** ✅ DONE
+   (Batch 7). The leftover TyGuy video clips are now a real interact mechanic:
+   - **Pick up / carry / throw / place a supply crate.** Press **E** (or **F**)
+     next to a crate to grab it → `player_pickup`, then Ty carries it in his
+     hands → `player_carry`. While carrying, **J/X throws** it (arcs forward,
+     smashes the first enemy it hits) → `player_throw`; **E places** it gently
+     on the ground → `player_place`. Crates are non-solid, so they never block
+     the run; a thrown crate does 6 dmg.
+   - **Use a console.** Press **E** at a wall terminal → `player_use`; it powers
+     on (green glow → grey), refills energy, and pops a "TERMINAL ONLINE" toast.
+   - **Crouch-run.** Moving fast while ducked now plays `player_crouch_run`
+     (slow ducked shuffle still plays `player_crouch_walk`).
+   Crates (2/level) + a console (1/level) are placed off the main sprint line as
+   optional interacts. The auto-bot ignores the interact key, so they're pure
+   scenery to `--selftest` and it stays green. Clips cut by `cut_tyguy_anim.py`.
 2. **"Make sure all words look professional and in the right place."** ✅ DONE.
    Every text screen was rendered and eyeballed (HQ hub incl. every menu row,
    in-mission HUD, objective + boss health bar + weak-point hint, boss-intro

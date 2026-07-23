@@ -39,6 +39,11 @@ ANIMS = {
     "player_shoot":        ("C",   2,  34, 5, False),  # SHOOT (gun + muzzle)
     "player_reload":       ("C",  40,  72, 5, False),  # RELOAD
     "player_use":          ("C",  74, 106, 5, False),  # USE / ACTIVATE
+    "player_crouch_run":   ("B",  92, 128, 6, False),  # CROUCH RUN
+    "player_pickup":       ("C", 114, 132, 4, False),  # PICK UP ITEM
+    "player_carry":        ("C", 138, 166, 6, False),  # CARRY ITEM (walk cycle)
+    "player_throw":        ("C", 172, 206, 5, False),  # THROW ITEM
+    "player_place":        ("C", 212, 238, 4, False),  # PLACE ITEM
 }
 
 _cache = {}

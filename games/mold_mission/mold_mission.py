@@ -105,7 +105,9 @@ ANIM_FPS = {"player": 6, "player_walk": 11, "player_run": 15, "player_dash": 18,
             "player_shoot": 20, "player_aim": 8, "player_reload": 10,
             "player_crouch": 6, "player_crouch_walk": 11, "player_roll": 16,
             "player_jump": 12, "player_peak": 8, "player_fall": 10,
-            "player_land": 14, "player_wallslide": 8, "player_use": 12}
+            "player_land": 14, "player_wallslide": 8, "player_use": 12,
+            "player_crouch_run": 15, "player_pickup": 12, "player_carry": 11,
+            "player_throw": 16, "player_place": 12}
 DUCK_RATIO = 0.74       # a ducked pose renders this fraction of standing height
 BOSS_H = 1.34           # boss sprite height as a multiple of its collision height
 
@@ -1821,6 +1823,73 @@ class WeaponPickup:
         s.blit(g, g.get_rect(center=(sx, yy - 22)))
 
 
+class Crate:
+    """A supply crate Ty can pick up, carry, throw, and place (Batch 7)."""
+    def __init__(self, x, y, label="SAMPLES"):
+        self.x, self.y = float(x), float(y)
+        self.w, self.h = 34, 30
+        self.label = label
+        self.carried = False
+        self.thrown = False
+        self.vx = self.vy = 0.0
+        self.dead = False
+
+    def rect(self):
+        return (self.x, self.y, self.w, self.h)
+
+    def update(self, dt, plats):
+        if self.carried or not self.thrown:
+            return
+        self.vy += GRAVITY * dt
+        self.x += self.vx * dt
+        self.y += self.vy * dt
+        self.vx *= (1 - min(1.0, 1.6 * dt))         # air drag
+        feet = self.y + self.h
+        landed = feet >= GROUND_Y
+        if landed:
+            self.y = GROUND_Y - self.h
+        else:
+            for (px, py, pw, ph) in plats:
+                if (px - 2 <= self.x + self.w / 2 <= px + pw + 2
+                        and 0 <= feet - py <= 28 and self.vy > 0):
+                    self.y = py - self.h
+                    landed = True
+                    break
+        if landed:
+            self.vx = self.vy = 0.0
+            self.thrown = False
+        if self.y > HEIGHT + 80:
+            self.dead = True
+
+    def draw(self, s, cam, t):
+        sx, yy = self.x - cam, self.y
+        orrect(s, (sx, yy, self.w, self.h), (92, 70, 44), radius=3)
+        orrect(s, (sx + 3, yy + 3, self.w - 6, self.h - 6), (120, 92, 58), radius=2)
+        pygame.draw.line(s, (60, 46, 30),
+                         (sx + 3, yy + self.h / 2), (sx + self.w - 3, yy + self.h / 2), 2)
+        fcircle(s, sx + self.w / 2, yy + self.h / 2, 5, (206, 182, 66))
+
+
+class Console:
+    """A wall terminal Ty can USE / ACTIVATE for a small reward (Batch 7)."""
+    def __init__(self, x, y):
+        self.x, self.y = float(x), float(y)
+        self.w, self.h = 30, 40
+        self.used = False
+
+    def rect(self):
+        return (self.x, self.y, self.w, self.h)
+
+    def draw(self, s, cam, t):
+        sx = self.x - cam
+        col = (120, 120, 120) if self.used else (90, 200, 120)
+        orrect(s, (sx, self.y, self.w, self.h), (46, 52, 58), radius=3)
+        orrect(s, (sx + 4, self.y + 5, self.w - 8, 18), col, radius=2)
+        if not self.used:
+            glow(s, sx + self.w / 2, self.y + 14, 13,
+                 col, int(55 + 40 * math.sin(t * 5)))
+
+
 class Turret:
     """Allied auto-defense tower (TWR_001): locks onto the nearest mold enemy
     in range and fires a disinfection beam. Stands on the ground."""
@@ -1935,6 +2004,16 @@ class Player:
         self.near_prop = False      # crouched beside cover (set by Game)
         self.near_pickup = False    # crouched over a pickup (set by Game)
         self.weapon = None          # equipped pick-up weapon id (None = blaster)
+        # item carry / interact (Batch 7 — drives the pickup/carry/throw/place/
+        # use video clips). Game owns the crates/consoles and consumes the wants.
+        self.carrying = None        # Crate Ty is holding (None = empty-handed)
+        self.pickup_t = 0.0         # play the pick-up grab clip
+        self.throw_t = 0.0          # play the overhand throw clip
+        self.place_t = 0.0          # play the set-down clip
+        self.use_t = 0.0            # play the console USE / ACTIVATE clip
+        self.interact_prev = False  # edge-detect the interact key (E / F)
+        self.want_interact = False  # interact pressed THIS frame (Game consumes)
+        self.want_throw = False     # fire pressed while carrying = throw a crate
 
     def rect(self):
         if self.crouching or self.crouch_slide:   # duck: shorter hurtbox, feet fixed
@@ -1992,6 +2071,18 @@ class Player:
         self.melee_t = max(0.0, self.melee_t - dt)
         self.item_t = max(0.0, self.item_t - dt)
         self.land_t = max(0.0, self.land_t - dt)
+        self.pickup_t = max(0.0, self.pickup_t - dt)
+        self.throw_t = max(0.0, self.throw_t - dt)
+        self.place_t = max(0.0, self.place_t - dt)
+        self.use_t = max(0.0, self.use_t - dt)
+        # interact key (E / F): edge-triggered. Game reads want_interact to pick
+        # up / place a crate or use a console. Reset the one-frame wants here.
+        self.want_interact = False
+        self.want_throw = False
+        interact = keys[pygame.K_e] or keys[pygame.K_f]
+        if interact and not self.interact_prev:
+            self.want_interact = True
+        self.interact_prev = interact
         left = keys[pygame.K_LEFT] or keys[pygame.K_a]
         right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
         up_key = keys[pygame.K_UP] or keys[pygame.K_w]
@@ -2190,6 +2281,19 @@ class Player:
             self.climbing = False
 
     def _weapons(self, dt, keys, shots, parts, snd):
+        # hands full: the fire button THROWS the carried crate instead of
+        # shooting, and the vacuum is stowed. Game consumes want_throw. Energy
+        # trickles back while Ty is carrying.
+        if self.carrying is not None:
+            self.vacuuming = False
+            fire = keys[pygame.K_j] or keys[pygame.K_x]
+            if fire and not self.fire_prev:
+                self.want_throw = True
+            self.fire_prev = fire
+            self.charging = False
+            self.charge = 0.0
+            self.energy = min(self.maxenergy, self.energy + 9 * dt)
+            return
         # HEPA Vacuum (hold K) — drains energy; Game applies the suction.
         vac_prev = self.vacuuming
         self.vacuuming = (keys[pygame.K_k] and self.energy > 0
@@ -2292,15 +2396,29 @@ class Player:
                 # pick an animation sprite by state, fall back to 'player'
                 # Ty uses ONLY his video-sourced animations, chosen by physics
                 # state; each is a multi-frame clip cycled below for fluid motion.
-                if self.climbing:
+                if self.pickup_t > 0:
+                    want = "player_pickup"         # grabbing a supply crate
+                elif self.throw_t > 0:
+                    want = "player_throw"          # tossing the crate
+                elif self.place_t > 0:
+                    want = "player_place"          # setting the crate down
+                elif self.use_t > 0:
+                    want = "player_use"            # activating a console
+                elif self.carrying is not None:
+                    want = "player_carry"          # hands full (carry cycle)
+                elif self.climbing:
                     want = "player"                # on a ladder — upright hold
                 elif self.crouch_slide and self.dash_t > 0:
                     want = "player_roll"           # crouch-slide tumbles into a roll
                 elif self.dash_t > 0:
                     want = "player_dash"           # dash / sprint
                 elif self.crouching:
-                    want = ("player_crouch_walk" if abs(self.vx) > 8
-                            else "player_crouch")  # ducking (moving or still)
+                    if abs(self.vx) > 90:
+                        want = "player_crouch_run"  # scurrying along, ducked
+                    elif abs(self.vx) > 8:
+                        want = "player_crouch_walk"  # slow ducked shuffle
+                    else:
+                        want = "player_crouch"      # ducked, still
                 elif self.fire_anim > 0:
                     want = "player_shoot"          # firing the rifle (muzzle flash)
                 elif not self.on_ground:
@@ -3029,6 +3147,24 @@ class Game:
                 ("prop_generator", 3020, 74)],
         }
         self.props = propset.get(self.mission, [])
+        # carriable supply crates + activatable consoles (Batch 7): Ty can pick
+        # up, carry, throw and place a crate, and USE a console. Non-solid so the
+        # sprint path stays clear; placed off the main line as optional interacts
+        # (the auto-bot ignores the interact key, so they're pure scenery to it).
+        crate_spots = {
+            1: [(560, "SAMPLES"), (2180, "SPORE-KIT")],
+            2: [(720, "FILTERS"), (2260, "SAMPLES")],
+            3: [(640, "SPORE-KIT"), (2040, "SAMPLES")],
+            4: [(600, "FILTERS"), (2360, "SAMPLES")],
+            5: [(700, "SAMPLES"), (2120, "SPORE-KIT")],
+        }
+        self.crates = [Crate(x, GROUND_Y - 30, lbl)
+                       for (x, lbl) in crate_spots.get(self.mission, [])]
+        console_spots = {1: [1500], 2: [1600], 3: [1450], 4: [1550], 5: [1650]}
+        self.consoles = [Console(x, GROUND_Y - 40)
+                         for x in console_spots.get(self.mission, [])]
+        self.interact_msg = ""
+        self.interact_msg_t = 0.0
 
     BOSS_QUOTE = {1: "\"THIS HOME... IS MINE!\"",
                   2: "\"YOU CANNOT WASH AWAY PERFECTION.\"",
@@ -3320,6 +3456,9 @@ class Game:
         self.weapons = [wp for wp in self.weapons if not wp.got]
         self.weapon_msg_t = max(0.0, getattr(self, "weapon_msg_t", 0.0) - dt)
 
+        # supply crates + consoles: pick up / carry / throw / place / use
+        self._interact(dt, p)
+
         if p.dead:
             self.state = STATE_OVER
             self.bank += self.cassettes
@@ -3328,6 +3467,85 @@ class Game:
 
         self.boss_intro = max(0.0, self.boss_intro - dt)
         self.parts.update(dt)
+
+    def _interact(self, dt, p):
+        """Batch 7 item mechanic: advance crates, let Ty pick up / carry / throw
+        / place a crate, and USE a console — the leftover TyGuy video clips wired
+        into real gameplay. Crates are non-solid, so they never block Ty's run."""
+        # advance thrown crates; a flying crate smashes the first enemy it hits
+        for cr in self.crates:
+            cr.update(dt, self.plats)
+            if cr.thrown:
+                for e in self.enemies:
+                    if not e.dead and overlap(*cr.rect(), *e.rect()):
+                        self.parts.splat(cr.x + cr.w / 2, cr.y + cr.h / 2,
+                                         C_TEAL_LT, 12)
+                        if e.hurt(6, self.parts):
+                            self.score += 100
+                            self.spores = max(0, self.spores - 50)
+                            self.snd.play("kill")
+                            self._split(e, charged=False)
+                            self._maybe_drop(e)
+                        cr.vx *= 0.4
+                        self.shake = max(self.shake, 5)
+                        break
+        self.crates = [cr for cr in self.crates if not cr.dead]
+
+        carried = p.carrying
+        if carried is not None:
+            # ride in Ty's hands at chest height, in front of him
+            carried.carried = True
+            carried.thrown = False
+            carried.x = p.x + p.w / 2 - carried.w / 2 + p.facing * 6
+            carried.y = p.y + 4
+            if p.want_throw:
+                carried.carried = False
+                carried.thrown = True
+                carried.vx = p.facing * 360
+                carried.vy = -220
+                carried.x = p.x + p.w / 2 - carried.w / 2 + p.facing * 22
+                p.carrying = None
+                p.throw_t = 0.30
+                self.snd.play("dash")
+            elif p.want_interact:
+                carried.carried = False
+                carried.thrown = False
+                carried.vx = carried.vy = 0.0
+                carried.y = GROUND_Y - carried.h
+                p.carrying = None
+                p.place_t = 0.30
+                self.snd.play("land")
+            self.interact_msg_t = max(0.0, getattr(self, "interact_msg_t", 0.0) - dt)
+            return
+
+        # empty-handed: interact picks up the nearest crate, else uses a console
+        pcx = p.x + p.w / 2
+        if p.want_interact:
+            best, bestd = None, 46
+            for cr in self.crates:
+                if cr.thrown:
+                    continue
+                d = abs((cr.x + cr.w / 2) - pcx)
+                if d < bestd and abs((cr.y + cr.h) - (p.y + p.h)) < 64:
+                    best, bestd = cr, d
+            if best is not None:
+                p.carrying = best
+                best.carried = True
+                p.pickup_t = 0.28
+                self.snd.play("coin")
+            else:
+                for cs in self.consoles:
+                    if not cs.used and abs((cs.x + cs.w / 2) - pcx) < 44 \
+                            and abs((cs.y + cs.h) - (p.y + p.h)) < 60:
+                        cs.used = True
+                        p.use_t = 0.5
+                        p.energy = min(p.maxenergy, p.energy + ENERGY_CELL)
+                        self.score += 60
+                        self.interact_msg = "TERMINAL ONLINE  +ENERGY"
+                        self.interact_msg_t = 2.0
+                        self.snd.play("energy")
+                        break
+        self.interact_msg_t = max(0.0, getattr(self, "interact_msg_t", 0.0) - dt)
 
     def _boss_defeated(self):
         """Shared mission-win bookkeeping (a shot or a melee can land it)."""
@@ -3609,6 +3827,9 @@ class Game:
                 pygame.draw.circle(s, edge, (int(sx + mw - 6), midy), 3)
         for tr in self.turrets:
             tr.draw(s, cam, self.assets)
+        # activatable consoles (Batch 7) — wall terminals, drawn as background
+        for cs in getattr(self, "consoles", []):
+            cs.draw(s, cam, t)
         for hz in self.hazards:
             hz.draw(s, cam, t)
         # Toxic Slime acid pools — corrosive splats on the ground (fade as they
@@ -3648,8 +3869,16 @@ class Game:
             self.assets.blit_fit(s, mkey, self.molde_x - cam,
                                  self.molde_y + bob, 48, 48,
                                  flip=self.molde_face < 0)
+        # supply crates (Batch 7): grounded ones sit behind Ty; a carried one
+        # rides in his hands and is drawn in front after the player
+        for cr in getattr(self, "crates", []):
+            if not cr.carried:
+                cr.draw(s, cam, t)
         self.mira.draw(s, cam, self.assets, t, self.player)
         self.player.draw(s, cam, self.assets, t)
+        for cr in getattr(self, "crates", []):
+            if cr.carried:
+                cr.draw(s, cam, t)
         for sh in self.shots:
             sh.draw(s, cam, self.assets)
         self.parts.draw(s, cam)
@@ -3719,6 +3948,9 @@ class Game:
         # ---- weapon pick-up toast ----
         if self.weapon_msg_t > 0:
             self._center(self.mid, "EQUIPPED: " + self.weapon_msg, 150, C_TEAL_LT)
+        # ---- console / interact toast ----
+        if getattr(self, "interact_msg_t", 0.0) > 0:
+            self._center(self.mid, self.interact_msg, 178, (150, 220, 160))
 
         # ---- boss health bar (bottom-center) ----
         if self.boss:
