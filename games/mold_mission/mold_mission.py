@@ -218,6 +218,7 @@ def glow(s, cx, cy, r, color, strength=120):
 # --------------------------------------------------------------------------- #
 ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "player_dash", "player_shoot", "player_hurt", "player_wallslide",
+               "player_walk", "player_peak", "player_land",
                "player_aim", "player_victory", "player_reload", "player_climb",
                # Ty crouch move-set (15-pose sheet)
                "player_crouch", "player_crouch_walk", "player_crouch_aim",
@@ -2265,62 +2266,37 @@ class Player:
                             8 - k * 2, (*C_TEAL_LT, 90))
             if assets.has("player"):
                 # pick an animation sprite by state, fall back to 'player'
+                # Ty uses ONLY his video-sourced poses, chosen purely by physics
+                # state (idle / walk / run / jump / peak / fall / land / dash /
+                # wall-slide / crouch) — no separate shoot/aim art, so his look
+                # never leaves the video set. Firing shows the matching move pose
+                # and the shot still leaves the muzzle point.
                 if self.climbing:
-                    want = ("player_climb" if assets.has("player_climb")
-                            else "player_jump")     # on a ladder
-                elif self.crouch_slide and self.dash_t > 0:
-                    # tuck into a roll, then stretch into the slide
-                    want = ("player_crouch_roll" if self.dash_t > SLIDE_TIME * 0.5
-                            else "player_crouch_slide")
-                elif self.iframe > 0:
-                    # take-damage flinch — ducked variant while crouched
-                    want = "player_crouch_hurt" if self.crouching else "player_hurt"
+                    want = "player"                # on a ladder — upright hold
                 elif self.dash_t > 0:
-                    # dash reuses the run pose unless dedicated dash art exists
-                    want = "player_dash" if assets.has("player_dash") else "player_run"
-                elif self.melee_t > 0:
-                    want = "player_crouch_melee"   # crouch melee swing
-                elif self.crouching:
-                    want = self._crouch_pose(assets)
-                elif self.fire_anim > 0:
-                    want = "player_shoot"          # a bullet just came out
+                    want = "player_dash"           # dash / low slide
+                elif self.crouching or self.crouch_slide:
+                    want = "player_crouch"         # ducking
                 elif not self.on_ground:
-                    if self.sliding and assets.has("player_wallslide"):
-                        want = "player_wallslide"    # pinned to a wall, sliding
-                    elif self.cjump_t > 0 and assets.has("player_crouch_jump"):
-                        want = "player_crouch_jump"  # springing up out of a crouch
-                    elif self.vy > 0:              # falling shares the jump pose
-                        want = "player_fall" if assets.has("player_fall") else "player_jump"
+                    if self.sliding:
+                        want = "player_wallslide"  # pinned to a wall
+                    elif self.vy < -70:
+                        want = "player_jump"       # rising off the ground
+                    elif self.vy > 90:
+                        want = "player_fall"       # descending
                     else:
-                        want = "player_jump"
-                elif self.charging:
-                    want = "player_aim"            # holding to charge = aim pose
-                elif abs(self.vx) > 1:
-                    want = "player_run"
-                elif self.energy < 0.22 * self.maxenergy \
-                        and assets.has("player_reload"):
-                    want = "player_reload"         # standing, recharging energy
+                        want = "player_peak"       # apex, near-zero vertical speed
+                elif self.land_t > 0:
+                    want = "player_land"           # just touched down
+                elif abs(self.vx) > 130:
+                    want = "player_run"            # sprinting
+                elif abs(self.vx) > 8:
+                    want = "player_walk"           # walking
                 else:
-                    want = "player"
-                # crouch art missing? duck-fallback instead of popping upright
-                if not assets.has(want):
-                    if want.startswith("player_crouch"):
-                        want = ("player_crouch" if assets.has("player_crouch")
-                                else "player")
-                    else:
-                        want = "player"
-                # equipped weapon: show Ty holding / firing it (Batch 4)
-                if self.weapon and assets.has("ty_" + self.weapon):
-                    wk = "ty_" + self.weapon
-                    if self.fire_anim > 0 and assets.has(wk + "_fire"):
-                        want = wk + "_fire"
-                    elif want in ("player", "player_run", "player_aim",
-                                  "player_shoot"):
-                        want = wk
+                    want = "player"                # idle (also while firing/aiming)
                 name = want if assets.has(want) else "player"
                 # consistent size, feet planted; ducked poses render shorter
-                ducking = (self.crouching or self.crouch_slide
-                           or self.melee_t > 0)
+                ducking = (self.crouching or self.crouch_slide)
                 dh = self.h * CHAR_H * (DUCK_RATIO if ducking else 1.0)
                 # squash on landing, stretch on the rise — classic platformer juice
                 if self.land_t > 0:

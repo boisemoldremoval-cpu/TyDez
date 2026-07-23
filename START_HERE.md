@@ -77,16 +77,20 @@ python3 mold_mission.py --demo     # watch an auto-playthrough of all 5 missions
 python3 mold_mission.py --selftest # must print: selftest OK: all 5 missions win
 ```
 
-### 🎞 TyGuy locomotion from video (NEW source)
-Ty's **movement** poses are now pulled from a gameplay video
-(`art_reference/pending/` → extracted with imageio-ffmpeg, chroma-keyed off the
-magenta background, largest-connected-component to drop the on-screen labels).
-Updated: `player` (idle), `player_run`, `player_jump`, `player_fall`,
-`player_dash`, plus a new `player_wallslide` (wired into the wall-slide state).
-These show a darker grey-armoured tactical Ty. NOTE: his **aim / shoot / crouch**
-poses still come from the older magenta sheet (brighter olive look), so Ty's
-appearance shifts a little between moving and shooting until those poses are
-re-pulled from their own videos (the user is sending more).
+### 🎞 TyGuy — VIDEO ANIMATIONS ONLY (physics-driven)
+Ty now uses **only** his video-sourced poses everywhere in the game (pulled from
+the movement video via `cut_tyguy_video.py` — imageio-ffmpeg + scipy, chroma-keyed
+off magenta, largest-connected-component to drop the on-screen labels). The full
+set: `player` (idle), `player_walk`, `player_run`, `player_jump`, `player_peak`
+(apex), `player_fall`, `player_land`, `player_dash`, `player_wallslide`,
+`player_crouch`. The draw picks a pose purely from **physics state** (vx for
+walk/run, vy for jump/peak/fall, `land_t` for landing, `sliding` for wall-slide,
+`crouching` for the duck, `dash_t` for dash) — so the animation reacts to the
+world's physics. The old magenta-sheet poses (shoot / aim / crouch sub-set /
+climb / reload / victory / the `ty_<weapon>` overlays) are **no longer used**:
+firing shows the matching move pose and the shot still leaves the muzzle point,
+so Ty never leaves the video look. More videos (his other actions + the rest of
+the cast) can be pulled the same way.
 
 ### 🦸 TyGuy character art (unified)
 Ty is now the **tactical TyGuy** everywhere. Standing / run / dash / jump / fall

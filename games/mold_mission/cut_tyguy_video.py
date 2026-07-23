@@ -19,9 +19,13 @@ OUT = "assets"
 # game asset name -> source frame index (chosen mid-motion, clean pose)
 FRAMES = {
     "player":            20,   # IDLE
+    "player_walk":       52,   # WALK
     "player_run":        82,   # RUN
     "player_jump":       136,  # JUMP (rising)
+    "player_peak":       162,  # JUMP PEAK (apex)
     "player_fall":       176,  # JUMP DOWN (descending, arms out)
+    "player_land":       188,  # LAND (touchdown crouch)
+    "player_crouch":     196,  # crouched / kneeling (used for the crouch state)
     "player_wallslide":  226,  # WALL SLIDE
 }
 DASH_FRAME = 110               # DASH/SPRINT — cropped to Ty (drop the dust cloud)
