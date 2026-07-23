@@ -304,9 +304,9 @@ class AssetPack:
         # multi-frame player animations: player_<state>_0.png .. _N.png become a
         # frame SEQUENCE (self.anims[state] -> [keys]) so the draw can cycle them
         self.anims = {}
-        for p in sorted(glob.glob(os.path.join(folder, "player_*_*.png"))):
+        for p in sorted(glob.glob(os.path.join(folder, "player_*.png"))):
             key = os.path.basename(p)[:-4]
-            mo = re.match(r"(player_[a-z_]+?)_(\d+)$", key)
+            mo = re.match(r"(player(?:_[a-z_]+)?)_(\d+)$", key)
             if not mo:
                 continue
             try:
