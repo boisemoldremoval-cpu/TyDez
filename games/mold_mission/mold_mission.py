@@ -107,7 +107,8 @@ ANIM_FPS = {"player": 6, "player_walk": 11, "player_run": 15, "player_dash": 18,
             "player_jump": 12, "player_peak": 8, "player_fall": 10,
             "player_land": 14, "player_wallslide": 8, "player_use": 12,
             "player_crouch_run": 15, "player_pickup": 12, "player_carry": 11,
-            "player_throw": 16, "player_place": 12}
+            "player_throw": 16, "player_place": 12,
+            "player_jumpfire": 12, "player_fallfire": 10, "player_peakfire": 8}
 DUCK_RATIO = 0.74       # a ducked pose renders this fraction of standing height
 BOSS_H = 1.34           # boss sprite height as a multiple of its collision height
 
@@ -2442,18 +2443,21 @@ class Player:
                     else:
                         want = "player_crouch"      # ducked, still
                 elif not self.on_ground:
-                    # airborne pose wins even while firing — Ty keeps his jump /
-                    # fall / peak silhouette and the shot reads from the muzzle
-                    # flash, instead of snapping to a planted standing-shoot pose
-                    # in mid-air (Mega Man style).
+                    # airborne: keep Ty's jump / fall / peak silhouette. When he
+                    # fires in mid-air, swap to the matching AIR-SHOOT composite
+                    # (jump legs + aim torso), so he jumps AND aims the rifle
+                    # accurately instead of snapping to a planted standing shoot.
+                    firing = self.fire_anim > 0
                     if self.sliding:
                         want = "player_wallslide"  # pinned to a wall
                     elif self.vy < -70:
-                        want = "player_jump"       # rising off the ground
+                        want = "player_jumpfire" if firing else "player_jump"
                     elif self.vy > 90:
-                        want = "player_fall"       # descending
+                        want = "player_fallfire" if firing else "player_fall"
                     else:
-                        want = "player_peak"       # apex, near-zero vertical speed
+                        want = "player_peakfire" if firing else "player_peak"
+                    if firing and want not in assets.anims:
+                        want = want.replace("fire", "")   # fall back if missing
                 elif self.fire_anim > 0:
                     want = "player_shoot"          # firing on the ground
                 elif self.land_t > 0:
