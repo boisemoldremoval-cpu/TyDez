@@ -34,43 +34,52 @@ Only the hymn **melody** (public-domain "O Store Gud") is rendered. The 1949
 Hine English lyrics are under copyright and are not stored here — add the hymn
 words you're licensed to use for a sung version.
 
-## Lyrics for the sung version
+## The whole song (paste-ready)
 
-**Hymn sections** — use your licensed "How Great Thou Art" text (verse for the
-open, refrain for the close).
-
-**Middle song — "Bigger Than the Storm"** (your posted lyrics):
+The hymn bookends below use the project's own paraphrase (your original "O Lord
+my God…" intro and "My soul cries out…" outro). If licensed (CCLI), substitute
+the exact Stuart K. Hine "How Great Thou Art" text in the intro/outro spots.
 
 ```
-[Verse 1]
+[Intro - How Great Thou Art, hymnal, reverent]
+O Lord my God, when I consider all
+The worlds Your hands have set in place above
+The mountains standing, oceans without end
+My soul cries out at what You are
+
+[Verse 1 - tempo eases in, warmer]
 When the weight gets heavy and I'm losing ground
 I remember You're right here with me now
 You hold me close, stronger than my doubts
 And everything I'm facing, You've already won
 
-[Verse 2]
+[Verse 2 - warm, flowing]
 In the darkest moments when I can't see light
 Your love reminds me I will be alright
 Every fear I carry, every wall I face
 Melts away whenever I remember Your grace
 
-[Chorus]
+[Chorus - open, full band]
 My God is bigger than the storm
 His love will always carry me
 No weight can shake what He has built
 And in His arms I find my peace
 
-[Bridge]
+[Bridge - building, hands raised]
 So I lift my hands, I lift my voice
 In all of this, I'm making my choice
 To trust in You, to believe You're near
 You're my shield, my strength, my atmosphere
 
-[Chorus]
+[Chorus - full, soaring]
 My God is bigger than the storm
 His love will always carry me
 No weight can shake what He has built
 And in His arms I find my peace
+
+[Outro - How Great Thou Art reprise, reverent]
+My soul cries out
+At how great You are
 ```
 
 ## Suno Style Box
