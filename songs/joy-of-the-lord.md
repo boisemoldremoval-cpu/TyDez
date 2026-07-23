@@ -92,8 +92,76 @@ The joy of the Lord is my strength
 > grateful, uplifting. ~95 BPM, major key, spacious and cozy. Catchy singalong "whoa-oh"
 > group vocals. Clean, positive, family-friendly.
 
-**Section tags (with performance cues):**
-`[Intro - whistle + claps]` · `[Verse 1 - relaxed, sunny]` · `[Pre-Chorus - lifting]` ·
-`[Chorus - big singalong]` · `[Post-Chorus - gang vocals, playful]` · `[Verse 2 - easy, grateful]` ·
-`[Chorus - big singalong]` · `[Bridge - warm, layered oohs]` · `[Pre-Final-Chorus - building]` ·
-`[Final Chorus - full, celebratory]` · `[Post-Chorus - gang vocals]` · `[Outro - la-la fade]`
+**Settings:** Custom mode ON · Instrumental OFF · Model v5 · Title "The Joy of the Lord"
+
+**Lyrics Box (paste-ready — all repeats written out, cues on the tags):**
+
+```
+[Intro - whistle + claps]
+
+[Verse 1 - relaxed, sunny]
+Woke up, sun on my face, gonna be a good day
+Coffee in my hand, let the worry drift away
+I don't got it figured out, and I don't gotta know
+'Cause the One who holds it all — He ain't lettin' go
+
+[Pre-Chorus - lifting]
+So I clap my hands (clap, clap)
+Feel it in my soul
+Everything's gonna be okay
+
+[Chorus - big singalong]
+The joy of the Lord is my strength (my strength)
+Oh, the joy of the Lord is my strength
+Through the ups and the downs, gonna stand my ground
+The joy of the Lord is my strength
+
+[Post-Chorus - gang vocals, playful]
+Whoa-oh-oh (oh-oh)
+Whoa-oh-oh, na-na-na
+Whoa-oh-oh (oh-oh)
+The joy of the Lord is my strength
+
+[Verse 2 - easy, grateful]
+Even when the sky is grey and the rain won't quit
+I'ma find a little light and I'ma dance in it
+Don't need a perfect day to find a reason to sing
+Got a hope down in my heart that don't depend on a thing
+
+[Pre-Chorus - lifting]
+So I clap my hands (clap, clap)
+Feel it in my soul
+Everything's gonna be okay
+
+[Chorus - big singalong]
+The joy of the Lord is my strength (my strength)
+Oh, the joy of the Lord is my strength
+Through the ups and the downs, gonna stand my ground
+The joy of the Lord is my strength
+
+[Bridge - warm, layered oohs]
+The joy of the Lord, it comes to those who see
+What He did on the cross, how He set us free
+When you finally understand that the grace is real
+That's a joy this world could never steal
+
+[Pre-Chorus - building]
+Oh, I finally understand (I understand)
+Salvation in His hands — so I sing it again
+
+[Final Chorus - full, celebratory]
+The joy of the Lord is my strength (my strength)
+Oh, the joy of the Lord is my strength
+Through the ups and the downs, gonna stand my ground
+The joy of the Lord is my strength
+
+[Post-Chorus - gang vocals]
+Whoa-oh-oh (oh-oh)
+Whoa-oh-oh, na-na-na
+Whoa-oh-oh (oh-oh)
+The joy of the Lord is my strength
+
+[Outro - la-la fade]
+La la la, la la la
+The joy of the Lord is my strength
+```
