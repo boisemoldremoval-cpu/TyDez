@@ -229,6 +229,7 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "player_crouch_jump",
                "micromold", "sporedrifter",
                "sporedrifter_charge", "sporedrifter_enraged",
+               "toxicslime", "toxicslime_enraged",
                "sporebot", "moldcrawler", "toxicsprayer", "moldbat",
                "steammite", "ventswarm", "sporehawk", "roofleech", "moldmite",
                "creeper", "mudstalker", "centipede", "pipeparasite", "gaspod",
@@ -510,6 +511,9 @@ class Enemy:
         elif kind == "sporedrifter":  # Spore Drifter — floating spore-shooter
             self.w, self.h, self.hp = 40, 40, 4
             self.dmg = 3
+        elif kind == "toxicslime":    # Toxic Slime — slow corrosive ground blob
+            self.w, self.h, self.hp = 46, 34, 6
+            self.dmg = 3
         elif kind == "moldmite":      # V4C2 — tiny swarm unit
             self.w, self.h, self.hp = 20, 18, 1
             self.dmg = 2
@@ -554,7 +558,7 @@ class Enemy:
     def rect(self):
         return (self.x, self.y, self.w, self.h)
 
-    def update(self, dt, player, shots, parts):
+    def update(self, dt, player, shots, parts, acids=None):
         self.hit = max(0.0, self.hit - dt)
         self.atk_anim = max(0.0, self.atk_anim - dt)
         self.t += dt
@@ -643,6 +647,39 @@ class Enemy:
                         sh = Shot(cx, self.y, dvx, 4, -1, hostile=True)
                         sh.vy = -70
                         shots.append(sh)
+        elif self.kind == "toxicslime":
+            # Toxic Slime: a slow corrosive blob. Crawls toward Ty, spits an
+            # arcing acid glob at him, and leaves short-lived ACID POOLS in its
+            # wake (its signature — they damage anything that stands in them).
+            # Once wounded it ENRAGES: faster, and its spit becomes a spread.
+            self.enraged = self.hp <= 2
+            d = player.x - self.x
+            face = 1 if d > 0 else -1
+            sp = 48 if self.enraged else 28
+            self.x += face * sp * dt
+            self.vx = face * sp
+            self.drip_t = getattr(self, "drip_t", 1.0) - dt
+            if self.drip_t <= 0 and acids is not None:
+                self.drip_t = random.uniform(0.8, 1.4)
+                acids.append([self.x + self.w / 2, self.y + self.h - 2,
+                              19, 2.6, 2.6])
+            self.shoot_t -= dt
+            if self.shoot_t <= 0 and 60 < abs(d) < 300:
+                self.shoot_t = random.uniform(1.3, 2.0) if self.enraged \
+                    else random.uniform(2.2, 3.4)
+                self.atk_anim = 0.4
+                glob = Shot(self.x + self.w / 2, self.y + 6, face * 150, 3, -1,
+                            hostile=True)
+                glob.vy = -260
+                glob.grav = 820
+                shots.append(glob)
+                if self.enraged:                    # corrosive spread when enraged
+                    for dvx in (face * 60, face * 240):
+                        g2 = Shot(self.x + self.w / 2, self.y + 6, dvx, 3, -1,
+                                  hostile=True)
+                        g2.vy = -300
+                        g2.grav = 820
+                        shots.append(g2)
         elif self.kind == "sporedrifter":
             # Spore Drifter: floats through the air toward Ty, hovering on a
             # gentle bob, and fires a spore shot aimed at him (the attack that
@@ -752,12 +789,14 @@ class Enemy:
                  "cultureswarm": "cultureswarm", "reactorspore": "reactorspore",
                  "mycelium": "mycelium",
                  "micromold": "micromold",
-                 "sporedrifter": "sporedrifter"}[self.kind]
+                 "sporedrifter": "sporedrifter",
+                 "toxicslime": "toxicslime"}[self.kind]
         # state-based pose: hurt > charge > attack > walk-cycle > idle (variants
         # auto-load). The Spore Drifter swaps its idle/drift base for an ENRAGED
         # look once wounded, and shows a CHARGE pose while winding up a shot.
         base = asset
-        if self.kind == "sporedrifter" and getattr(self, "enraged", False) \
+        if self.kind in ("sporedrifter", "toxicslime") \
+                and getattr(self, "enraged", False) \
                 and assets.has(asset + "_enraged"):
             base = asset + "_enraged"
         want = base
@@ -853,6 +892,14 @@ class Enemy:
         elif self.kind == "moldmite":
             fcircle(s, cx, cy, self.h * 0.5, C_MOLD_DK)
             fcircle(s, cx, cy, self.h * 0.3, (140, 190, 90))
+        elif self.kind == "toxicslime":              # corrosive ground blob
+            glow(s, cx, y + self.h, self.w * 0.7, C_TOXIC, 55)
+            pygame.draw.ellipse(s, (120, 150, 40),
+                                (int(x), int(y + self.h * 0.3),
+                                 self.w, int(self.h * 0.8)))
+            fcircle(s, cx, cy, self.h * 0.32, (150, 190, 70))
+            fcircle(s, cx - 6, cy - 2, 3, (40, 60, 20))
+            fcircle(s, cx + 6, cy - 2, 3, (40, 60, 20))
         elif self.kind == "sporedrifter":            # floating spore jelly
             glow(s, cx, cy, self.w * 0.8, (150, 210, 90), 55)
             fcircle(s, cx, cy - 2, self.h * 0.4, (96, 70, 130))
@@ -2578,6 +2625,12 @@ def build_level(mission=1):
                      5: [(480, 200), (1950, 220), (2380, 200)]}
     for dx, dy in drifter_spots.get(mission, []):
         enemies.append(Enemy("sporedrifter", dx, dy))
+    # Toxic Slime — a slow corrosive ground blob deployed on certain (non-air)
+    # stages. Placed in open ground clear of the spike/pit leaps: its acid spit
+    # and acid-pool trail harass Ty on the flats, never over a hazard jump.
+    slime_spots = {1: [400, 2250], 2: [360, 2360], 4: [400, 2300]}
+    for sx in slime_spots.get(mission, []):
+        enemies.append(Enemy("toxicslime", sx, GROUND_Y - 34))
     # coins along the ground (skip any hovering over a pit) plus a few perched
     # on the ladder-reached platforms as a Mega Man style reward
     def _over_pit(cx):
@@ -2734,6 +2787,7 @@ class Game:
         self.player.energy = self.player.maxenergy
         self.shots = []
         self.pickups = []
+        self.acids = []          # Toxic Slime acid pools: [x, y, r, life, maxlife]
         self.parts = Particles()
         self.boss = None
         self.cam = 0.0
@@ -2861,7 +2915,7 @@ class Game:
 
         self._new_enemies = []
         for e in self.enemies:
-            e.update(dt, p, self.shots, self.parts)
+            e.update(dt, p, self.shots, self.parts, self.acids)
         if self.boss:
             self.boss.update(dt, p, self.shots, self.parts, self.enemies)
 
@@ -2884,6 +2938,30 @@ class Game:
                         self.shake = max(self.shake, 10)
                 elif hz.on > 0:
                     p.hurt(3, self.parts)
+
+        # Toxic Slime acid pools: age out, and corrode Ty while he stands in one.
+        # Damage is a gentle direct tick (no hit-stagger) so a lingering pool can
+        # never knock Ty back into a hazard or lock his advance.
+        in_acid = False
+        for a in self.acids:
+            a[3] -= dt
+            ax, ay, ar = a[0], a[1], a[2]
+            if a[3] > 0 and not p.dead and overlap(ax - ar, ay - ar * 0.6,
+                                                   ar * 2, ar * 1.2, *p.rect()):
+                in_acid = True
+        self.acids = [a for a in self.acids if a[3] > 0]
+        if in_acid and not p.dead:
+            self.acid_tick = getattr(self, "acid_tick", 0.0) - dt
+            if self.acid_tick <= 0:
+                self.acid_tick = 0.5
+                p.hp -= 2
+                self.parts.spark(p.x + p.w / 2, p.y + p.h, C_TOXIC, 6, 180)
+                if p.hp <= 0:
+                    p.hp = 0
+                    p.dead = True
+                    self.snd.play("lose")
+        else:
+            self.acid_tick = 0.0
 
         # fell down a pit — instant death (Mega Man)
         if p.y > HEIGHT + 30 and not p.dead:
@@ -3317,6 +3395,18 @@ class Game:
             tr.draw(s, cam, self.assets)
         for hz in self.hazards:
             hz.draw(s, cam, t)
+        # Toxic Slime acid pools — corrosive splats on the ground (fade as they
+        # age); drawn under the enemies/coins so they read as floor hazards
+        for a in self.acids:
+            ax, ay, ar, life, maxlife = a
+            f = max(0.0, min(1.0, life / maxlife))
+            rr = int(ar * (0.55 + 0.45 * f))
+            pool = pygame.Surface((rr * 2, rr), pygame.SRCALPHA)
+            pygame.draw.ellipse(pool, (150, 200, 60, int(150 * f)),
+                                (0, 0, rr * 2, rr))
+            pygame.draw.ellipse(pool, (90, 130, 40, int(190 * f)),
+                                (0, 0, rr * 2, rr), 2)
+            s.blit(pool, (int(ax - cam - rr), int(ay - rr * 0.5)))
         for c in self.coins:
             c.draw(s, cam, self.assets, t)
         for pk in self.pickups:

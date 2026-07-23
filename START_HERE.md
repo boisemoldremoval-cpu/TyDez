@@ -101,6 +101,14 @@ character in every pose. `player_climb` shows front-on while on a ladder
   spike/pit leaps and short-ranged so its knockback can't turn a hazard jump into
   a death.
 
+- **Toxic Slime** (`toxicslime`) — a slow corrosive ground blob cut via
+  `cut_toxicslime.py` (idle / crawl / attack / hurt / **enraged**). Deployed on
+  **certain non-air stages (missions 1, 2 & 4)** in open ground clear of the
+  leaps: it crawls at Ty, spits an arcing **acid glob** that damages him, and
+  leaves a short-lived **acid-pool trail** (`Game.acids`) that corrodes Ty with a
+  gentle no-knockback tick while he stands in it. Enrages when wounded (enraged
+  pose, faster, a corrosive spit spread).
+
 ### 🧬 Dr. Mira — support ally (`Ally` class)
 Dr. Mira (Field Scientist) now **deploys with Ty in every mission**. She trails
 just behind him (idle / run / heal-cast sprites cut from her magenta sheet via
