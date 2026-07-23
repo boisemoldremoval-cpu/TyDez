@@ -232,6 +232,7 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "toxicslime", "toxicslime_enraged",
                "moldcrawler_enraged",
                "fungusbrute", "fungusbrute_enraged",
+               "sporeturret",
                "sporebot", "moldcrawler", "toxicsprayer", "moldbat",
                "steammite", "ventswarm", "sporehawk", "roofleech", "moldmite",
                "creeper", "mudstalker", "centipede", "pipeparasite", "gaspod",
@@ -472,7 +473,7 @@ ENEMY_ASSET = {
     "cultureswarm": "cultureswarm", "reactorspore": "reactorspore",
     "mycelium": "mycelium", "micromold": "micromold",
     "sporedrifter": "sporedrifter", "toxicslime": "toxicslime",
-    "fungusbrute": "fungusbrute",
+    "fungusbrute": "fungusbrute", "sporeturret": "sporeturret",
 }
 
 
@@ -499,6 +500,7 @@ class Enemy:
         self.spore_wind = 0.0         # Spore Drifter: attack wind-up timer
         self.enraged = False          # Spore Drifter: low-HP enraged state
         self.sprite_aspect = None     # drawn-sprite width/height (set on load)
+        self.turret_face = 1          # Spore Turret: aim direction
         if kind == "sporebot":
             self.w, self.h, self.hp = 40, 40, 4
             self.vx = -70
@@ -537,6 +539,9 @@ class Enemy:
         elif kind == "fungusbrute":   # Fungus Brute — large heavy elite (club)
             self.w, self.h, self.hp = 58, 54, 14
             self.dmg = 5
+        elif kind == "sporeturret":   # Spore Turret — stationary platform cannon
+            self.w, self.h, self.hp = 40, 42, 5
+            self.dmg = 4
         elif kind == "moldmite":      # V4C2 — tiny swarm unit
             self.w, self.h, self.hp = 20, 18, 1
             self.dmg = 2
@@ -687,6 +692,26 @@ class Enemy:
                         sh = Shot(cx, self.y, dvx, 4, -1, hostile=True)
                         sh.vy = -70
                         shots.append(sh)
+        elif self.kind == "sporeturret":
+            # Spore Turret: a STATIONARY platform-mounted cannon. It never moves
+            # (mounted on the level's platforms/ledges); it rotates to track Ty
+            # and fires an aimed spore shot, so it can pepper him from above.
+            self.vx = 0
+            d = player.x - self.x
+            self.turret_face = 1 if d > 0 else -1
+            self.shoot_t -= dt
+            if self.shoot_t <= 0 and abs(d) < 360:
+                self.shoot_t = random.uniform(1.6, 2.6)
+                self.atk_anim = 0.4
+                cx = self.x + self.w / 2 + self.turret_face * self.w * 0.4
+                cy = self.y + self.h * 0.4
+                tx = player.x + player.w / 2 - cx
+                ty = player.y + player.h / 2 - cy
+                dist = max(1.0, math.hypot(tx, ty))
+                spd = 230
+                sh = Shot(cx, cy, tx / dist * spd, 4, -1, hostile=True)
+                sh.vy = ty / dist * spd
+                shots.append(sh)
         elif self.kind == "fungusbrute":
             # Fungus Brute: a large, heavy elite. Lumbers toward Ty (its club
             # deals heavy contact damage) and hurls arcing toxic spores; when
@@ -897,8 +922,10 @@ class Enemy:
             breath = 1.0 + 0.045 * math.sin(self.t * 3.2 + self.x * 0.01)
             if self.hit > 0:
                 breath *= 0.9
+            flip = (self.turret_face < 0 if self.kind == "sporeturret"
+                    else self.vx < 0)
             assets.blit_char(s, want, cx, y + self.h, self.h * CHAR_H,
-                             flip=self.vx < 0, squash=breath)
+                             flip=flip, squash=breath)
         elif self.kind == "sentinel":
             orrect(s, (x + 4, y + 8, self.w - 8, self.h - 8), C_LAB_DK, 6)
             orrect(s, (x + 8, y + 12, self.w - 16, 12), C_LAB, 4)
@@ -962,6 +989,13 @@ class Enemy:
         elif self.kind == "moldmite":
             fcircle(s, cx, cy, self.h * 0.5, C_MOLD_DK)
             fcircle(s, cx, cy, self.h * 0.3, (140, 190, 90))
+        elif self.kind == "sporeturret":             # stationary platform cannon
+            pygame.draw.rect(s, (60, 66, 58), (int(x + 4), int(y + self.h * 0.6),
+                                               self.w - 8, int(self.h * 0.4)))
+            fcircle(s, cx, cy, self.h * 0.34, (70, 80, 66))
+            fcircle(s, cx + self.turret_face * 5, cy, self.h * 0.2, C_TOXIC)
+            for k in range(3):                       # mushroom caps
+                fcircle(s, x + 8 + k * (self.w - 16) / 2, y + 4, 4, (150, 90, 150))
         elif self.kind == "fungusbrute":             # large club-wielding ogre
             pygame.draw.ellipse(s, (86, 104, 54),
                                 (int(x), int(y + self.h * 0.2),
@@ -2719,6 +2753,14 @@ def build_level(mission=1):
     brute_spots = {2: [1750], 4: [1130]}
     for bx in brute_spots.get(mission, []):
         enemies.append(Enemy("fungusbrute", bx, GROUND_Y - 54))
+    # Spore Turret — a stationary cannon MOUNTED ON the level's platforms (it
+    # engages Ty from the environment). Each mount is (platform_cx, platform_top)
+    # of a floating platform; the turret sits on top and fires down at Ty. Kept
+    # on back-field ledges, clear of the hazard leaps.
+    turret_mounts = {1: [(2335, 420)], 2: [(2370, 240)], 3: [(2425, 250)],
+                     4: [(2345, 440)], 5: [(2090, 400)]}
+    for (tcx, ptop) in turret_mounts.get(mission, []):
+        enemies.append(Enemy("sporeturret", tcx - 20, ptop - 42))
     # coins along the ground (skip any hovering over a pit) plus a few perched
     # on the ladder-reached platforms as a Mega Man style reward
     def _over_pit(cx):

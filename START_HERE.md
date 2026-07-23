@@ -109,6 +109,13 @@ character in every pose. `player_climb` shows front-on while on a ladder
   gentle no-knockback tick while he stands in it. Enrages when wounded (enraged
   pose, faster, a corrosive spit spread).
 
+- **Spore Turret** (`sporeturret`) — a stationary cannon **mounted on the level
+  platforms** (cut via `cut_sporeturret.py`: idle / firing / hurt). It never
+  moves, rotates to track Ty, and fires an aimed spore down at him — one per
+  stage on a back-field ledge. This is the clearest **environment engagement**:
+  the enemy sits on a platform object and shoots from it. (Audited: no enemy
+  floats on any level; every level has working movers, ladders and props, and
+  the player rides moving platforms and climbs ladders.)
 - **Fungus Brute** (`fungusbrute`) — a large, heavy **elite** cut via
   `cut_fungusbrute.py` (idle / run / club-attack / hurt / **rage**). High health
   (14) and high melee damage (5); lumbers toward Ty, hurls arcing **toxic
