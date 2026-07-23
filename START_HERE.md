@@ -77,6 +77,17 @@ python3 mold_mission.py --demo     # watch an auto-playthrough of all 5 missions
 python3 mold_mission.py --selftest # must print: selftest OK: all 5 missions win
 ```
 
+### 🎞 TyGuy locomotion from video (NEW source)
+Ty's **movement** poses are now pulled from a gameplay video
+(`art_reference/pending/` → extracted with imageio-ffmpeg, chroma-keyed off the
+magenta background, largest-connected-component to drop the on-screen labels).
+Updated: `player` (idle), `player_run`, `player_jump`, `player_fall`,
+`player_dash`, plus a new `player_wallslide` (wired into the wall-slide state).
+These show a darker grey-armoured tactical Ty. NOTE: his **aim / shoot / crouch**
+poses still come from the older magenta sheet (brighter olive look), so Ty's
+appearance shifts a little between moving and shooting until those poses are
+re-pulled from their own videos (the user is sending more).
+
 ### 🦸 TyGuy character art (unified)
 Ty is now the **tactical TyGuy** everywhere. Standing / run / dash / jump / fall
 / aim / shoot / hurt / victory / reload / ladder-climb were cut from the bright

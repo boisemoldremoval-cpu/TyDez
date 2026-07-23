@@ -217,7 +217,7 @@ def glow(s, cx, cy, r, color, strength=120):
 # Assets (drop-in PNGs override the vector art)
 # --------------------------------------------------------------------------- #
 ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
-               "player_dash", "player_shoot", "player_hurt",
+               "player_dash", "player_shoot", "player_hurt", "player_wallslide",
                "player_aim", "player_victory", "player_reload", "player_climb",
                # Ty crouch move-set (15-pose sheet)
                "player_crouch", "player_crouch_walk", "player_crouch_aim",
@@ -2285,7 +2285,9 @@ class Player:
                 elif self.fire_anim > 0:
                     want = "player_shoot"          # a bullet just came out
                 elif not self.on_ground:
-                    if self.cjump_t > 0 and assets.has("player_crouch_jump"):
+                    if self.sliding and assets.has("player_wallslide"):
+                        want = "player_wallslide"    # pinned to a wall, sliding
+                    elif self.cjump_t > 0 and assets.has("player_crouch_jump"):
                         want = "player_crouch_jump"  # springing up out of a crouch
                     elif self.vy > 0:              # falling shares the jump pose
                         want = "player_fall" if assets.has("player_fall") else "player_jump"
