@@ -231,6 +231,7 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "sporedrifter_charge", "sporedrifter_enraged",
                "toxicslime", "toxicslime_enraged",
                "moldcrawler_enraged",
+               "fungusbrute", "fungusbrute_enraged",
                "sporebot", "moldcrawler", "toxicsprayer", "moldbat",
                "steammite", "ventswarm", "sporehawk", "roofleech", "moldmite",
                "creeper", "mudstalker", "centipede", "pipeparasite", "gaspod",
@@ -471,6 +472,7 @@ ENEMY_ASSET = {
     "cultureswarm": "cultureswarm", "reactorspore": "reactorspore",
     "mycelium": "mycelium", "micromold": "micromold",
     "sporedrifter": "sporedrifter", "toxicslime": "toxicslime",
+    "fungusbrute": "fungusbrute",
 }
 
 
@@ -532,6 +534,9 @@ class Enemy:
         elif kind == "toxicslime":    # Toxic Slime — slow corrosive ground blob
             self.w, self.h, self.hp = 46, 34, 6
             self.dmg = 3
+        elif kind == "fungusbrute":   # Fungus Brute — large heavy elite (club)
+            self.w, self.h, self.hp = 58, 54, 14
+            self.dmg = 5
         elif kind == "moldmite":      # V4C2 — tiny swarm unit
             self.w, self.h, self.hp = 20, 18, 1
             self.dmg = 2
@@ -682,6 +687,32 @@ class Enemy:
                         sh = Shot(cx, self.y, dvx, 4, -1, hostile=True)
                         sh.vy = -70
                         shots.append(sh)
+        elif self.kind == "fungusbrute":
+            # Fungus Brute: a large, heavy elite. Lumbers toward Ty (its club
+            # deals heavy contact damage) and hurls arcing toxic spores; when
+            # wounded it ENRAGES — faster, with a spore-burst spread.
+            self.enraged = self.hp <= 5
+            d = player.x - self.x
+            face = 1 if d > 0 else -1
+            sp = 80 if self.enraged else 48
+            self.x += face * sp * dt
+            self.vx = face * sp
+            self.shoot_t -= dt
+            if self.shoot_t <= 0 and 90 < abs(d) < 430:
+                self.shoot_t = random.uniform(1.6, 2.4) if self.enraged \
+                    else random.uniform(2.6, 3.8)
+                self.atk_anim = 0.4
+                cx, cy = self.x + self.w / 2 + face * self.w * 0.4, self.y + 12
+                glob = Shot(cx, cy, face * 175, 5, -1, hostile=True)
+                glob.vy = -240
+                glob.grav = 760
+                shots.append(glob)
+                if self.enraged:                    # spore burst spread
+                    for dvx in (face * 90, face * 275):
+                        g2 = Shot(cx, cy, dvx, 5, -1, hostile=True)
+                        g2.vy = -300
+                        g2.grav = 760
+                        shots.append(g2)
         elif self.kind == "toxicslime":
             # Toxic Slime: a slow corrosive blob. Crawls toward Ty, spits an
             # arcing acid glob at him, and leaves short-lived ACID POOLS in its
@@ -833,7 +864,8 @@ class Enemy:
         # auto-load). The Spore Drifter swaps its idle/drift base for an ENRAGED
         # look once wounded, and shows a CHARGE pose while winding up a shot.
         base = asset
-        if self.kind in ("sporedrifter", "toxicslime", "moldcrawler") \
+        if self.kind in ("sporedrifter", "toxicslime", "moldcrawler",
+                         "fungusbrute") \
                 and getattr(self, "enraged", False) \
                 and assets.has(asset + "_enraged"):
             base = asset + "_enraged"
@@ -930,6 +962,15 @@ class Enemy:
         elif self.kind == "moldmite":
             fcircle(s, cx, cy, self.h * 0.5, C_MOLD_DK)
             fcircle(s, cx, cy, self.h * 0.3, (140, 190, 90))
+        elif self.kind == "fungusbrute":             # large club-wielding ogre
+            pygame.draw.ellipse(s, (86, 104, 54),
+                                (int(x), int(y + self.h * 0.2),
+                                 self.w, int(self.h * 0.8)))
+            fcircle(s, cx, cy - 4, self.w * 0.3, (110, 130, 66))
+            for k in range(3):                       # mushroom caps
+                fcircle(s, x + 12 + k * (self.w - 24) / 2, y + 6, 6, (150, 90, 150))
+            fcircle(s, cx - 8, cy, 4, (210, 240, 120))
+            fcircle(s, cx + 8, cy, 4, (210, 240, 120))
         elif self.kind == "toxicslime":              # corrosive ground blob
             glow(s, cx, y + self.h, self.w * 0.7, C_TOXIC, 55)
             pygame.draw.ellipse(s, (120, 150, 40),
@@ -2672,6 +2713,12 @@ def build_level(mission=1):
     slime_spots = {1: [340, 2500], 2: [340, 2400], 4: [340, 2500]}
     for sx in slime_spots.get(mission, []):
         enemies.append(Enemy("toxicslime", sx, GROUND_Y - 34))
+    # Fungus Brute — a large, heavy ELITE dropped on a couple of stages as a
+    # set-piece encounter. Placed in a wide clear stretch away from the base
+    # roster and the hazard leaps (it's big, slow and hits hard).
+    brute_spots = {2: [1750], 4: [1130]}
+    for bx in brute_spots.get(mission, []):
+        enemies.append(Enemy("fungusbrute", bx, GROUND_Y - 54))
     # coins along the ground (skip any hovering over a pit) plus a few perched
     # on the ladder-reached platforms as a Mega Man style reward
     def _over_pit(cx):

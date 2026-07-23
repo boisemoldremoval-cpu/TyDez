@@ -109,6 +109,11 @@ character in every pose. `player_climb` shows front-on while on a ladder
   gentle no-knockback tick while he stands in it. Enrages when wounded (enraged
   pose, faster, a corrosive spit spread).
 
+- **Fungus Brute** (`fungusbrute`) — a large, heavy **elite** cut via
+  `cut_fungusbrute.py` (idle / run / club-attack / hurt / **rage**). High health
+  (14) and high melee damage (5); lumbers toward Ty, hurls arcing **toxic
+  spores**, and **enrages** when wounded (rage pose, faster, spore-burst spread).
+  Dropped as a set-piece on **missions 2 & 4** in clear open stretches.
 - **Mold Crawler** (`moldcrawler`) — the Mission-1 crawler now has **real art**
   (idle / run / attack / hurt / **enraged**) cut via `cut_moldcrawler.py`
   (its thin legs are detached from the body on the sheet, so the cutter takes
