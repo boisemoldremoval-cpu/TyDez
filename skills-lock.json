@@ -6,6 +6,18 @@
       "sourceType": "github",
       "skillPath": "skills/veo-use/SKILL.md",
       "computedHash": "93fff067175d11a90a79ac1dd6aef210e9915539a24a9b38c930e05cbb14a7e8"
+    },
+    "lyric-writer": {
+      "source": "bitwize-music-studio/claude-ai-music-skills",
+      "sourceType": "github",
+      "skillPath": "skills/lyric-writer/SKILL.md",
+      "computedHash": "291af8c95ef4ba3e9bcc21dc19d49c2fa37d40e6ca7f7592b90cf92c3c955f69"
+    },
+    "suno-engineer": {
+      "source": "bitwize-music-studio/claude-ai-music-skills",
+      "sourceType": "github",
+      "skillPath": "skills/suno-engineer/SKILL.md",
+      "computedHash": "e31f1ffe9c6fafaa9d4f46eba5290831d8966c0a907adb9a8881d231419806fc"
     }
   }
 }
