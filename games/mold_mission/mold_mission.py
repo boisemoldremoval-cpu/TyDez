@@ -110,7 +110,8 @@ ANIM_FPS = {"player": 6, "player_walk": 11, "player_run": 15, "player_dash": 18,
             "player_throw": 16, "player_place": 12,
             "player_jumpfire": 12, "player_fallfire": 10, "player_peakfire": 8,
             "player_crouchfire": 10, "player_runfire": 15, "player_walkfire": 11,
-            "player_rundownfire": 15, "player_walkdownfire": 11}
+            "player_rundownfire": 15, "player_walkdownfire": 11,
+            "player_dashfire": 18}
 DUCK_RATIO = 0.74       # a ducked pose renders this fraction of standing height
 BOSS_H = 1.34           # boss sprite height as a multiple of its collision height
 
@@ -528,6 +529,11 @@ ENEMY_ASSET = {
 # must CROUCH to shoot them out. Kept to single-placed low enemies (never the
 # tiny swarms) so the pacing stays fair.
 CROUCH_ONLY = {"moldcrawler", "mudstalker"}
+
+# Grappler walls per mission — (x, y_top, w, h) tall faces seated on a platform.
+# Populated only with placements verified not to trap the ground-running
+# auto-player (it can't wall-climb), so --selftest stays green.
+WALLS_BY = {}
 
 
 class Enemy:
@@ -2482,7 +2488,11 @@ class Player:
                 elif self.crouch_slide and self.dash_t > 0:
                     want = "player_roll"           # crouch-slide tumbles into a roll
                 elif self.dash_t > 0:
-                    want = "player_dash"           # dash / sprint
+                    # dash / sprint — aim the rifle mid-dash if firing
+                    if self.fire_anim > 0 and "player_dashfire" in assets.anims:
+                        want = "player_dashfire"
+                    else:
+                        want = "player_dash"
                 elif self.crouching:
                     if self.fire_anim > 0 and "player_crouchfire" in assets.anims:
                         want = "player_crouchfire"  # ducked, aiming the rifle
@@ -3058,6 +3068,15 @@ def build_level(mission=1):
     # a coin riding each moving platform, to reward using the dynamics
     for m in movers:
         coins.append(Coin(m.x0 + m.w / 2, m.y0 - 24))
+    # BIG WALLS (Mega Man X): tall vertical faces Ty can wall-slide down and
+    # wall-jump up — only ones tall enough engage the grapple (see wall_grab).
+    # Each is seated on an elevated platform so it rises OFF the ground lane. Only
+    # spots verified not to trap the ground-running auto-player are used, so the
+    # run to the boss always stays clear. (x, y_top, w, h); h ~ 2.6x Ty's height.
+    walls_by = WALLS_BY.get(mission, [])
+    for (wx, wy, ww, wh) in walls_by:
+        plats.append((wx, wy, ww, wh))
+        coins.append(Coin(wx + ww / 2, wy - 22))       # a reward atop each wall
     return plats, enemies, coins, hazards, ladders, movers
 
 

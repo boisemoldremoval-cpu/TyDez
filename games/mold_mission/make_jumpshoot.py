@@ -45,6 +45,7 @@ CLIPS = {
     "player_crouch": ("player_crouchfire", 0.66, 0.52),
     "player_run":    ("player_runfire",    0.50, 0.60),
     "player_walk":   ("player_walkfire",   0.50, 0.60),
+    "player_dash":   ("player_dashfire",   0.50, 0.60),
 }
 # down-aim: the aim torso rotated so the rifle points diagonally down-forward.
 # Composited with the run legs so Ty can shoot DOWN while running.
