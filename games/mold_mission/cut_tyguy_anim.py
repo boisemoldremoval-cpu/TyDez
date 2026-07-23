@@ -32,7 +32,7 @@ ANIMS = {
     "player_fall":         ("A", 162, 176, 4, False),  # DESCENDING (knees tucked)
     "player_land":         ("A", 186, 202, 4, False),  # TOUCHDOWN crouch (past impact FX)
     "player_wallslide":    ("A", 208, 236, 4, False),  # WALL SLIDE
-    "player_crouch":       ("B",  26,  56, 4, False),  # CROUCH IDLE
+    "player_crouch":       ("B",  32,  56, 4, False),  # CROUCH IDLE (settled kneel)
     "player_crouch_walk":  ("B",  64,  86, 6, False),  # CROUCH WALK
     "player_roll":         ("B", 146, 166, 5, False),  # ROLL
     "player_aim":          ("B", 178, 200, 4, False),  # AIM (rifle up; standing only,

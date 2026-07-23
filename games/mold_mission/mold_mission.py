@@ -109,7 +109,8 @@ ANIM_FPS = {"player": 6, "player_walk": 11, "player_run": 15, "player_dash": 18,
             "player_crouch_run": 15, "player_pickup": 12, "player_carry": 11,
             "player_throw": 16, "player_place": 12,
             "player_jumpfire": 12, "player_fallfire": 10, "player_peakfire": 8,
-            "player_crouchfire": 10}
+            "player_crouchfire": 10, "player_runfire": 15, "player_walkfire": 11,
+            "player_rundownfire": 15, "player_walkdownfire": 11}
 DUCK_RATIO = 0.74       # a ducked pose renders this fraction of standing height
 BOSS_H = 1.34           # boss sprite height as a multiple of its collision height
 
@@ -2009,9 +2010,11 @@ class Player:
         self.ride = None        # moving platform Ty is standing on
         self.land_t = 0.0       # landing-squash animation timer
         self.wall = 0           # -1 wall on left, 1 wall on right, 0 none
+        self.wall_grab = False  # the contacted wall is tall enough to cling to
         self.wj_lock = 0.0      # wall-jump horizontal lockout
         self.wj_dir = 0
         self.crouching = False
+        self.aim_down = False       # holding Down while moving/airborne = aim down
         self.sliding = False
         self.slow = 0.0
         # crouch move-set timers / flags (drive the 15-pose crouch sheet)
@@ -2043,16 +2046,28 @@ class Player:
         return (self.x, self.y, self.w, self.h)
 
     def muzzle(self):
-        """Gun-barrel tip in world space — shots and the muzzle flash spawn from
-        here so fire actually leaves the end of the blaster, at the right height
-        for the stance (lower when ducked)."""
+        """Gun-barrel tip in world space — the muzzle flash AND the bullet both
+        spawn here, so fire leaves the end of the blaster. Offsets are matched to
+        where the rifle actually points in each firing pose (measured from the
+        composite sprites), so the shot comes straight out of the flash."""
+        cx = self.x + self.w / 2
+        feet = self.y + self.h
+        f = self.facing
+        # NOTE: heights are kept in the enemy-hittable band (~26-48px tall mold),
+        # so ground fire connects — a muzzle up at the sprite's chest would sail
+        # over the short crawlers. The flash spawns here too, so bullet==flash.
+        if self.aim_down:                       # rifle angled diagonally down
+            return (cx + f * 34, feet - 16)
         ducking = self.crouching or self.crouch_slide
-        # ducked: the crouch pose isn't an aimed stance, so keep the muzzle tight
-        # to Ty's front at gun height — a far/high muzzle made the shot + flash
-        # float in empty space away from his crouched body.
-        reach = self.w / 2 + (24 if ducking else 46)
-        gy = self.y + (self.h * 0.70 if ducking else self.h * 0.40)
-        return (self.x + self.w / 2 + self.facing * reach, gy)
+        if ducking:                             # crouch-shoot barrel
+            dx, above = 40, 24
+        elif not self.on_ground:                # air-shoot (jump/peak vs fall)
+            dx, above = (36, 34) if self.vy > 90 else (48, 38)
+        elif abs(self.vx) > 8:                  # run / walk shoot (aim torso)
+            dx, above = 38, 32
+        else:                                   # standing shoot (aim pose)
+            dx, above = 46, 33
+        return (cx + f * dx, feet - above)
 
     def melee_rect(self):
         """Short reach in front of a crouching Ty for the melee swing."""
@@ -2111,6 +2126,7 @@ class Player:
         right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
         up_key = keys[pygame.K_UP] or keys[pygame.K_w]
         down = keys[pygame.K_DOWN] or keys[pygame.K_s]
+        crouch_btn = keys[pygame.K_c] or keys[pygame.K_LCTRL]  # dedicated crouch
         # ladder Ty is straddling (Mega Man climbing)
         cxc = self.x + self.w / 2
         lad = None
@@ -2138,7 +2154,7 @@ class Player:
 
         # dash key: a plain dash, or — while ducking — a low SLIDE (moving) or a
         # MELEE swing (standing still). The slide keeps Ty's short hurtbox.
-        crouch_hold = down and self.on_ground and self.dash_t <= 0
+        crouch_hold = (down or crouch_btn) and self.on_ground and self.dash_t <= 0
         if (keys[pygame.K_l] or keys[pygame.K_LSHIFT]) and self.dash_cd <= 0 \
                 and self.dash_t <= 0 and self.melee_t <= 0:
             if crouch_hold and moving == 0:
@@ -2154,8 +2170,15 @@ class Player:
                     self.facing = moving        # slide the way you steer
                 snd.play("dash")
 
-        self.crouching = (down and self.on_ground and self.dash_t <= 0
-                          and self.kb_t <= 0)
+        # crouch: the dedicated crouch button (C / L-Ctrl) always ducks; the Down
+        # key ducks only when standing still, so Down stays free to mean "aim the
+        # gun DOWN" while running or airborne.
+        self.crouching = (self.on_ground and self.dash_t <= 0 and self.kb_t <= 0
+                          and (crouch_btn or (down and moving == 0)))
+        # aim-down modifier: hold Down while moving on the ground or in the air —
+        # Ty angles the rifle diagonally down and fires downward.
+        self.aim_down = (down and not self.crouching and self.dash_t <= 0
+                         and (moving != 0 or not self.on_ground))
         self.crouch_recent = 0.16 if self.crouching else max(0.0, self.crouch_recent - dt)
         if self.dash_t > 0:
             self.dash_t -= dt
@@ -2184,6 +2207,7 @@ class Player:
 
         # -- horizontal move + resolve (records wall contact) --
         self.wall = 0
+        wall_ph = 0.0
         self.x += self.vx * dt
         self.x = max(0, min(LEVEL_W - self.w, self.x))
         for (px, py, pw, ph) in plats:
@@ -2191,13 +2215,19 @@ class Player:
                 if self.vx > 0:
                     self.x = px - self.w
                     self.wall = 1
+                    wall_ph = ph
                 elif self.vx < 0:
                     self.x = px + pw
                     self.wall = -1
+                    wall_ph = ph
+        # Ty can only grapple / slide / wall-jump on a wall that's BIG ENOUGH —
+        # a real wall taller than he is, not a low ledge or a step. Small blocks
+        # still stop him horizontally, they just aren't climbable.
+        self.wall_grab = self.wall != 0 and wall_ph >= self.h * 1.6
 
         self.vy += GRAVITY * dt
-        # wall slide: cling and fall slowly when pressing into a wall
-        self.sliding = (not self.on_ground and self.wall != 0 and self.vy > 0
+        # wall slide: cling and fall slowly when pressing into a big-enough wall
+        self.sliding = (not self.on_ground and self.wall_grab and self.vy > 0
                         and ((right and self.wall == 1) or (left and self.wall == -1)))
         if self.sliding:
             self.vy = min(self.vy, 130)
@@ -2219,7 +2249,7 @@ class Player:
                 if self.crouch_recent > 0:      # springing up out of a crouch
                     self.cjump_t = 0.30
                 snd.play("jump")
-            elif self.wall != 0:
+            elif self.wall_grab:               # wall-jump only off a big-enough wall
                 self.vy = -JUMP_V
                 self.wj_dir = -self.wall
                 self.wj_lock = 0.18
@@ -2337,9 +2367,21 @@ class Player:
         spd = w["spd"] if w else 620
         fire = keys[pygame.K_j] or keys[pygame.K_x]
         muzx, muzy = self.muzzle()
-        if fire and not self.fire_prev:
-            shots.append(Shot(muzx, muzy, self.facing * spd, dmg0, 0, color=col))
+        # aim-down angles the shot diagonally toward the ground; otherwise it
+        # flies straight ahead. The muzzle flash is spawned at the same point so
+        # the bullet always leaves the flash.
+        ang = math.radians(40) if self.aim_down else 0.0
+
+        def _shoot(speed, dmg, lvl):
+            sh = Shot(muzx, muzy, self.facing * speed * math.cos(ang),
+                      dmg, lvl, color=col)
+            if self.aim_down:
+                sh.vy = speed * math.sin(ang)         # downward component
+            shots.append(sh)
             parts.muzzle(muzx, muzy, self.facing, col or C_CHARGE)
+
+        if fire and not self.fire_prev:
+            _shoot(spd, dmg0, 0)
             snd.play("shot_" + self.weapon if self.weapon else "shot")
             self.fire_anim = 0.16
             self.charging = True
@@ -2348,15 +2390,11 @@ class Player:
             self.charge += dt
         if not fire and self.fire_prev and self.charging:
             if self.charge >= 0.9:
-                shots.append(Shot(muzx, muzy, self.facing * (spd + 60),
-                                  dmg0 + 4, 2, color=col))
-                parts.muzzle(muzx, muzy, self.facing, col or C_CHARGE)
+                _shoot(spd + 60, dmg0 + 4, 2)
                 snd.play("charge")
                 self.fire_anim = 0.22
             elif self.charge >= 0.4:
-                shots.append(Shot(muzx, muzy, self.facing * (spd + 30),
-                                  dmg0 + 2, 1, color=col))
-                parts.muzzle(muzx, muzy, self.facing, col or C_CHARGE)
+                _shoot(spd + 30, dmg0 + 2, 1)
                 snd.play("shot_" + self.weapon if self.weapon else "shot")
                 self.fire_anim = 0.20
             self.charging = False
@@ -2462,7 +2500,23 @@ class Player:
                     if firing and want not in assets.anims:
                         want = want.replace("fire", "")   # fall back if missing
                 elif self.fire_anim > 0:
-                    want = "player_shoot"          # firing on the ground
+                    # firing on the ground: aim the rifle while moving (run/walk
+                    # legs + aim torso), angled DOWN when Down is held, else the
+                    # standing shoot pose when still.
+                    moving = abs(self.vx) > 8
+                    fast = abs(self.vx) > 130
+                    if self.aim_down and moving and "player_rundownfire" in assets.anims:
+                        want = "player_rundownfire" if fast else "player_walkdownfire"
+                    elif fast and "player_runfire" in assets.anims:
+                        want = "player_runfire"
+                    elif moving and "player_walkfire" in assets.anims:
+                        want = "player_walkfire"
+                    else:
+                        # standing fire uses the AIM pose (no baked-in muzzle
+                        # flash), so the only flash is the game's — spawned at the
+                        # bullet's origin, so the shot leaves the flash cleanly
+                        # instead of a second flash appearing up at the chest.
+                        want = "player_aim"
                 elif self.land_t > 0:
                     want = "player_land"           # just touched down
                 elif self.charging:

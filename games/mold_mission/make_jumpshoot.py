@@ -29,7 +29,16 @@ CLIPS = {
     "player_fall":   ("player_fallfire",   0.50, 0.60),
     "player_peak":   ("player_peakfire",   0.50, 0.60),
     "player_crouch": ("player_crouchfire", 0.66, 0.52),
+    "player_run":    ("player_runfire",    0.50, 0.60),
+    "player_walk":   ("player_walkfire",   0.50, 0.60),
 }
+# down-aim: the aim torso rotated so the rifle points diagonally down-forward.
+# Composited with the run legs so Ty can shoot DOWN while running.
+DOWN_CLIPS = {
+    "player_run":  ("player_rundownfire", 0.50, 0.60),
+    "player_walk": ("player_walkdownfire", 0.50, 0.60),
+}
+DOWN_ANGLE = 34                 # degrees the rifle tilts below horizontal
 
 
 def load(name):
@@ -76,6 +85,18 @@ def composite(legs, torso, cut_leg, cut_torso):
     return canvas
 
 
+def rotate_torso(torso, angle):
+    """Rotate the aim torso about the shoulder so the rifle tilts down-forward
+    (for the shoot-while-running-down poses)."""
+    t, b, l, r = bbox(torso)
+    T = torso[t:b + 1, l:r + 1]
+    im = Image.fromarray(T)
+    H, W = T.shape[:2]
+    piv = (int(W * 0.30), int(H * 0.28))       # shoulder pivot (facing right)
+    im = im.rotate(-angle, resample=Image.BICUBIC, center=piv, expand=True)
+    return np.asarray(im)
+
+
 def foot_x(a):
     m = a[:, :, 3] > 8
     ys, xs = np.where(m)
@@ -118,6 +139,9 @@ def main():
     torso = load(TORSO)
     for clip, (outname, cut_leg, cut_torso) in CLIPS.items():
         build(clip, outname, torso, cut_leg, cut_torso)
+    down_torso = rotate_torso(torso, DOWN_ANGLE)
+    for clip, (outname, cut_leg, cut_torso) in DOWN_CLIPS.items():
+        build(clip, outname, down_torso, cut_leg, cut_torso)
 
 
 if __name__ == "__main__":
