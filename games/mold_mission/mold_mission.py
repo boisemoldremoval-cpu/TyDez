@@ -461,12 +461,13 @@ class Particles:
 # Projectiles
 # --------------------------------------------------------------------------- #
 class Shot:
-    def __init__(self, x, y, vx, dmg, level, hostile=False, color=None):
+    def __init__(self, x, y, vx, dmg, level, hostile=False, color=None, low=False):
         self.x, self.y, self.vx = x, y, vx
         self.dmg = dmg
         self.level = level          # 0 normal, 1 mid, 2 full (player); -1 toxic
         self.hostile = hostile
         self.color = color          # weapon tint (None = default blaster blue)
+        self.low = low              # fired from a crouch — can hit crouch_only mold
         self.r = 6 + level * 5 if level >= 0 else 10
         self.dead = False
 
@@ -523,6 +524,11 @@ ENEMY_ASSET = {
     "corruptcyst": "corruptcyst",
 }
 
+# Ground-hugging crawlers that are armoured on top: standing fire pings off, you
+# must CROUCH to shoot them out. Kept to single-placed low enemies (never the
+# tiny swarms) so the pacing stays fair.
+CROUCH_ONLY = {"moldcrawler", "mudstalker"}
+
 
 class Enemy:
     def __init__(self, kind, x, y):
@@ -532,6 +538,7 @@ class Enemy:
         self.hit = 0.0
         self.atk_anim = 0.0        # brief attack-pose window after firing
         self.shoot_t = random.uniform(0.8, 2.0)
+        self.crouch_only = kind in CROUCH_ONLY  # armoured up top — needs a crouch shot
         self.dead = False
         self.t = random.uniform(0, 6.28)
         self.home_y = float(y)
@@ -2053,14 +2060,15 @@ class Player:
         cx = self.x + self.w / 2
         feet = self.y + self.h
         f = self.facing
-        # NOTE: heights are kept in the enemy-hittable band (~26-48px tall mold),
-        # so ground fire connects — a muzzle up at the sprite's chest would sail
-        # over the short crawlers. The flash spawns here too, so bullet==flash.
+        # Heights sit in the enemy-hittable band so ground fire reliably connects
+        # (a chest-high muzzle sails over the short crawlers). Which enemies need
+        # a CROUCH shot is decided per-enemy (Enemy.crouch_only), not by height,
+        # so swarm levels stay fair. The flash spawns here too, so bullet==flash.
         if self.aim_down:                       # rifle angled diagonally down
             return (cx + f * 34, feet - 16)
         ducking = self.crouching or self.crouch_slide
         if ducking:                             # crouch-shoot barrel
-            dx, above = 40, 24
+            dx, above = 40, 22
         elif not self.on_ground:                # air-shoot (jump/peak vs fall)
             dx, above = (36, 34) if self.vy > 90 else (48, 38)
         elif abs(self.vx) > 8:                  # run / walk shoot (aim torso)
@@ -2372,9 +2380,10 @@ class Player:
         # the bullet always leaves the flash.
         ang = math.radians(30) if self.aim_down else 0.0
 
+        low = self.crouching or self.crouch_slide      # crouch-fired = can hit low mold
         def _shoot(speed, dmg, lvl):
             sh = Shot(muzx, muzy, self.facing * speed * math.cos(ang),
-                      dmg, lvl, color=col)
+                      dmg, lvl, color=col, low=low)
             if self.aim_down:
                 sh.vy = speed * math.sin(ang)         # downward component
             shots.append(sh)
@@ -2912,7 +2921,7 @@ def build_level(mission=1):
             plats.append((x, y, w, 24))
         enemies = [
             Enemy("sporebot", 500, GROUND_Y - 40),
-            Enemy("moldcrawler", 780, GROUND_Y - 34),
+            Enemy("moldcrawler", 640, GROUND_Y - 34),
             Enemy("sporebot", 1050, 400 - 40),
             Enemy("toxicsprayer", 1360, GROUND_Y - 48),
             Enemy("sporebot", 1650, GROUND_Y - 40),
@@ -3444,6 +3453,12 @@ class Game:
             else:
                 for e in self.enemies:
                     if not e.dead and overlap(*sh.rect(), *e.rect()):
+                        # crouch_only mold is armoured on top — a standing shot
+                        # pings off it; only a crouch-fired (low) shot connects.
+                        if e.crouch_only and not sh.low:
+                            self.parts.spark(sh.x, sh.y, (200, 200, 210), 4, 160)
+                            sh.dead = True
+                            break
                         self.parts.spark(sh.x, sh.y, sh.color or C_SHOT, 6, 200)
                         e.x += 14 if sh.vx > 0 else -14      # knockback
                         if e.hurt(sh.dmg, self.parts):
@@ -4177,6 +4192,18 @@ def _bot_keys(game, st, i):
         return any(not e.dead and 0 < (e.x - p.x) < 88 and abs(e.y - p.y) < 72
                    for e in game.enemies)
 
+    def short_ahead():
+        # a CROUCH-ONLY crawler right in front on solid ground — standing fire
+        # pings off it, so the bot has to duck to shoot it out.
+        for e in game.enemies:
+            if e.dead or not e.crouch_only:
+                continue
+            if (0 < (e.x - front) < 82
+                    and abs((e.y + e.h) - (p.y + p.h)) < 46
+                    and solid_below(front + 20)):
+                return True
+        return False
+
     if game.boss is not None:
         # boss: hold the line and fire; duck to shrink the hitbox, and hop to
         # dodge — vertical dodging while keeping the blaster on target
@@ -4194,6 +4221,28 @@ def _bot_keys(game, st, i):
                 K[pygame.K_DOWN] = True          # duck (low hitbox, still fires)
         K[pygame.K_SPACE] = want
         st["sp"] = want
+        return K
+
+    def hazard_soon():
+        for hz in game.hazards:
+            if hz.kind == "spike":
+                left, right = hz.x, hz.x + hz.zh
+            elif hz.kind == "steam":
+                left, right = hz.x - 34, hz.x + 34
+            else:
+                continue
+            if front < right and left < front + 150:
+                return True
+        return False
+
+    # crouch-shoot a crouch-only crawler blocking the ground path: duck (C) so
+    # the muzzle drops to hit it, stop, and let the pulsing blaster clear it —
+    # but never while a spike/vent is close, where jumping has to take priority.
+    if (p.on_ground and short_ahead() and not hazard_soon()
+            and not (not solid_below(front + 18))):
+        K[pygame.K_c] = True
+        K[pygame.K_RIGHT] = False
+        st["sp"] = False
         return K
 
     # jump state machine: holds a jump for full height, and re-presses (a real
