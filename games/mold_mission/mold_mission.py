@@ -2045,8 +2045,11 @@ class Player:
         here so fire actually leaves the end of the blaster, at the right height
         for the stance (lower when ducked)."""
         ducking = self.crouching or self.crouch_slide
-        reach = self.w / 2 + (42 if ducking else 46)
-        gy = self.y + (self.h * 0.66 if ducking else self.h * 0.40)
+        # ducked: the crouch pose isn't an aimed stance, so keep the muzzle tight
+        # to Ty's front at gun height — a far/high muzzle made the shot + flash
+        # float in empty space away from his crouched body.
+        reach = self.w / 2 + (24 if ducking else 46)
+        gy = self.y + (self.h * 0.70 if ducking else self.h * 0.40)
         return (self.x + self.w / 2 + self.facing * reach, gy)
 
     def melee_rect(self):
@@ -2438,9 +2441,11 @@ class Player:
                         want = "player_crouch_walk"  # slow ducked shuffle
                     else:
                         want = "player_crouch"      # ducked, still
-                elif self.fire_anim > 0:
-                    want = "player_shoot"          # firing the rifle (muzzle flash)
                 elif not self.on_ground:
+                    # airborne pose wins even while firing — Ty keeps his jump /
+                    # fall / peak silhouette and the shot reads from the muzzle
+                    # flash, instead of snapping to a planted standing-shoot pose
+                    # in mid-air (Mega Man style).
                     if self.sliding:
                         want = "player_wallslide"  # pinned to a wall
                     elif self.vy < -70:
@@ -2449,6 +2454,8 @@ class Player:
                         want = "player_fall"       # descending
                     else:
                         want = "player_peak"       # apex, near-zero vertical speed
+                elif self.fire_anim > 0:
+                    want = "player_shoot"          # firing on the ground
                 elif self.land_t > 0:
                     want = "player_land"           # just touched down
                 elif self.charging:
