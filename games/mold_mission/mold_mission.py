@@ -319,6 +319,13 @@ class AssetPack:
             self.anims.setdefault(mo.group(1), []).append((int(mo.group(2)), key))
         for k in self.anims:
             self.anims[k] = [key for _, key in sorted(self.anims[k])]
+        # one shared reference height for ALL of Ty's clips (his idle canvas),
+        # so blit_char scales every animation by a single constant factor and he
+        # never pops bigger/smaller between states (see blit_char ref_h).
+        self.anim_ref = None
+        idle = self.anims.get("player")
+        if idle:
+            self.anim_ref = self.imgs[idle[0]].get_height()
 
     def _load(self, key):
         """Load <key>.png, or transparently reassemble it from byte-parts
@@ -361,17 +368,26 @@ class AssetPack:
             self._scaled[key] = sp
         s.blit(sp, (int(cx - dw / 2), int(cy - dh / 2)))
 
-    def blit_char(self, s, name, feet_x, feet_y, draw_h, flip=False, squash=1.0):
+    def blit_char(self, s, name, feet_x, feet_y, draw_h, flip=False, squash=1.0,
+                  ref_h=None):
         """Draw a CHARACTER sprite at a consistent size: scaled uniformly so its
         rendered height == draw_h, and anchored at the feet (bottom-centre at
         feet_x/feet_y). Unlike blit_fit this never lets a wide effect pose (a
         muzzle flash, a slide's dust) shrink the figure — height is the anchor,
         so a character keeps the same on-screen size across every pose/screen.
         `squash` <1 flattens+widens (landing splat), >1 stretches+narrows
-        (a jump / a breath) while roughly preserving volume — the juice."""
+        (a jump / a breath) while roughly preserving volume — the juice.
+
+        `ref_h` overrides the height the scale is measured against. Multi-frame
+        clips are cut onto per-clip canvases with different headroom (arms-up in
+        a jump, tucked in a landing), so normalizing each canvas to draw_h would
+        make the BODY pop bigger/smaller every state change. Passing a single
+        shared reference (the idle canvas height) applies ONE constant scale to
+        every clip — feet stay planted and limbs are free to extend past the
+        canvas, so Ty holds a steady size across his whole move-set."""
         img = self.imgs[name]
         aw, ah = img.get_size()
-        sc = draw_h / ah
+        sc = draw_h / (ref_h or ah)
         dw = max(1, int(aw * sc / squash))
         dh = max(1, int(ah * sc * squash))
         key = ("C", name, dw, dh, flip)
@@ -2454,9 +2470,19 @@ class Player:
                     name = seq[int(t * fps) % len(seq)]
                 else:
                     name = want if assets.has(want) else "player"
-                # consistent size, feet planted; ducked poses render shorter
+                # consistent size, feet planted. With the shared reference
+                # (anim_ref) every clip scales by ONE constant factor, so Ty
+                # holds a steady size across states — the crouch clips are
+                # already crouched poses, so they need no extra DUCK_RATIO
+                # squish. Only the legacy single-sprite path (no clips) still
+                # shortens a duck itself.
                 ducking = (self.crouching or self.crouch_slide)
-                dh = self.h * CHAR_H * (DUCK_RATIO if ducking else 1.0)
+                if assets.anim_ref:
+                    dh = self.h * CHAR_H
+                    ref = assets.anim_ref
+                else:
+                    dh = self.h * CHAR_H * (DUCK_RATIO if ducking else 1.0)
+                    ref = None
                 # squash on landing, stretch on the rise — classic platformer juice
                 if self.land_t > 0:
                     sq = 1.0 - 0.20 * (self.land_t / 0.14)
@@ -2467,7 +2493,7 @@ class Player:
                 # the ladder-climb pose is drawn front-on, so don't mirror it
                 assets.blit_char(s, name, cx, y + self.h, dh,
                                  flip=(self.facing < 0 and not self.climbing),
-                                 squash=sq)
+                                 squash=sq, ref_h=ref)
             else:
                 bob = abs(math.sin(self.anim * 9)) * 3 if self.on_ground else 0
                 orrect(s, (x + 4, y + 14 - bob, self.w - 8, 26), C_TEAL_DK, 6)

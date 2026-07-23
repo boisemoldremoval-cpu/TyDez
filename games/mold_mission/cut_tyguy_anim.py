@@ -90,6 +90,22 @@ def build(name, spec):
             continue
         fx, by, ty, lx, rx = foot_x(mask)
         keyed.append((rgba, fx, by, ty, lx, rx))
+    # Drop OUTLIER frames: a clip's range can bleed into a raised-arm apex, a
+    # stray muzzle/aura the chroma key couldn't strip, or the neighbouring
+    # section's pose — any of which is much taller/shorter than the rest and
+    # makes the character POP mid-animation. Since every clip renders at one
+    # constant scale (blit_char ref_h), a frame whose body height is far from
+    # the clip's median would jump; reject those (keep >=2 frames).
+    if len(keyed) >= 3:
+        bh = sorted(by - ty for _, _, by, ty, _, _ in keyed)
+        n = len(bh)
+        med = bh[n // 2] if n % 2 else (bh[n // 2 - 1] + bh[n // 2]) / 2
+        kept = [f for f in keyed if 0.75 * med <= (f[2] - f[3]) <= 1.18 * med]
+        if len(kept) >= 2:
+            if len(kept) != len(keyed):
+                print(f"  {name}: dropped {len(keyed) - len(kept)} outlier "
+                      f"frame(s) (median bodyH={med:.0f})")
+            keyed = kept
     # common canvas with feet aligned at (cx, bottom)
     halfL = max(fx - lx for _, fx, _, _, lx, _ in keyed)
     halfR = max(rx - fx for _, fx, _, _, _, rx in keyed)
