@@ -37,11 +37,13 @@ Headless smoke test (no window):
     python3 mold_mission.py --selftest
 """
 
+import glob
 import io
 import json
 import math
 import os
 import random
+import re
 import sys
 
 import pygame
@@ -98,6 +100,12 @@ MIRA_HEAL_RATE = 9.0    # HP/sec Dr. Mira's heal beam restores to Ty
 # (collision height x CHAR_H), anchored at the feet, so one character keeps the
 # same on-screen size across all poses/screens and sizes track collision boxes.
 CHAR_H = 1.42
+# frames-per-second for Ty's video animation sequences (per state; default 12)
+ANIM_FPS = {"player": 6, "player_walk": 11, "player_run": 15, "player_dash": 18,
+            "player_shoot": 20, "player_aim": 8, "player_reload": 10,
+            "player_crouch": 6, "player_crouch_walk": 11, "player_roll": 16,
+            "player_jump": 12, "player_peak": 8, "player_fall": 10,
+            "player_land": 14, "player_wallslide": 8, "player_use": 12}
 DUCK_RATIO = 0.74       # a ducked pose renders this fraction of standing height
 BOSS_H = 1.34           # boss sprite height as a multiple of its collision height
 
@@ -293,6 +301,22 @@ class AssetPack:
                 surf = self._load(key)
                 if surf is not None:
                     self.imgs[key] = surf
+        # multi-frame player animations: player_<state>_0.png .. _N.png become a
+        # frame SEQUENCE (self.anims[state] -> [keys]) so the draw can cycle them
+        self.anims = {}
+        for p in sorted(glob.glob(os.path.join(folder, "player_*_*.png"))):
+            key = os.path.basename(p)[:-4]
+            mo = re.match(r"(player_[a-z_]+?)_(\d+)$", key)
+            if not mo:
+                continue
+            try:
+                surf = pygame.image.load(p).convert_alpha()
+            except Exception:
+                continue
+            self.imgs[key] = surf
+            self.anims.setdefault(mo.group(1), []).append((int(mo.group(2)), key))
+        for k in self.anims:
+            self.anims[k] = [key for _, key in sorted(self.anims[k])]
 
     def _load(self, key):
         """Load <key>.png, or transparently reassemble it from byte-parts
@@ -2266,17 +2290,19 @@ class Player:
                             8 - k * 2, (*C_TEAL_LT, 90))
             if assets.has("player"):
                 # pick an animation sprite by state, fall back to 'player'
-                # Ty uses ONLY his video-sourced poses, chosen purely by physics
-                # state (idle / walk / run / jump / peak / fall / land / dash /
-                # wall-slide / crouch) — no separate shoot/aim art, so his look
-                # never leaves the video set. Firing shows the matching move pose
-                # and the shot still leaves the muzzle point.
+                # Ty uses ONLY his video-sourced animations, chosen by physics
+                # state; each is a multi-frame clip cycled below for fluid motion.
                 if self.climbing:
                     want = "player"                # on a ladder — upright hold
+                elif self.crouch_slide and self.dash_t > 0:
+                    want = "player_roll"           # crouch-slide tumbles into a roll
                 elif self.dash_t > 0:
-                    want = "player_dash"           # dash / low slide
-                elif self.crouching or self.crouch_slide:
-                    want = "player_crouch"         # ducking
+                    want = "player_dash"           # dash / sprint
+                elif self.crouching:
+                    want = ("player_crouch_walk" if abs(self.vx) > 8
+                            else "player_crouch")  # ducking (moving or still)
+                elif self.fire_anim > 0:
+                    want = "player_shoot"          # firing the rifle (muzzle flash)
                 elif not self.on_ground:
                     if self.sliding:
                         want = "player_wallslide"  # pinned to a wall
@@ -2288,13 +2314,25 @@ class Player:
                         want = "player_peak"       # apex, near-zero vertical speed
                 elif self.land_t > 0:
                     want = "player_land"           # just touched down
+                elif self.charging:
+                    want = "player_aim"            # holding to charge = rifle aim
+                elif self.energy < 0.22 * self.maxenergy \
+                        and "player_reload" in assets.anims:
+                    want = "player_reload"         # standing, recharging energy
                 elif abs(self.vx) > 130:
                     want = "player_run"            # sprinting
                 elif abs(self.vx) > 8:
                     want = "player_walk"           # walking
                 else:
-                    want = "player"                # idle (also while firing/aiming)
-                name = want if assets.has(want) else "player"
+                    want = "player"                # idle
+                # pick the current frame of the animation clip (fall back to a
+                # single sprite, then to the base idle, if a clip is missing)
+                seq = assets.anims.get(want)
+                if seq:
+                    fps = ANIM_FPS.get(want, 12)
+                    name = seq[int(t * fps) % len(seq)]
+                else:
+                    name = want if assets.has(want) else "player"
                 # consistent size, feet planted; ducked poses render shorter
                 ducking = (self.crouching or self.crouch_slide)
                 dh = self.h * CHAR_H * (DUCK_RATIO if ducking else 1.0)
@@ -2339,6 +2377,19 @@ class Sound:
             self.ok = True
         except Exception:
             self.ok = False
+        # video-sourced SFX: any assets/sfx/<name>.wav overrides the synth tone
+        # for that sound event (pulled from Ty's animation videos)
+        if self.ok:
+            sdir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "assets", "sfx")
+            if os.path.isdir(sdir):
+                for fn in os.listdir(sdir):
+                    if fn.endswith(".wav"):
+                        try:
+                            self._cache[fn[:-4]] = pygame.mixer.Sound(
+                                os.path.join(sdir, fn))
+                        except Exception:
+                            pass
 
     def _tone(self, freq, ms, vol=0.25, shape="sine"):
         import numpy as np

@@ -77,6 +77,20 @@ python3 mold_mission.py --demo     # watch an auto-playthrough of all 5 missions
 python3 mold_mission.py --selftest # must print: selftest OK: all 5 missions win
 ```
 
+### 🎬 TyGuy — MULTI-FRAME video animations + video SFX
+Ty's poses are now full **frame-sequence animations** clipped from four movement
+videos (`cut_tyguy_anim.py` — imageio-ffmpeg + scipy, magenta-keyed, feet-aligned
+onto one canvas per clip so they cycle with no wobble). Each state is
+`player_<state>_0.png … _N.png`; `AssetPack.anims` groups them and the draw
+cycles the frames (`ANIM_FPS` per state, timed off the draw clock). Full set:
+idle, walk, run, dash, jump, peak, fall, land, wall-slide, crouch, crouch-walk,
+roll, **aim (rifle)**, **shoot (rifle + muzzle)**, reload, use. The three newer
+videos added the crouch set, roll, and the gun poses — so Ty now shoots/aims
+with a real rifle, all still 100 % video art.
+**Video SFX:** short clips pulled from the videos' audio tracks live in
+`assets/sfx/*.wav` (`shot / jump / land / dash / wall / vacuum / reload`) and
+override the synth tones in `Sound` — so his moves sound like the videos.
+
 ### 🎞 TyGuy — VIDEO ANIMATIONS ONLY (physics-driven)
 Ty now uses **only** his video-sourced poses everywhere in the game (pulled from
 the movement video via `cut_tyguy_video.py` — imageio-ffmpeg + scipy, chroma-keyed
