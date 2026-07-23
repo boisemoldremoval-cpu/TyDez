@@ -2,11 +2,17 @@
 """
 make_bigger_than_the_storm.py — "Bigger Than the Storm", contemporary worship folk.
 
-Opens reverent (sparse fingerpicked acoustic + warm strings, hymnal), eases into
-a laid-back Jack-Johnson brushed-drum groove, lifts full at the chorus, builds
-through the bridge, then pulls back to the reverent hymnal feel at the close.
-Same instrument set throughout — every transition is a gradual gain automation,
-no abrupt changes. Pure-numpy synthesis; no external music service.
+Opens with the old hymn "How Great Thou Art" (the melody is the public-domain
+Swedish folk tune "O Store Gud"), rendered reverent on fingerpicked acoustic +
+warm strings, then flows into the laid-back Jack-Johnson brushed-drum groove of
+the song, lifts full at the chorus, builds through the bridge, and closes by
+reprising the "How Great Thou Art" refrain — reverent and sparse again.
+Same instrument set throughout; every transition is a gradual gain automation.
+Pure-numpy synthesis; no external music service.
+
+Note: only the *melody* of How Great Thou Art (public-domain tune) is used here.
+The modern English lyrics (Stuart K. Hine, 1949) are under copyright and are
+NOT reproduced — the sung words remain the project's own paraphrase.
 
 Usage:
     pip install numpy imageio-ffmpeg
@@ -14,6 +20,7 @@ Usage:
     python3 make_bigger_than_the_storm.py out.mp3
 """
 import sys, wave, subprocess
+from functools import lru_cache
 import numpy as np
 
 SR = 44100
@@ -99,6 +106,17 @@ def shaker(dur=0.09):
     x = rng.standard_normal(n) * np.exp(-t*40)
     return np.diff(x, prepend=0.0) * 0.6
 
+# --- memoized note synthesis (only ~20 distinct pitches recur) -------------
+def _k(dur): return int(round(dur * 1000))
+@lru_cache(maxsize=None)
+def c_gtr(midi, k):  return gtr_pluck(midi_freq(midi), k/1000.0)
+@lru_cache(maxsize=None)
+def c_str(midi, k):  return strings(midi_freq(midi), k/1000.0)
+@lru_cache(maxsize=None)
+def c_upr(midi, k):  return upright(midi_freq(midi), k/1000.0)
+@lru_cache(maxsize=None)
+def c_lead(midi, k): return lead_voice(midi_freq(midi), k/1000.0)
+
 # --- mixer with per-instrument buses ---------------------------------------
 BUSES = {k: None for k in ('gtr', 'str', 'bass', 'drm', 'lead')}
 EVENTS = {k: [] for k in BUSES}
@@ -113,17 +131,17 @@ def fingerpick(bs, ch, sparse=False):
     pat = SPARSE_PICK if sparse else FULL_PICK
     dur = 1.7 if sparse else 0.95
     for off, idx in pat:
-        place('gtr', bs + off, gtr_pluck(midi_freq(v[idx]), dur), 0.5)
+        place('gtr', bs + off, c_gtr(v[idx], _k(dur)), 0.5)
 
 def pad_strings(bs, ch):
     for m in CHORDS[ch]:
-        place('str', bs, strings(midi_freq(m), 4.0), 0.10)
+        place('str', bs, c_str(m, _k(4.0)), 0.10)
 
 def bassline(bs, ch):
     root = BASS_ROOT[ch]
-    place('bass', bs + 0.0, upright(midi_freq(root), 2.0), 0.5)
-    place('bass', bs + 2.0, upright(midi_freq(root+7), 1.5), 0.42)   # to the fifth
-    place('bass', bs + 3.5, upright(midi_freq(root), 0.5), 0.35)
+    place('bass', bs + 0.0, c_upr(root, _k(2.0)), 0.5)
+    place('bass', bs + 2.0, c_upr(root+7, _k(1.5)), 0.42)            # to the fifth
+    place('bass', bs + 3.5, c_upr(root, _k(0.5)), 0.35)
 
 def brushes(bs):
     place('drm', bs + 0.0, brush_kick(), 0.8)
@@ -136,41 +154,52 @@ def brushes(bs):
 def write_melody(start_beat, melody, gain=0.32):
     cur = start_beat
     for note, dur in melody:
-        if note: place('lead', cur, lead_voice(midi_freq(note), dur*0.94), gain)
+        if note: place('lead', cur, c_lead(note, _k(dur*0.94)), gain)
         cur += dur
 
 # --- melodies (D major) ----------------------------------------------------
-INTRO_MEL = [(74,2),(0,2),(73,2),(71,2),(69,3),(0,1),(66,2),(67,2),
-             (69,2),(0,2),(71,2),(69,2),(66,3),(0,1),(62,2),(0,2)]
+# "How Great Thou Art" — public-domain Swedish folk tune "O Store Gud",
+# transcribed to D major. Verse (narrow do-re-mi-fa range) for the intro,
+# the soaring refrain ("...how great Thou art") for the outro reprise.
+HYMN_INTRO = [  # verse: "O Lord my God, when I in awesome wonder / Consider all the worlds..."
+    (62,1),(62,1),(64,1),(62,1),(66,1),(66,1),(67,1),(66,1),(64,1),(62,3),(0,4),
+    (66,1),(66,1),(67,1),(66,1),(64,1),(62,1),(64,1),(66,1),(64,1),(62,3),(0,4)]
+HYMN_OUTRO = [  # refrain: "Then sings my soul... how great Thou art, how great Thou art"
+    (69,1),(69,1),(74,2),(78,2),(76,1),(74,1),(73,1),(74,1),(71,1),(69,3),(0,2),
+    (74,1),(74,1),(73,2),(76,2),(78,2),(76,1),(74,1),(74,4),(0,2)]
+
 CHORUS_MEL = [(69,1),(69,1),(71,2),(69,1),(66,1),(67,2),(69,1),(71,1),(74,2),(73,1),(71,1),(69,2),
               (71,1),(71,1),(73,2),(71,1),(69,1),(66,2),(67,1),(69,1),(71,2),(69,2),(0,2)]
 BRIDGE_MEL = [(66,1),(67,1),(69,2),(69,1),(71,1),(73,2),(74,1),(73,1),(71,2),(69,2),(0,2),
               (71,1),(73,1),(74,2),(73,1),(71,1),(69,2),(74,2),(0,2),(76,4)]
-OUTRO_MEL = [(69,2),(71,2),(74,4),(0,2),(73,2),(71,4),(69,4),(0,4)]
 
 MAIN   = ['D','A','Bm','G']
 BRIDGE = ['Bm','G','D','A']
+HYMN_IN_CH  = ['D','G','D','A','D','G','A','D']   # hymnal harmony under the verse
+HYMN_OUT_CH = ['D','D','G','D','A','D','A','D']   # under the refrain, plagal "amen" close
 
-# name, bars, per-bus target level at section start, picking, melody
+# name, bars, per-bus level at section start, sparse-pick, melody, chord override
 SECTIONS = [
-    ('Intro',    8, dict(drm=0.0, bass=0.0, strg=0.55, gtr=0.70, lead=0.5), True,  INTRO_MEL),
-    ('Verse 1',  8, dict(drm=0.30,bass=0.7, strg=0.60, gtr=0.90, lead=0.0), False, None),
-    ('Verse 2',  8, dict(drm=0.52,bass=0.8, strg=0.70, gtr=0.95, lead=0.0), False, None),
-    ('Chorus',   8, dict(drm=1.0, bass=0.9, strg=0.95, gtr=1.00, lead=0.85),False, CHORUS_MEL),
-    ('Interlude',4, dict(drm=0.9, bass=0.85,strg=0.85, gtr=1.00, lead=0.4), False, None),
-    ('Bridge',   8, dict(drm=0.7, bass=0.85,strg=0.90, gtr=0.95, lead=0.8), False, BRIDGE_MEL),
-    ('Chorus 2', 8, dict(drm=1.0, bass=0.95,strg=1.00, gtr=1.00, lead=0.9), False, CHORUS_MEL),
-    ('Outro',    6, dict(drm=0.0, bass=0.0, strg=0.55, gtr=0.70, lead=0.5), True,  OUTRO_MEL),
+    ('How Great Thou Art (intro)', 8, dict(drm=0.0, bass=0.0, strg=0.58, gtr=0.72, lead=0.62), True,  HYMN_INTRO, HYMN_IN_CH),
+    ('Verse 1',  8, dict(drm=0.30,bass=0.7, strg=0.60, gtr=0.90, lead=0.0), False, None,       None),
+    ('Verse 2',  8, dict(drm=0.52,bass=0.8, strg=0.70, gtr=0.95, lead=0.0), False, None,       None),
+    ('Chorus',   8, dict(drm=1.0, bass=0.9, strg=0.95, gtr=1.00, lead=0.85),False, CHORUS_MEL, None),
+    ('Interlude',4, dict(drm=0.9, bass=0.85,strg=0.85, gtr=1.00, lead=0.4), False, None,       None),
+    ('Bridge',   8, dict(drm=0.7, bass=0.85,strg=0.90, gtr=0.95, lead=0.8), False, BRIDGE_MEL, None),
+    ('Chorus 2', 8, dict(drm=1.0, bass=0.95,strg=1.00, gtr=1.00, lead=0.9), False, CHORUS_MEL, None),
+    ('How Great Thou Art (outro)', 8, dict(drm=0.0, bass=0.0, strg=0.60, gtr=0.72, lead=0.66), True,  HYMN_OUTRO, HYMN_OUT_CH),
 ]
 
 TOTAL_BEATS = 0
 CTRL = {k: [] for k in ('drm', 'bass', 'strg', 'gtr', 'lead')}   # (beat, level)
-for name, bars, lv, sparse, mel in SECTIONS:
+for name, bars, lv, sparse, mel, chords in SECTIONS:
     start = TOTAL_BEATS
     for k in CTRL: CTRL[k].append((start, lv[k]))
     for bar in range(bars):
         bs = start + bar*4
-        ch = MAIN[bar % 4] if name != 'Bridge' else BRIDGE[bar % 4]
+        if chords is not None:      ch = chords[bar % len(chords)]
+        elif name == 'Bridge':      ch = BRIDGE[bar % 4]
+        else:                       ch = MAIN[bar % 4]
         fingerpick(bs, ch, sparse=sparse)
         pad_strings(bs, ch)
         bassline(bs, ch)
@@ -197,8 +226,17 @@ def automation(ctrl_key):
     xs = np.array([b2s(b) for b, _ in pts], dtype=float)
     ys = np.array([v for _, v in pts], dtype=float)
     curve = np.interp(np.arange(total_samples), xs, ys)
-    k = int(0.4*SR)                                        # smooth ~0.4s
-    return np.convolve(curve, np.ones(k)/k, mode='same').astype(np.float32)
+    return movavg(curve, int(0.4*SR))                      # smooth ~0.4s (fast)
+
+def movavg(x, width):
+    """O(N) moving average via cumsum (fast box smoothing)."""
+    k = max(1, int(width))
+    c = np.cumsum(np.insert(x.astype(np.float64), 0, 0.0))
+    out = np.empty_like(x, dtype=np.float64)
+    half = k // 2
+    padded = np.concatenate([np.full(half, x[0]), x, np.full(k - half, x[-1])])
+    c = np.cumsum(np.insert(padded.astype(np.float64), 0, 0.0))
+    return ((c[k:] - c[:-k]) / k)[:len(x)].astype(np.float32)
 
 mix = np.zeros(total_samples, dtype=np.float32)
 for bus in BUSES:
@@ -212,9 +250,7 @@ def reverb(x):
     for d, g in taps:
         s = int(d*SR)
         wet[s:] += x[:len(x)-s] * g
-    k = int(0.006*SR)
-    wet = np.convolve(wet, np.ones(k)/k, mode='same')      # diffuse/soften
-    return wet
+    return movavg(wet, int(0.006*SR))                      # diffuse/soften (fast)
 mix = mix + 0.32 * reverb(mix)
 
 # --- gentle master ---------------------------------------------------------

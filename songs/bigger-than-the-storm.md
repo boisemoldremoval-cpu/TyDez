@@ -10,7 +10,14 @@ scripture: Psalm 8; Psalm 46:1-3; Isaiah 41:10
 
 # Bigger Than the Storm
 
-**[Intro — hymnal, reverent, sparse guitar]**
+> Bookended by the old hymn **"How Great Thou Art."** The renderer plays the
+> hymn's *melody* (the public-domain Swedish folk tune "O Store Gud") reverent
+> at the open, flows into the chill groove, and reprises the hymn's refrain to
+> close. The modern English hymn lyrics (Stuart K. Hine, 1949) are under
+> copyright, so the sung words below stay an original paraphrase — swap in the
+> exact hymn text yourself if you have CCLI coverage.
+
+**[Intro — "How Great Thou Art", hymnal, reverent, sparse guitar]**
 O Lord my God, when I consider all
 The worlds Your hands have set in place above
 The mountains standing, oceans without end
@@ -40,7 +47,7 @@ In all of this, I'm making my choice
 To trust in You, to believe You're near
 You're my shield, my strength, my atmosphere
 
-**[Outro — pull back to intro feel, sparse and reverent]**
+**[Outro — "How Great Thou Art" reprise, sparse and reverent]**
 My soul cries out
 At how great You are
 
