@@ -20,6 +20,20 @@ from PIL import Image
 
 OUT = "assets"
 TORSO = "player_aim_2"          # rifle levelled forward (upper-body source)
+
+
+def kill_pink(canvas):
+    """Neutralise any magenta/pink fringe (e.g. from rotating the torso) so the
+    composite has no pink edge, matching the cleaned source frames."""
+    a = canvas.astype(int)
+    r, g, b, al = a[:, :, 0], a[:, :, 1], a[:, :, 2], a[:, :, 3]
+    # magenta signature: green is the minimum channel (red AND blue above green)
+    mag = (r > g + 20) & (b > g + 6) & (al > 30)
+    r = np.where(mag, np.minimum(r, g + 10), r)
+    b = np.where(mag, np.minimum(b, g + 10), b)
+    out = canvas.copy()
+    out[:, :, 0], out[:, :, 2] = r.astype(np.uint8), b.astype(np.uint8)
+    return out
 # leg-pose clip -> (output shoot clip, cut_leg, cut_torso). cut_leg keeps the
 # lower (1-cut_leg) of the legs; cut_torso keeps the top cut_torso of the aim
 # torso; they meet + overlap at the waist. The crouch variant uses a deeper
@@ -38,7 +52,7 @@ DOWN_CLIPS = {
     "player_run":  ("player_rundownfire", 0.50, 0.60),
     "player_walk": ("player_walkdownfire", 0.50, 0.60),
 }
-DOWN_ANGLE = 34                 # degrees the rifle tilts below horizontal
+DOWN_ANGLE = 24                 # degrees the rifle tilts below horizontal
 
 
 def load(name):
@@ -92,7 +106,8 @@ def rotate_torso(torso, angle):
     T = torso[t:b + 1, l:r + 1]
     im = Image.fromarray(T)
     H, W = T.shape[:2]
-    piv = (int(W * 0.30), int(H * 0.28))       # shoulder pivot (facing right)
+    piv = (int(W * 0.40), int(H * 0.50))       # mid-torso pivot: swings the rifle
+    #                                            down while keeping the head level
     im = im.rotate(-angle, resample=Image.BICUBIC, center=piv, expand=True)
     return np.asarray(im)
 
@@ -131,7 +146,8 @@ def build(clip, outname, torso, cut_leg, cut_torso):
         x0 = max(0, dst_x); y0 = max(0, dst_y)
         x1 = min(W, dst_x + ww); y1 = min(H, dst_y + hh)
         canvas[y0:y1, x0:x1] = sub[y0 - dst_y:y1 - dst_y, x0 - dst_x:x1 - dst_x]
-        Image.fromarray(canvas, "RGBA").save(os.path.join(OUT, f"{outname}_{j}.png"))
+        Image.fromarray(kill_pink(canvas), "RGBA").save(
+            os.path.join(OUT, f"{outname}_{j}.png"))
     print(f"{outname}: {len(keyed)} frames  canvas~{W}x{H}")
 
 

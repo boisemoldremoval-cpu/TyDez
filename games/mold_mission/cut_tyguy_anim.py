@@ -63,11 +63,23 @@ def key(fr):
     lbl, n = ndimage.label(fg)
     sizes = ndimage.sum(np.ones_like(lbl), lbl, range(1, n + 1))
     mask = lbl == int(np.argmax(sizes)) + 1
+    # peel the outermost 1px ring — that's where the magenta/pink fringe lives —
+    # so no pink edge survives on TyGuy, then fill tiny holes the erosion opened.
+    mask = ndimage.binary_erosion(mask, iterations=1)
+    mask = ndimage.binary_fill_holes(mask)
     src = np.asarray(fr.convert("RGB")).astype(int)
     cr, cg, cb = src[:, :, 0], src[:, :, 1], src[:, :, 2]
-    spill = (cr > cg + 20) & (cr > cb - 10) & mask
+    # de-spill: any remaining pinkish pixel inside the mask has its red pulled
+    # down to the green/blue level so the fringe reads neutral, not magenta.
+    spill = ((cr > cg + 12) & (cr > cb - 30)) & mask
     cr = np.where(spill, np.minimum(cr, np.maximum(cg, cb)), cr)
     cb = np.where(spill, np.minimum(cb, cg + 24), cb)
+    # hard kill: ANY pixel with the magenta signature (green is the minimum
+    # channel — both red AND blue sit above green) is neutralised toward grey,
+    # which catches the darker maroon de-spill leftovers, not just bright pink.
+    mag = ((cr > cg + 20) & (cb > cg + 6)) & mask
+    cr = np.where(mag, np.minimum(cr, cg + 10), cr)
+    cb = np.where(mag, np.minimum(cb, cg + 10), cb)
     out = np.zeros((*mask.shape, 4), np.uint8)
     out[:, :, 0], out[:, :, 1], out[:, :, 2], out[:, :, 3] = cr, cg, cb, mask * 255
     return out, mask

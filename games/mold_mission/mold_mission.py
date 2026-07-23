@@ -2370,7 +2370,7 @@ class Player:
         # aim-down angles the shot diagonally toward the ground; otherwise it
         # flies straight ahead. The muzzle flash is spawned at the same point so
         # the bullet always leaves the flash.
-        ang = math.radians(40) if self.aim_down else 0.0
+        ang = math.radians(30) if self.aim_down else 0.0
 
         def _shoot(speed, dmg, lvl):
             sh = Shot(muzx, muzy, self.facing * speed * math.cos(ang),
