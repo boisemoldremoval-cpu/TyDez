@@ -28,14 +28,15 @@ ANIMS = {
     "player_run":          ("A",  66,  88, 6, False),  # RUN
     "player_dash":         ("A",  94, 118, 5, True),   # DASH/SPRINT (drop dust)
     "player_jump":         ("A", 124, 146, 4, False),  # JUMP (rising)
-    "player_peak":         ("A", 150, 176, 4, False),  # JUMP PEAK
-    "player_fall":         ("A", 178, 190, 3, False),  # descending
-    "player_land":         ("A", 190, 204, 4, False),  # touchdown
+    "player_peak":         ("A", 148, 160, 3, False),  # JUMP PEAK (apex, arms up)
+    "player_fall":         ("A", 162, 176, 4, False),  # DESCENDING (knees tucked)
+    "player_land":         ("A", 186, 202, 4, False),  # TOUCHDOWN crouch (past impact FX)
     "player_wallslide":    ("A", 208, 236, 4, False),  # WALL SLIDE
     "player_crouch":       ("B",  26,  56, 4, False),  # CROUCH IDLE
     "player_crouch_walk":  ("B",  64,  86, 6, False),  # CROUCH WALK
     "player_roll":         ("B", 146, 166, 5, False),  # ROLL
-    "player_aim":          ("B", 176, 236, 4, False),  # AIM (gun)
+    "player_aim":          ("B", 178, 200, 4, False),  # AIM (rifle up; standing only,
+    #                                                    excludes the wall-cling aim)
     "player_shoot":        ("C",   2,  34, 5, False),  # SHOOT (gun + muzzle)
     "player_reload":       ("C",  40,  72, 5, False),  # RELOAD
     "player_use":          ("C",  74, 106, 5, False),  # USE / ACTIVATE
