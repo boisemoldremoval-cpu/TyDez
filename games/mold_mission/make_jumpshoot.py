@@ -27,31 +27,34 @@ def kill_pink(canvas):
     composite has no pink edge, matching the cleaned source frames."""
     a = canvas.astype(int)
     r, g, b, al = a[:, :, 0], a[:, :, 1], a[:, :, 2], a[:, :, 3]
-    # magenta signature: green is the minimum channel (red AND blue above green)
-    mag = (r > g + 20) & (b > g + 6) & (al > 30)
-    r = np.where(mag, np.minimum(r, g + 10), r)
-    b = np.where(mag, np.minimum(b, g + 10), b)
+    # magenta signature: green is the minimum channel (red AND blue above green).
+    # Drop these pixels (alpha 0) so no pink fringe or maroon shadow survives.
+    mag = (r > g + 12) & (b > g + 3) & (al > 30)
     out = canvas.copy()
-    out[:, :, 0], out[:, :, 2] = r.astype(np.uint8), b.astype(np.uint8)
+    out[:, :, 3] = np.where(mag, 0, al).astype(np.uint8)
     return out
 # leg-pose clip -> (output shoot clip, cut_leg, cut_torso). cut_leg keeps the
 # lower (1-cut_leg) of the legs; cut_torso keeps the top cut_torso of the aim
 # torso; they meet + overlap at the waist. The crouch variant uses a deeper
 # overlap so Ty stays low (ducked) while the rifle still points forward.
+# cut_leg 0.44 / cut_torso 0.50: the torso is cut just ABOVE the hips and the
+# action legs form the WHOLE lower body — so the run/jump legs keep their full
+# natural length and stride instead of looking stubby (the aim pose's own thighs
+# were overlapping and hiding the top of the legs).
 CLIPS = {
-    "player_jump":   ("player_jumpfire",   0.50, 0.60),
-    "player_fall":   ("player_fallfire",   0.50, 0.60),
-    "player_peak":   ("player_peakfire",   0.50, 0.60),
+    "player_jump":   ("player_jumpfire",   0.44, 0.50),
+    "player_fall":   ("player_fallfire",   0.44, 0.50),
+    "player_peak":   ("player_peakfire",   0.44, 0.50),
     "player_crouch": ("player_crouchfire", 0.66, 0.52),
-    "player_run":    ("player_runfire",    0.50, 0.60),
-    "player_walk":   ("player_walkfire",   0.50, 0.60),
-    "player_dash":   ("player_dashfire",   0.50, 0.60),
+    "player_run":    ("player_runfire",    0.44, 0.50),
+    "player_walk":   ("player_walkfire",   0.44, 0.50),
+    "player_dash":   ("player_dashfire",   0.44, 0.50),
 }
 # down-aim: the aim torso rotated so the rifle points diagonally down-forward.
 # Composited with the run legs so Ty can shoot DOWN while running.
 DOWN_CLIPS = {
-    "player_run":  ("player_rundownfire", 0.50, 0.60),
-    "player_walk": ("player_walkdownfire", 0.50, 0.60),
+    "player_run":  ("player_rundownfire", 0.44, 0.50),
+    "player_walk": ("player_walkdownfire", 0.44, 0.50),
 }
 DOWN_ANGLE = 24                 # degrees the rifle tilts below horizontal
 

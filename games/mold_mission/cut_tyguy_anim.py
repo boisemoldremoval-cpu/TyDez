@@ -74,12 +74,18 @@ def key(fr):
     spill = ((cr > cg + 12) & (cr > cb - 30)) & mask
     cr = np.where(spill, np.minimum(cr, np.maximum(cg, cb)), cr)
     cb = np.where(spill, np.minimum(cb, cg + 24), cb)
-    # hard kill: ANY pixel with the magenta signature (green is the minimum
-    # channel — both red AND blue sit above green) is neutralised toward grey,
-    # which catches the darker maroon de-spill leftovers, not just bright pink.
-    mag = ((cr > cg + 20) & (cb > cg + 6)) & mask
-    cr = np.where(mag, np.minimum(cr, cg + 10), cr)
-    cb = np.where(mag, np.minimum(cb, cg + 10), cb)
+    # hard kill: DROP (make transparent) any pixel carrying the magenta signature
+    # — green is the minimum channel, both red AND blue above green. TyGuy's armor
+    # is neutral grey and his skin is warm (blue below green), so this only hits
+    # chroma leftovers: the pink fringe AND the dark maroon cast-shadow blob the
+    # largest-blob keep left stuck to him. Greying them wasn't enough — the shadow
+    # SHAPE stayed; removing the pixels deletes it. Clean up stray islands after.
+    mag = (cr > cg + 12) & (cb > cg + 3)
+    mask = mask & ~mag
+    lbl2, n2 = ndimage.label(mask)
+    if n2 > 1:
+        sizes2 = ndimage.sum(np.ones_like(lbl2), lbl2, range(1, n2 + 1))
+        mask = lbl2 == int(np.argmax(sizes2)) + 1     # keep only TyGuy's body
     out = np.zeros((*mask.shape, 4), np.uint8)
     out[:, :, 0], out[:, :, 1], out[:, :, 2], out[:, :, 3] = cr, cg, cb, mask * 255
     return out, mask

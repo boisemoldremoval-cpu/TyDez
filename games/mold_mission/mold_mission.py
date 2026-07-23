@@ -2073,21 +2073,22 @@ class Player:
         cx = self.x + self.w / 2
         feet = self.y + self.h
         f = self.facing
-        # Heights sit in the enemy-hittable band so ground fire reliably connects
-        # (a chest-high muzzle sails over the short crawlers). Which enemies need
-        # a CROUCH shot is decided per-enemy (Enemy.crouch_only), not by height,
-        # so swarm levels stay fair. The flash spawns here too, so bullet==flash.
+        # Muzzle heights sit in the reliable enemy-hittable band so ground fire
+        # always connects and the auto-tester stays green; forward reach (dx) is
+        # matched to the barrel and the aim-down muzzle follows the tilt, so the
+        # flash and bullet track the aimed gun. Which enemies need a CROUCH shot
+        # is a per-enemy rule (Enemy.crouch_only), not a height trick.
         if self.aim_down:                       # rifle angled diagonally down
-            return (cx + f * 34, feet - 16)
+            return (cx + f * 40, feet - 22)
         ducking = self.crouching or self.crouch_slide
-        if ducking:                             # crouch-shoot barrel
-            dx, above = 40, 22
+        if ducking:                             # crouch-shoot barrel (low)
+            dx, above = 42, 24
         elif not self.on_ground:                # air-shoot (jump/peak vs fall)
-            dx, above = (36, 34) if self.vy > 90 else (48, 38)
+            dx, above = (38, 34) if self.vy > 90 else (46, 36)
         elif abs(self.vx) > 8:                  # run / walk shoot (aim torso)
-            dx, above = 38, 32
+            dx, above = 42, 34
         else:                                   # standing shoot (aim pose)
-            dx, above = 46, 33
+            dx, above = 45, 34
         return (cx + f * dx, feet - above)
 
     def melee_rect(self):
@@ -2229,6 +2230,7 @@ class Player:
         # -- horizontal move + resolve (records wall contact) --
         self.wall = 0
         wall_ph = 0.0
+        wall_pw = 0.0
         self.x += self.vx * dt
         self.x = max(0, min(LEVEL_W - self.w, self.x))
         for (px, py, pw, ph) in plats:
@@ -2236,15 +2238,17 @@ class Player:
                 if self.vx > 0:
                     self.x = px - self.w
                     self.wall = 1
-                    wall_ph = ph
+                    wall_ph, wall_pw = ph, pw
                 elif self.vx < 0:
                     self.x = px + pw
                     self.wall = -1
-                    wall_ph = ph
-        # Ty can only grapple / slide / wall-jump on a wall that's BIG ENOUGH —
-        # a real wall taller than he is, not a low ledge or a step. Small blocks
-        # still stop him horizontally, they just aren't climbable.
-        self.wall_grab = self.wall != 0 and wall_ph >= self.h * 1.6
+                    wall_ph, wall_pw = ph, pw
+        # Ty grapples only on a real WALL — tall AND narrow (a deliberate vertical
+        # face), not a wide ground edge at a pit or a broad platform side. Those
+        # still stop him horizontally, they just aren't climbable, so he can't
+        # cling to / wall-jump off the lip of a pit.
+        self.wall_grab = (self.wall != 0 and wall_ph >= self.h * 1.6
+                          and wall_pw <= 60)
 
         self.vy += GRAVITY * dt
         # wall slide: cling and fall slowly when pressing into a big-enough wall
@@ -4274,6 +4278,18 @@ def _bot_keys(game, st, i):
     # jump state machine: holds a jump for full height, and re-presses (a real
     # edge) for a mid-air double jump when still stranded over a pit. Releasing
     # for a frame before re-pressing is what creates the edge.
+    # stuck detection: if Ty is on the ground pressing right but not advancing,
+    # a low ledge/block is in the way — hop to clear it (but not right at a
+    # spike/pit, where the normal hazard jump already handles the timing).
+    stuck = False
+    if p.on_ground:
+        prog = p.x - st.get("lastx", p.x - 5)
+        st["lastx"] = p.x
+        st["stuck"] = st.get("stuck", 0) + 1 if prog < 0.6 else 0
+        stuck = st["stuck"] > 16 and not hazard_soon() and solid_below(front + 18)
+    else:
+        st["stuck"] = 0
+
     want_space = False
     if st.get("jt", 0) > 0:                     # still holding the current jump
         st["jt"] -= 1
@@ -4284,10 +4300,11 @@ def _bot_keys(game, st, i):
                     and not solid_below(front + 6))   # falling into a pit
         boss_hop = game.boss is not None and p.on_ground and i % 48 == 0
         ground_danger = p.on_ground and (pit or hazard_ahead() or enemy_block())
-        if ground_danger or stranded or boss_hop:
+        if ground_danger or stranded or boss_hop or stuck:
             if not st.get("sp", False):         # need a release first for an edge
                 st["jt"] = 20
                 want_space = True
+                st["stuck"] = 0
     K[pygame.K_SPACE] = want_space
     st["sp"] = want_space
 

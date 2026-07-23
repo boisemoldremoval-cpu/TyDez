@@ -267,6 +267,42 @@ connected shape (protects enclosed logos/eyes) → light de-spill → autocrop.
 - Art still to cut: `games/mold_mission/art_reference/pending/`
 - Deeper technical notes: `games/mold_mission/HANDOFF.md`
 
+## 📏 RULES FOR ADDING NEW CONTENT  (follow these so nothing breaks)
+When adding items / enemies / walls / animations, obey these rules — they are the
+conventions the game already relies on, and the `--selftest` bot depends on them:
+
+**New TyGuy animation**
+- Source it from a magenta-background video/sheet and cut with `cut_tyguy_anim.py`
+  (chroma-key → 1px erosion → drop magenta-signature pixels → largest blob →
+  feet-align on a shared canvas). NO pink/grey chroma may survive.
+- Every clip renders at ONE constant scale (`anim_ref`), feet planted. Reject
+  outlier frames so the cycle doesn't pop.
+- To let Ty **shoot during a new action**, add the leg clip to `make_jumpshoot.py`
+  `CLIPS` (cut_leg 0.44 / cut_torso 0.50): the legs do the action, the aim torso
+  goes on top. Wire the `*fire` variant in the draw pose-chain + `ANIM_FPS`.
+
+**New enemy**
+- Hitbox = drawn art (set `sprite_aspect`); place clear of pits/spikes and never
+  overlapping a neighbour. Big swarms stay standing-hittable.
+- To make one **crouch-only** (armoured on top), add its kind to `CROUCH_ONLY`
+  — a standing shot pings off, only a crouch-fired (`shot.low`) shot hurts it.
+  Keep these to single, non-swarm crawlers, and the bot will crouch-clear them.
+
+**New big wall** (grappler)
+- Must be **tall (≥1.6× Ty) AND narrow (≤60px)** or it won't grab. Seat it on a
+  platform with big AHEAD-clearance (`WALLS_BY`) so the ground-running bot never
+  jumps into it. Verify each placement keeps `--selftest` green.
+
+**New item / pickup / crate / console**
+- Non-solid (never blocks the run lane). Interact on **E/F**; crouch = **C**.
+  The auto-bot ignores interact keys, so items must be optional scenery to it.
+
+**Shooting / muzzle**
+- Bullets AND the flash spawn from `Player.muzzle()` — one point, so the bullet
+  always leaves the flash. Offsets are per firing pose; keep them in the
+  enemy-hittable band so ground fire connects. `aim_down` angles the shot.
+
 ## ✔ ALWAYS VERIFY AFTER CHANGES
 `cd games/mold_mission && python3 mold_mission.py --selftest`
-→ must print **`selftest OK: all 5 missions win`**.
+→ must print **`selftest OK: all 5 missions win`** (run it a few times — the
+enemy AI has RNG, so a new placement must win *repeatedly*, not just once).
