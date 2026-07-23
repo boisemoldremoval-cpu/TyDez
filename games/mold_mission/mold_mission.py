@@ -457,6 +457,22 @@ class Shot:
 # --------------------------------------------------------------------------- #
 # Enemies
 # --------------------------------------------------------------------------- #
+# kind -> the base idle sprite key (variants <key>_run/_hurt/_attack/... load
+# alongside). Used both to draw and to size the hitbox to the drawn art.
+ENEMY_ASSET = {
+    "sporebot": "sporebot", "moldcrawler": "moldcrawler",
+    "toxicsprayer": "toxicsprayer", "moldbat": "moldbat", "moldbat2": "moldbat",
+    "steammite": "steammite", "ventswarm": "ventswarm", "sporehawk": "sporehawk",
+    "roofleech": "roofleech", "moldmite": "moldmite", "creeper": "creeper",
+    "mudstalker": "mudstalker", "centipede": "centipede",
+    "pipeparasite": "pipeparasite", "gaspod": "gaspod", "sporeworm": "sporeworm",
+    "sentinel": "sentinel", "ventstalker": "ventstalker",
+    "cultureswarm": "cultureswarm", "reactorspore": "reactorspore",
+    "mycelium": "mycelium", "micromold": "micromold",
+    "sporedrifter": "sporedrifter", "toxicslime": "toxicslime",
+}
+
+
 class Enemy:
     def __init__(self, kind, x, y):
         self.kind = kind
@@ -479,6 +495,7 @@ class Enemy:
         self.bat_speed = 80
         self.spore_wind = 0.0         # Spore Drifter: attack wind-up timer
         self.enraged = False          # Spore Drifter: low-HP enraged state
+        self.sprite_aspect = None     # drawn-sprite width/height (set on load)
         if kind == "sporebot":
             self.w, self.h, self.hp = 40, 40, 4
             self.vx = -70
@@ -556,7 +573,18 @@ class Enemy:
             self.dmg = 4
 
     def rect(self):
-        return (self.x, self.y, self.w, self.h)
+        # Sprite enemies are drawn height-normalised to self.h*CHAR_H and
+        # feet-anchored, so their art is bigger than the raw (w,h). Return a
+        # collision box that matches the DRAWN sprite (with a small inset for
+        # fairness) so shots and contacts land where the animation actually is.
+        asp = self.sprite_aspect
+        if not asp:
+            return (self.x, self.y, self.w, self.h)
+        dh = self.h * CHAR_H * 0.90
+        dw = dh * asp * 0.86
+        cx = self.x + self.w / 2
+        feet = self.y + self.h
+        return (cx - dw / 2, feet - dh, dw, dh)
 
     def update(self, dt, player, shots, parts, acids=None):
         self.hit = max(0.0, self.hit - dt)
@@ -668,15 +696,15 @@ class Enemy:
                 self.shoot_t = random.uniform(1.3, 2.0) if self.enraged \
                     else random.uniform(2.2, 3.4)
                 self.atk_anim = 0.4
-                glob = Shot(self.x + self.w / 2, self.y + 6, face * 150, 3, -1,
-                            hostile=True)
+                mx = self.x + self.w / 2 + face * self.w * 0.5   # from the mouth
+                my = self.y + 8
+                glob = Shot(mx, my, face * 150, 3, -1, hostile=True)
                 glob.vy = -260
                 glob.grav = 820
                 shots.append(glob)
                 if self.enraged:                    # corrosive spread when enraged
                     for dvx in (face * 60, face * 240):
-                        g2 = Shot(self.x + self.w / 2, self.y + 6, dvx, 3, -1,
-                                  hostile=True)
+                        g2 = Shot(mx, my, dvx, 3, -1, hostile=True)
                         g2.vy = -300
                         g2.grav = 820
                         shots.append(g2)
@@ -710,11 +738,12 @@ class Enemy:
                     dist = max(1.0, math.hypot(tx, ty))
                     spd = 210
                     ux, uy = tx / dist, ty / dist
+                    ex, ey = cx + ux * self.w * 0.45, cy + uy * self.h * 0.4
                     spread = (-0.30, 0.0, 0.30) if self.enraged else (0.0,)
                     for a in spread:               # rotate the aim vector by a
                         rx = ux * math.cos(a) - uy * math.sin(a)
                         ry = ux * math.sin(a) + uy * math.cos(a)
-                        sh = Shot(cx, cy, rx * spd, 3, -1, hostile=True)
+                        sh = Shot(ex, ey, rx * spd, 3, -1, hostile=True)
                         sh.vy = ry * spd
                         shots.append(sh)
             else:
@@ -777,20 +806,7 @@ class Enemy:
     def draw(self, s, cam, assets):
         x, y = self.x - cam, self.y
         cx, cy = x + self.w / 2, y + self.h / 2
-        asset = {"sporebot": "sporebot", "moldcrawler": "moldcrawler",
-                 "toxicsprayer": "toxicsprayer", "moldbat": "moldbat",
-                 "moldbat2": "moldbat", "steammite": "steammite",
-                 "ventswarm": "ventswarm", "sporehawk": "sporehawk",
-                 "roofleech": "roofleech", "moldmite": "moldmite",
-                 "creeper": "creeper", "mudstalker": "mudstalker",
-                 "centipede": "centipede", "pipeparasite": "pipeparasite",
-                 "gaspod": "gaspod", "sporeworm": "sporeworm",
-                 "sentinel": "sentinel", "ventstalker": "ventstalker",
-                 "cultureswarm": "cultureswarm", "reactorspore": "reactorspore",
-                 "mycelium": "mycelium",
-                 "micromold": "micromold",
-                 "sporedrifter": "sporedrifter",
-                 "toxicslime": "toxicslime"}[self.kind]
+        asset = ENEMY_ASSET[self.kind]
         # state-based pose: hurt > charge > attack > walk-cycle > idle (variants
         # auto-load). The Spore Drifter swaps its idle/drift base for an ENRAGED
         # look once wounded, and shows a CHARGE pose while winding up a shot.
@@ -2609,11 +2625,14 @@ def build_level(mission=1):
     # pits/spikes and the heavier emplacements so a stretch never becomes a wall.
     # Each spot is (x, count); the final stage keeps lighter swarms since its
     # roster is already the densest.
-    micro_spots = {1: [(560, 3), (1000, 3), (1500, 3), (2200, 3)],
-                   2: [(500, 3), (1250, 3), (1660, 3), (2250, 3)],
-                   3: [(650, 3), (1420, 3), (1950, 3), (2280, 3)],
-                   4: [(660, 3), (1250, 3), (1780, 3), (2260, 3)],
-                   5: [(640, 2), (1780, 2), (2050, 2), (2280, 2)]}
+    # spots chosen to sit in the gaps between the base roster and clear of the
+    # hazard leaps, so swarms are spread across the map and never overlap a
+    # neighbour (verified against every enemy's drawn hitbox).
+    micro_spots = {1: [(630, 3), (1490, 3), (2000, 3)],
+                   2: [(560, 3), (1000, 3), (1580, 3)],
+                   3: [(600, 3), (880, 3), (1980, 3), (2180, 2)],
+                   4: [(600, 3), (900, 3), (1900, 3)],
+                   5: [(640, 2), (1800, 2), (2050, 2), (2280, 2)]}
     for mx, count in micro_spots[mission]:
         for k in range(count):
             enemies.append(Enemy("micromold", mx + k * 34, GROUND_Y - 26))
@@ -2622,13 +2641,13 @@ def build_level(mission=1):
     # of the spike/pit approaches so its aimed spores harass Ty without turning a
     # hazard leap into a death trap.
     drifter_spots = {3: [(300, 210), (2150, 240)],
-                     5: [(480, 200), (1950, 220), (2380, 200)]}
+                     5: [(480, 200), (2080, 220), (2380, 200)]}
     for dx, dy in drifter_spots.get(mission, []):
         enemies.append(Enemy("sporedrifter", dx, dy))
     # Toxic Slime — a slow corrosive ground blob deployed on certain (non-air)
     # stages. Placed in open ground clear of the spike/pit leaps: its acid spit
     # and acid-pool trail harass Ty on the flats, never over a hazard jump.
-    slime_spots = {1: [400, 2250], 2: [360, 2360], 4: [400, 2300]}
+    slime_spots = {1: [340, 2500], 2: [340, 2400], 4: [340, 2500]}
     for sx in slime_spots.get(mission, []):
         enemies.append(Enemy("toxicslime", sx, GROUND_Y - 34))
     # coins along the ground (skip any hovering over a pit) plus a few perched
@@ -2777,6 +2796,13 @@ class Game:
     def reset(self):
         (self.plats, self.enemies, self.coins, self.hazards,
          self.ladders, self.movers) = build_level(self.mission)
+        # tag each sprite enemy with its drawn-art aspect so its hitbox tracks
+        # the visible sprite (see Enemy.rect)
+        for e in self.enemies:
+            key = ENEMY_ASSET.get(e.kind)
+            if key and self.assets.has(key):
+                aw, ah = self.assets.imgs[key].get_size()
+                e.sprite_aspect = aw / ah
         self.bg = self._make_bg(self.mission)
         self.player = Player()
         # apply persistent HQ upgrades
@@ -3159,6 +3185,7 @@ class Game:
             child.hp = 3
             child.gen = e.gen + 1
             child.home_y = e.home_y
+            child.sprite_aspect = e.sprite_aspect
             self._new_enemies.append(child)
 
     # -- draw ---------------------------------------------------------------- #

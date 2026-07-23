@@ -109,6 +109,15 @@ character in every pose. `player_climb` shows front-on while on a ladder
   gentle no-knockback tick while he stands in it. Enrages when wounded (enraged
   pose, faster, a corrosive spit spread).
 
+### 🎯 Enemy hitboxes track the art (accurate hits)
+Sprite enemies are drawn height-normalised (`self.h * CHAR_H`) so their art is
+larger than the raw `(w,h)`. `Enemy.rect()` now returns a collision box that
+matches the **drawn** sprite (feet-anchored, aspect from the loaded art, small
+fairness inset), so a shot or contact lands where the animation actually is.
+Every enemy's drawn aspect is tagged in `Game.reset()` via `ENEMY_ASSET`. Enemy
+spawn spots are placed in the gaps between the base roster and clear of the
+hazard leaps — **verified zero overlaps on all 5 levels**, spread Mega-Man style.
+
 ### 🧬 Dr. Mira — support ally (`Ally` class)
 Dr. Mira (Field Scientist) now **deploys with Ty in every mission**. She trails
 just behind him (idle / run / heal-cast sprites cut from her magenta sheet via
