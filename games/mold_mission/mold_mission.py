@@ -1870,24 +1870,27 @@ class Crate:
         fcircle(s, sx + self.w / 2, yy + self.h / 2, 5, (206, 182, 66))
 
 
-class Console:
-    """A wall terminal Ty can USE / ACTIVATE for a small reward (Batch 7)."""
-    def __init__(self, x, y):
-        self.x, self.y = float(x), float(y)
-        self.w, self.h = 30, 40
+class Prop:
+    """Batch 6 Interactive Object (generator / fusebox / panel / station / vent
+    / bench). These used to be pure background set-dressing; now Ty can USE each
+    one (press E) for a one-time themed reward — it powers on with a glow, then
+    reads as spent. Drawn from the real cut art in assets/prop_*.png."""
+    # key -> (reward kind, amount, on-screen toast)
+    USE = {
+        "prop_generator": ("energy", 40, "GENERATOR ONLINE  +ENERGY"),
+        "prop_fusebox":   ("energy", 30, "POWER RESTORED  +ENERGY"),
+        "prop_panel":     ("score",  0,  "PANEL HACKED  +SCORE"),
+        "prop_station":   ("health", 30, "SUPPLY STATION  +HEALTH"),
+        "prop_vent":      ("energy", 24, "VENT CLEARED  +ENERGY"),
+        "prop_bench":     ("health", 25, "REPAIR BENCH  +HEALTH"),
+    }
+
+    def __init__(self, key, x, ph):
+        self.key, self.x, self.ph = key, float(x), ph
         self.used = False
 
-    def rect(self):
-        return (self.x, self.y, self.w, self.h)
-
-    def draw(self, s, cam, t):
-        sx = self.x - cam
-        col = (120, 120, 120) if self.used else (90, 200, 120)
-        orrect(s, (sx, self.y, self.w, self.h), (46, 52, 58), radius=3)
-        orrect(s, (sx + 4, self.y + 5, self.w - 8, 18), col, radius=2)
-        if not self.used:
-            glow(s, sx + self.w / 2, self.y + 14, 13,
-                 col, int(55 + 40 * math.sin(t * 5)))
+    def reward(self):
+        return self.USE.get(self.key, ("energy", 20, "ACTIVATED"))
 
 
 class Turret:
@@ -2005,7 +2008,7 @@ class Player:
         self.near_pickup = False    # crouched over a pickup (set by Game)
         self.weapon = None          # equipped pick-up weapon id (None = blaster)
         # item carry / interact (Batch 7 — drives the pickup/carry/throw/place/
-        # use video clips). Game owns the crates/consoles and consumes the wants.
+        # use video clips). Game owns the crates/props and consumes the wants.
         self.carrying = None        # Crate Ty is holding (None = empty-handed)
         self.pickup_t = 0.0         # play the pick-up grab clip
         self.throw_t = 0.0          # play the overhand throw clip
@@ -3146,23 +3149,24 @@ class Game:
                 ("prop_panel", 1720, 62), ("prop_station", 2440, 86),
                 ("prop_generator", 3020, 74)],
         }
-        self.props = propset.get(self.mission, [])
-        # carriable supply crates + activatable consoles (Batch 7): Ty can pick
-        # up, carry, throw and place a crate, and USE a console. Non-solid so the
-        # sprint path stays clear; placed off the main line as optional interacts
-        # (the auto-bot ignores the interact key, so they're pure scenery to it).
+        # Batch 6 Interactive Objects: the generator/fusebox/panel/station/vent/
+        # bench you added are now USABLE — Ty presses E to power one on for a
+        # themed reward (see Prop.USE), not just backdrop dressing.
+        self.props = [Prop(key, x, ph)
+                      for (key, x, ph) in propset.get(self.mission, [])]
+        # carriable supply crates (Batch 7): Ty can pick up, carry, throw and
+        # place a crate. Non-solid so the sprint path stays clear; placed off the
+        # main line as optional interacts (the auto-bot ignores the interact key,
+        # so crates and props are pure scenery to --selftest).
         crate_spots = {
             1: [(560, "SAMPLES"), (2180, "SPORE-KIT")],
             2: [(720, "FILTERS"), (2260, "SAMPLES")],
             3: [(640, "SPORE-KIT"), (2040, "SAMPLES")],
-            4: [(600, "FILTERS"), (2360, "SAMPLES")],
+            4: [(760, "FILTERS"), (2600, "SAMPLES")],
             5: [(700, "SAMPLES"), (2120, "SPORE-KIT")],
         }
         self.crates = [Crate(x, GROUND_Y - 30, lbl)
                        for (x, lbl) in crate_spots.get(self.mission, [])]
-        console_spots = {1: [1500], 2: [1600], 3: [1450], 4: [1550], 5: [1650]}
-        self.consoles = [Console(x, GROUND_Y - 40)
-                         for x in console_spots.get(self.mission, [])]
         self.interact_msg = ""
         self.interact_msg_t = 0.0
 
@@ -3219,7 +3223,7 @@ class Game:
         # crouch-context poses: beside cover (a background prop) or over a pickup
         pcx = p.x + p.w / 2
         p.near_prop = p.crouching and any(
-            abs(px - pcx) < 48 for (_key, px, _sz) in self.props)
+            abs(pr.x - pcx) < 48 for pr in self.props)
         p.near_pickup = p.crouching and (
             any(not c.got and abs(c.x - pcx) < 32 for c in self.coins)
             or any(not wp.got and abs(wp.x - pcx) < 40 for wp in self.weapons))
@@ -3456,7 +3460,8 @@ class Game:
         self.weapons = [wp for wp in self.weapons if not wp.got]
         self.weapon_msg_t = max(0.0, getattr(self, "weapon_msg_t", 0.0) - dt)
 
-        # supply crates + consoles: pick up / carry / throw / place / use
+        # supply crates + Batch 6 interactive objects: pick up / carry / throw /
+        # place a crate, and USE a generator / fusebox / panel / station / etc.
         self._interact(dt, p)
 
         if p.dead:
@@ -3469,9 +3474,11 @@ class Game:
         self.parts.update(dt)
 
     def _interact(self, dt, p):
-        """Batch 7 item mechanic: advance crates, let Ty pick up / carry / throw
-        / place a crate, and USE a console — the leftover TyGuy video clips wired
-        into real gameplay. Crates are non-solid, so they never block Ty's run."""
+        """Item / interact mechanic: advance crates, let Ty pick up / carry /
+        throw / place a crate, and USE a Batch 6 interactive object (generator,
+        fusebox, panel, station, vent, bench) for a themed reward — the leftover
+        TyGuy video clips wired into real gameplay. Crates are non-solid, so they
+        never block Ty's run; the auto-bot ignores the interact key."""
         # advance thrown crates; a flying crate smashes the first enemy it hits
         for cr in self.crates:
             cr.update(dt, self.plats)
@@ -3534,17 +3541,26 @@ class Game:
                 p.pickup_t = 0.28
                 self.snd.play("coin")
             else:
-                for cs in self.consoles:
-                    if not cs.used and abs((cs.x + cs.w / 2) - pcx) < 44 \
-                            and abs((cs.y + cs.h) - (p.y + p.h)) < 60:
-                        cs.used = True
-                        p.use_t = 0.5
-                        p.energy = min(p.maxenergy, p.energy + ENERGY_CELL)
-                        self.score += 60
-                        self.interact_msg = "TERMINAL ONLINE  +ENERGY"
-                        self.interact_msg_t = 2.0
-                        self.snd.play("energy")
-                        break
+                # USE the nearest Batch 6 interactive object on the ground
+                for pr in self.props:
+                    if pr.used or abs(pr.x - pcx) >= 46:
+                        continue
+                    if abs((p.y + p.h) - GROUND_Y) > 90:
+                        continue                # must be down on the floor by it
+                    pr.used = True
+                    p.use_t = 0.5
+                    kind, amt, label = pr.reward()
+                    if kind == "health":
+                        p.hp = min(p.maxhp, p.hp + amt)
+                    elif kind == "energy":
+                        p.energy = min(p.maxenergy, p.energy + amt)
+                    else:                       # panel: bonus score / spore purge
+                        self.score += 150
+                        self.spores = max(0, self.spores - 80)
+                    self.interact_msg = label
+                    self.interact_msg_t = 2.0
+                    self.snd.play("energy")
+                    break
         self.interact_msg_t = max(0.0, getattr(self, "interact_msg_t", 0.0) - dt)
 
     def _boss_defeated(self):
@@ -3745,9 +3761,11 @@ class Game:
 
     def _draw_world(self, t):
         s, cam = self.screen, self.cam
-        # background props (Batch 6): non-interactive set-dressing on the ground,
-        # drawn behind platforms/enemies and dimmed so they read as background
-        for key, px, ph in getattr(self, "props", []):
+        # Batch 6 Interactive Objects on the ground: full-bright with a pulsing
+        # glow while still usable (press E), dimmed once spent. Drawn behind the
+        # platforms/enemies from the real cut art.
+        for pr in getattr(self, "props", []):
+            key, px, ph = pr.key, pr.x, pr.ph
             sx = px - cam
             if sx < -120 or sx > WIDTH + 120 or not self.assets.has(key):
                 continue
@@ -3755,8 +3773,12 @@ class Game:
             aw, ah = img.get_size()
             sc = ph / ah
             dw, dh = max(1, int(aw * sc)), max(1, int(ah * sc))
+            if not pr.used:
+                glow(s, sx, GROUND_Y - dh * 0.5, dh * 0.7,
+                     (110, 220, 160), int(46 + 30 * math.sin(t * 4)))
             sp = pygame.transform.smoothscale(img, (dw, dh)).copy()
-            sp.fill((150, 165, 150, 255), special_flags=pygame.BLEND_RGBA_MULT)
+            tint = (120, 130, 120, 255) if pr.used else (240, 248, 240, 255)
+            sp.fill(tint, special_flags=pygame.BLEND_RGBA_MULT)
             s.blit(sp, (int(sx - dw / 2), int(GROUND_Y - dh)))
         # platforms
         for (x, y, w, h) in self.plats:
@@ -3827,9 +3849,6 @@ class Game:
                 pygame.draw.circle(s, edge, (int(sx + mw - 6), midy), 3)
         for tr in self.turrets:
             tr.draw(s, cam, self.assets)
-        # activatable consoles (Batch 7) — wall terminals, drawn as background
-        for cs in getattr(self, "consoles", []):
-            cs.draw(s, cam, t)
         for hz in self.hazards:
             hz.draw(s, cam, t)
         # Toxic Slime acid pools — corrosive splats on the ground (fade as they

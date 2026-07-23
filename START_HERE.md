@@ -64,13 +64,18 @@ This session's **image reader is used up** — it rejects every new image
      smashes the first enemy it hits) → `player_throw`; **E places** it gently
      on the ground → `player_place`. Crates are non-solid, so they never block
      the run; a thrown crate does 6 dmg.
-   - **Use a console.** Press **E** at a wall terminal → `player_use`; it powers
-     on (green glow → grey), refills energy, and pops a "TERMINAL ONLINE" toast.
+   - **Use the Batch 6 Interactive Objects.** The generator / fusebox / panel /
+     station / vent / bench you added (`PROPS_Batch6_InteractiveObjects.png` →
+     `assets/prop_*.png`) used to be dimmed background scenery; now each one is
+     **usable**. Press **E** beside one → `player_use`; it powers on (pulsing
+     green glow while usable → dimmed once spent) and gives a themed reward:
+     generator/fusebox/vent → **+energy**, station/bench → **+health**, panel →
+     **+score / spore-purge**, each with a toast ("GENERATOR ONLINE", etc.).
    - **Crouch-run.** Moving fast while ducked now plays `player_crouch_run`
      (slow ducked shuffle still plays `player_crouch_walk`).
-   Crates (2/level) + a console (1/level) are placed off the main sprint line as
-   optional interacts. The auto-bot ignores the interact key, so they're pure
-   scenery to `--selftest` and it stays green. Clips cut by `cut_tyguy_anim.py`.
+   Crates (2/level) + every interactive object (2–5/level) are optional interacts
+   off the main sprint line. The auto-bot ignores the interact key, so they're
+   pure scenery to `--selftest` and it stays green. Clips: `cut_tyguy_anim.py`.
 2. **"Make sure all words look professional and in the right place."** ✅ DONE.
    Every text screen was rendered and eyeballed (HQ hub incl. every menu row,
    in-mission HUD, objective + boss health bar + weak-point hint, boss-intro
