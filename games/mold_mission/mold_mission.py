@@ -84,7 +84,9 @@ C_HP = (96, 224, 130)
 OUTLINE = (14, 20, 20)
 
 GRAVITY = 2400.0
-MOVE_SPEED = 250.0
+MOVE_SPEED = 250.0      # base (used by wall-jump lockout & crouch-walk)
+WALK_SPEED = 200.0      # default ground move — a walk (shows the walk cycle)
+SPRINT_SPEED = 330.0    # holding the dash button = RUN (no shooting while held)
 JUMP_V = 760.0
 DASH_SPEED = 620.0
 DASH_TIME = 0.22
@@ -2039,6 +2041,8 @@ class Player:
         self.wj_dir = 0
         self.crouching = False
         self.aim_down = False       # holding Down while moving/airborne = aim down
+        self.sprinting = False      # holding the dash button = run (no shooting)
+        self.sprint_held = False    # dash button held (sprint speed, incl. in air)
         self.sliding = False
         self.slow = 0.0
         # crouch move-set timers / flags (drive the 15-pose crouch sheet)
@@ -2178,22 +2182,22 @@ class Player:
                 self._weapons(dt, keys, shots, parts, snd)
                 return
 
-        # dash key: a plain dash, or — while ducking — a low SLIDE (moving) or a
-        # MELEE swing (standing still). The slide keeps Ty's short hurtbox.
+        # dash button: while DUCKING it's a low SLIDE (moving) or a MELEE swing
+        # (still); while standing it just means SPRINT (a hold — see self.sprinting
+        # below), no dodge-burst, so it reads purely as "run while held".
         crouch_hold = (down or crouch_btn) and self.on_ground and self.dash_t <= 0
         if (keys[pygame.K_l] or keys[pygame.K_LSHIFT]) and self.dash_cd <= 0 \
-                and self.dash_t <= 0 and self.melee_t <= 0:
-            if crouch_hold and moving == 0:
+                and self.dash_t <= 0 and self.melee_t <= 0 and crouch_hold:
+            if moving == 0:
                 self.melee_t = MELEE_TIME       # rooted crouch melee
                 self.melee_fire = True          # Game applies the hit once
                 self.dash_cd = DASH_CD
                 snd.play("shot")
             else:
-                self.dash_t = DASH_TIME
+                self.dash_t = DASH_TIME         # ducked low slide (keeps iframes)
                 self.dash_cd = DASH_CD
-                self.crouch_slide = down and self.on_ground
-                if self.crouch_slide and moving:
-                    self.facing = moving        # slide the way you steer
+                self.crouch_slide = True
+                self.facing = moving            # slide the way you steer
                 snd.play("dash")
 
         # crouch: the dedicated crouch button (C / L-Ctrl) always ducks; the Down
@@ -2205,6 +2209,15 @@ class Player:
         # Ty angles the rifle diagonally down and fires downward.
         self.aim_down = (down and not self.crouching and self.dash_t <= 0
                          and (moving != 0 or not self.on_ground))
+        # SPRINT: hold the dash button to RUN instead of walk. Ty can't shoot
+        # while sprinting (see _weapons) and the run cycle plays instead of walk —
+        # those are GROUND rules (self.sprinting). The sprint SPEED, though, also
+        # carries the jump: holding it in the air keeps the run momentum so leaps
+        # go the full distance (sprint_held).
+        self.sprint_held = keys[pygame.K_l] or keys[pygame.K_LSHIFT]
+        self.sprinting = (self.sprint_held and self.on_ground and not self.crouching
+                          and self.dash_t <= 0 and self.kb_t <= 0
+                          and self.melee_t <= 0)
         self.crouch_recent = 0.16 if self.crouching else max(0.0, self.crouch_recent - dt)
         if self.dash_t > 0:
             self.dash_t -= dt
@@ -2229,7 +2242,8 @@ class Player:
             # eases idle -> walk -> run (and back). This is what makes the walk
             # animation actually show and the gait read naturally rather than
             # teleporting straight into a full sprint.
-            target = (right - left) * MOVE_SPEED * self.speed_mult * water_mult
+            base = SPRINT_SPEED if self.sprint_held else WALK_SPEED
+            target = (right - left) * base * self.speed_mult * water_mult
             rate = GROUND_ACCEL if abs(target) >= abs(self.vx) else GROUND_DECEL
             if self.vx < target:
                 self.vx = min(target, self.vx + rate * dt)
@@ -2403,7 +2417,10 @@ class Player:
         col = w["color"] if w else None
         dmg0 = w["dmg"] if w else 2
         spd = w["spd"] if w else 620
-        fire = keys[pygame.K_j] or keys[pygame.K_x]
+        # can't shoot while SPRINTING (dash button held) or mid-dash — both hands
+        # are on the run. Cancels any pending charge, too.
+        fire = ((keys[pygame.K_j] or keys[pygame.K_x])
+                and not self.sprinting and self.dash_t <= 0)
         muzx, muzy = self.muzzle()
         # aim-down angles the shot diagonally toward the ground; otherwise it
         # flies straight ahead. The muzzle flash is spawned at the same point so
@@ -2562,15 +2579,12 @@ class Player:
                     if firing and want not in assets.anims:
                         want = want.replace("fire", "")   # fall back if missing
                 elif self.fire_anim > 0:
-                    # firing on the ground: aim the rifle while moving (run/walk
-                    # legs + aim torso), angled DOWN when Down is held, else the
-                    # standing shoot pose when still.
+                    # firing on the ground: you can only shoot while walking (not
+                    # sprinting), so the moving-fire pose is the walk cycle + aim
+                    # torso, angled DOWN when Down is held, else the standing aim.
                     moving = abs(self.vx) > 8
-                    fast = abs(self.vx) > 130
-                    if self.aim_down and moving and "player_rundownfire" in assets.anims:
-                        want = "player_rundownfire" if fast else "player_walkdownfire"
-                    elif fast and "player_runfire" in assets.anims:
-                        want = "player_runfire"
+                    if self.aim_down and moving and "player_walkdownfire" in assets.anims:
+                        want = "player_walkdownfire"
                     elif moving and "player_walkfire" in assets.anims:
                         want = "player_walkfire"
                     else:
@@ -2586,10 +2600,10 @@ class Player:
                 elif self.energy < 0.22 * self.maxenergy \
                         and "player_reload" in assets.anims:
                     want = "player_reload"         # standing, recharging energy
-                elif abs(self.vx) > 130:
-                    want = "player_run"            # sprinting
+                elif self.sprinting and abs(self.vx) > 8:
+                    want = "player_run"            # dash button held = running
                 elif abs(self.vx) > 8:
-                    want = "player_walk"           # walking
+                    want = "player_walk"           # default move = walking
                 else:
                     want = "player"                # idle
                 # pick the current frame of the animation clip (fall back to a
@@ -3036,7 +3050,7 @@ def build_level(mission=1):
         hazards += [Hazard(x, GROUND_Y, "water", h=30) for x in (560, 1080, 1600, 2100)]
     else:  # Level 5 — Research Facility: elite roster, lab platforms
         for (x, y, w) in [(340, 400, 130), (620, 320, 120), (900, 400, 130),
-                          (1180, 300, 120), (1460, 400, 140), (1740, 320, 120),
+                          (1180, 300, 120), (1380, 400, 140), (1740, 320, 120),
                           (2020, 400, 140), (2300, 320, 130)]:
             plats.append((x, y, w, 22))
         enemies = [
@@ -4346,6 +4360,21 @@ def _bot_keys(game, st, i):
                 st["stuck"] = 0
     K[pygame.K_SPACE] = want_space
     st["sp"] = want_space
+
+    # SPRINT (hold the dash button) to get full run speed + jump distance across
+    # a gap or over a spike/vent, then walk again so it can shoot. Look ahead so
+    # Ty is up to speed before he leaps. Sprinting suppresses fire, which is fine
+    # over an empty pit/hazard.
+    gap_soon = p.on_ground and not solid_below(front + 58)
+    crossing = not p.on_ground and not solid_below(front + 6)
+    # Keep sprinting through the WHOLE jump: once airborne, hold the dash button so
+    # the run momentum carries and the leap covers its full distance (releasing it
+    # mid-air would let vx decay back to walk speed and drop Ty short of the far
+    # ledge). On the ground, only sprint to build up before a gap/hazard so Ty can
+    # still walk-and-shoot everywhere else.
+    K[pygame.K_l] = (gap_soon or crossing or (not p.on_ground)
+                     or (p.on_ground and hazard_soon())) \
+        and game.boss is None
 
     K[pygame.K_RIGHT] = game.boss is None
     return K
