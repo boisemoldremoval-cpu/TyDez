@@ -91,6 +91,7 @@ DASH_TIME = 0.22
 DASH_CD = 0.55
 CROUCH_MULT = 0.45      # crouch-walk speed as a fraction of MOVE_SPEED
 MELEE_TIME = 0.30       # crouch-melee swing duration
+CHARGE_MAX = 1.1        # seconds to reach a full charge — caps the bolt growth
 MELEE_DMG = 5           # crouch-melee damage
 SLIDE_TIME = 0.30       # Mega Man slide (Down + Jump) duration
 JUMP_CUT = 300.0        # release jump early -> rise is capped here (variable height)
@@ -109,7 +110,8 @@ ANIM_FPS = {"player": 6, "player_walk": 11, "player_run": 15, "player_dash": 18,
             "player_crouch_run": 15, "player_pickup": 12, "player_carry": 11,
             "player_throw": 16, "player_place": 12,
             "player_jumpfire": 12, "player_fallfire": 10, "player_peakfire": 8,
-            "player_crouchfire": 10, "player_runfire": 15, "player_walkfire": 11,
+            "player_crouchfire": 10, "player_crouchshoot": 12,
+            "player_runfire": 15, "player_walkfire": 11,
             "player_rundownfire": 15, "player_walkdownfire": 11,
             "player_dashfire": 18}
 DUCK_RATIO = 0.74       # a ducked pose renders this fraction of standing height
@@ -2081,8 +2083,8 @@ class Player:
         if self.aim_down:                       # rifle angled diagonally down
             return (cx + f * 40, feet - 22)
         ducking = self.crouching or self.crouch_slide
-        if ducking:                             # crouch-shoot barrel (low)
-            dx, above = 42, 24
+        if ducking:                             # crouch-shoot barrel (braced kneel)
+            dx, above = 50, 44
         elif not self.on_ground:                # air-shoot (jump/peak vs fall)
             dx, above = (38, 34) if self.vy > 90 else (46, 36)
         elif abs(self.vx) > 8:                  # run / walk shoot (aim torso)
@@ -2406,23 +2408,29 @@ class Player:
             shots.append(sh)
             parts.muzzle(muzx, muzy, self.facing, col or C_CHARGE)
 
+        # Charge-and-release BUSTER: pressing starts a bolt that GROWS while the
+        # button is held (capped at CHARGE_MAX), and RELEASING fires it in the
+        # muzzle's aimed direction. A quick tap fires the small bolt; the longer
+        # you hold, the bigger and harder-hitting the bolt (up to the cap).
         if fire and not self.fire_prev:
-            _shoot(spd, dmg0, 0)
-            snd.play("shot_" + self.weapon if self.weapon else "shot")
-            self.fire_anim = 0.16
             self.charging = True
             self.charge = 0.0
         if fire and self.charging:
-            self.charge += dt
+            self.charge = min(self.charge + dt, CHARGE_MAX)
         if not fire and self.fire_prev and self.charging:
-            if self.charge >= 0.9:
-                _shoot(spd + 60, dmg0 + 4, 2)
+            c = self.charge
+            if c >= 0.85:                       # full charge — biggest, hardest
+                _shoot(spd + 60, dmg0 + 5, 2)
                 snd.play("charge")
-                self.fire_anim = 0.22
-            elif self.charge >= 0.4:
+                self.fire_anim = 0.24
+            elif c >= 0.4:                      # mid charge
                 _shoot(spd + 30, dmg0 + 2, 1)
                 snd.play("shot_" + self.weapon if self.weapon else "shot")
                 self.fire_anim = 0.20
+            else:                               # tap — small bolt
+                _shoot(spd, dmg0, 0)
+                snd.play("shot_" + self.weapon if self.weapon else "shot")
+                self.fire_anim = 0.16
             self.charging = False
             self.charge = 0.0
         self.fire_prev = fire
@@ -2471,11 +2479,24 @@ class Player:
                 fcircle(s, px, py, random.uniform(1, 3), (200, 240, 255, 160))
         blink = self.iframe > 0 and int(self.iframe * 20) % 2 == 0
         if not blink:
-            if self.charging and self.charge > 0.4:
-                cr = 10 + self.charge * 12
+            if self.charging and self.charge > 0.12:
+                # the bolt GROWS at the barrel tip as the button is held (capped
+                # at CHARGE_MAX), pulsing brighter as it nears full charge
+                frac = min(1.0, self.charge / CHARGE_MAX)
                 gcol = WEAPONS[self.weapon]["color"] if self.weapon else C_CHARGE
-                mgx, mgy = self.muzzle()          # charge glows at the barrel tip
-                glow(s, mgx - cam, mgy, cr, gcol, 150)
+                mgx, mgy = self.muzzle()
+                core = 4 + frac * 12              # limited growth
+                pulse = 0.5 + 0.5 * math.sin(t * (10 + frac * 22))
+                glow(s, mgx - cam, mgy, core + 8 + frac * 10 * pulse, gcol,
+                     int(90 + 90 * frac))
+                fcircle(s, mgx - cam, mgy, core, (255, 255, 255))
+                fcircle(s, mgx - cam, mgy, max(1, core - 2), gcol)
+                if frac >= 0.85:                  # full-charge sparks/ring
+                    for a6 in range(0, 360, 60):
+                        rr = core + 6 + 3 * pulse
+                        ax = mgx - cam + math.cos(math.radians(a6) + t * 6) * rr
+                        ay = mgy + math.sin(math.radians(a6) + t * 6) * rr
+                        fcircle(s, ax, ay, 2, (255, 255, 255))
             if self.dash_t > 0:
                 for k in range(3):
                     fcircle(s, cx - self.facing * k * 12, y + self.h / 2,
@@ -2505,8 +2526,8 @@ class Player:
                     else:
                         want = "player_dash"
                 elif self.crouching:
-                    if self.fire_anim > 0 and "player_crouchfire" in assets.anims:
-                        want = "player_crouchfire"  # ducked, aiming the rifle
+                    if self.fire_anim > 0 and "player_crouchshoot" in assets.anims:
+                        want = "player_crouchshoot"  # braced crouch-and-fire (video)
                     elif abs(self.vx) > 90:
                         want = "player_crouch_run"  # scurrying along, ducked
                     elif abs(self.vx) > 8:
@@ -3481,8 +3502,15 @@ class Game:
                     sh.dead = True
                     self.snd.play("hit")
             else:
+                # a crouch-fired (low) shot leaves the braced kneel at chest
+                # height but reaches DOWN, so it still rakes the low crawlers.
+                if sh.low:
+                    sx0, sy0, sw, sh0 = sh.rect()
+                    shot_hit = (sx0, sy0, sw, sh0 + 34)
+                else:
+                    shot_hit = sh.rect()
                 for e in self.enemies:
-                    if not e.dead and overlap(*sh.rect(), *e.rect()):
+                    if not e.dead and overlap(*shot_hit, *e.rect()):
                         # crouch_only mold is armoured on top — a standing shot
                         # pings off it; only a crouch-fired (low) shot connects.
                         if e.crouch_only and not sh.low:

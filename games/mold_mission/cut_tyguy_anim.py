@@ -37,7 +37,8 @@ ANIMS = {
     "player_roll":         ("B", 146, 166, 5, False),  # ROLL
     "player_aim":          ("B", 178, 200, 4, False),  # AIM (rifle up; standing only,
     #                                                    excludes the wall-cling aim)
-    "player_shoot":        ("C",   2,  34, 5, False),  # SHOOT (gun + muzzle)
+    "player_shoot":        ("C",   2,  25, 5, False),  # SHOOT standing (gun+muzzle)
+    "player_crouchshoot":  ("C",  27,  35, 4, False),  # CROUCH + SHOOT (braced kneel)
     "player_reload":       ("C",  40,  72, 5, False),  # RELOAD
     "player_use":          ("C",  74, 106, 5, False),  # USE / ACTIVATE
     "player_crouch_run":   ("B",  92, 128, 6, False),  # CROUCH RUN
