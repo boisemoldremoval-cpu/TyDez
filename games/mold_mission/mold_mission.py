@@ -89,6 +89,8 @@ JUMP_V = 760.0
 DASH_SPEED = 620.0
 DASH_TIME = 0.22
 DASH_CD = 0.55
+GROUND_ACCEL = 2200.0   # px/s^2 speeding up (idle -> walk -> run ramp)
+GROUND_DECEL = 3200.0   # px/s^2 slowing down (snappy stop, brief walk-out)
 CROUCH_MULT = 0.45      # crouch-walk speed as a fraction of MOVE_SPEED
 MELEE_TIME = 0.30       # crouch-melee swing duration
 CHARGE_MAX = 1.1        # seconds to reach a full charge — caps the bolt growth
@@ -2223,7 +2225,16 @@ class Player:
             elif left:
                 self.facing = -1
         else:
-            self.vx = (right - left) * MOVE_SPEED * self.speed_mult * water_mult
+            # accelerate toward the target speed instead of snapping to it, so Ty
+            # eases idle -> walk -> run (and back). This is what makes the walk
+            # animation actually show and the gait read naturally rather than
+            # teleporting straight into a full sprint.
+            target = (right - left) * MOVE_SPEED * self.speed_mult * water_mult
+            rate = GROUND_ACCEL if abs(target) >= abs(self.vx) else GROUND_DECEL
+            if self.vx < target:
+                self.vx = min(target, self.vx + rate * dt)
+            elif self.vx > target:
+                self.vx = max(target, self.vx - rate * dt)
             if right:
                 self.facing = 1
             elif left:
