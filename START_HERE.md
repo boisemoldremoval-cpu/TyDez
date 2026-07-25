@@ -287,6 +287,18 @@ conventions the game already relies on, and the `--selftest` bot depends on them
 - To make one **crouch-only** (armoured on top), add its kind to `CROUCH_ONLY`
   — a standing shot pings off, only a crouch-fired (`shot.low`) shot hurts it.
   Keep these to single, non-swarm crawlers, and the bot will crouch-clear them.
+- **Multi-pose enemy** (like the **Spore Mold** elite): cut ONE clean frame per
+  state from its magenta videos with `cut_sporemold.py` and save it under the
+  matching key — base + `_run` / `_attack` / `_charge` / `_hurt` / `_enraged`
+  auto-load; extra poses (`_dash` / `_stun` / `_ceiling` / `_split`) are chosen in
+  `Enemy.draw`. Register the kind in `ASSET_NAMES` + `ENEMY_ASSET`, give it stats
+  in `Enemy.__init__`, and add its behaviour branch in `Enemy.update`.
+- **Environment behaviours must stay bot-safe:** damage over floors uses the acid
+  pool (`self.acids`) — a gentle non-stagger tick, never instant-death — so a
+  trail/impact pool can't shove the bot into a hazard. A **ceiling-hang** enemy
+  (spawn `y < 240`) must sit over SOLID ground (its drop lands at `GROUND_Y`), not
+  a pit. A **split** enemy is gen-capped (Spore Mold = 1 level) and only on an
+  UNcharged kill, so a charged buster finishes it clean — keep counts low.
 
 **New big wall** (grappler)
 - Must be **tall (≥1.6× Ty) AND narrow (≤60px)** or it won't grab. Seat it on a
