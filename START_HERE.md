@@ -272,6 +272,13 @@ When adding items / enemies / walls / animations, obey these rules — they are 
 conventions the game already relies on, and the `--selftest` bot depends on them:
 
 **New TyGuy animation**
+- TyGuy is rendered **ONLY from his video animation CLIPS** — multi-frame
+  `player_<state>_0..N.png` sequences (loaded by AssetPack's `player_*.png` glob).
+  There are NO single-frame player images and NO vector/placeholder fallback: the
+  draw gates on `assets.anims["player"]`, every pose resolves to a clip (falling
+  back to the idle clip, never a still), and even the HUD portrait + victory pose
+  pull a frame from a clip. Keep it that way — don't reintroduce a `player*.png`
+  single or a `pygame.draw` body.
 - Source it from a magenta-background video/sheet and cut with `cut_tyguy_anim.py`
   (chroma-key → 1px erosion → drop magenta-signature pixels → largest blob →
   feet-align on a shared canvas). NO pink/grey chroma may survive.

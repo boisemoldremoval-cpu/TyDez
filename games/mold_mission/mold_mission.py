@@ -239,18 +239,10 @@ def glow(s, cx, cy, r, color, strength=120):
 # --------------------------------------------------------------------------- #
 # Assets (drop-in PNGs override the vector art)
 # --------------------------------------------------------------------------- #
-ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
-               "player_dash", "player_shoot", "player_hurt", "player_wallslide",
-               "player_walk", "player_peak", "player_land",
-               "player_aim", "player_victory", "player_reload", "player_climb",
-               # Ty crouch move-set (15-pose sheet)
-               "player_crouch", "player_crouch_walk", "player_crouch_aim",
-               "player_crouch_aim_ds", "player_crouch_shoot",
-               "player_crouch_reload", "player_crouch_melee",
-               "player_crouch_hurt", "player_crouch_low", "player_crouch_roll",
-               "player_crouch_slide", "player_crouch_cover",
-               "player_crouch_interact", "player_crouch_item",
-               "player_crouch_jump",
+ASSET_NAMES = (
+               # TyGuy is rendered ONLY from his video animation CLIPS
+               # (player_<state>_0..N.png, loaded as multi-frame sequences by
+               # AssetPack's glob) — no single-frame or placeholder player art.
                "micromold", "sporedrifter",
                "sporedrifter_charge", "sporedrifter_enraged",
                "toxicslime", "toxicslime_enraged",
@@ -2657,31 +2649,6 @@ class Player:
             self.charge = 0.0
         self.fire_prev = fire
 
-    def _crouch_pose(self, assets):
-        """Pick the ducked pose for the current crouch state (fire / aim /
-        item / walk / low-energy / low-health / idle)."""
-        if self.fire_anim > 0:
-            k = "player_crouch_shoot"
-        elif self.charging and self.charge >= 0.9:
-            k = "player_crouch_aim_ds"          # full charge = aim down sights
-        elif self.charging:
-            k = "player_crouch_aim"
-        elif self.item_t > 0:
-            k = "player_crouch_item"            # just grabbed a pickup
-        elif abs(self.vx) > 1:
-            k = "player_crouch_walk"
-        elif self.near_pickup:
-            k = "player_crouch_interact"        # ducked over a pickup / console
-        elif self.near_prop:
-            k = "player_crouch_cover"           # ducked beside cover
-        elif self.energy < 0.22 * self.maxenergy:
-            k = "player_crouch_reload"          # low energy = recharging
-        elif self.hp < 0.30 * self.maxhp:
-            k = "player_crouch_low"             # battered, low health
-        else:
-            k = "player_crouch"
-        return k if assets.has(k) else "player_crouch"
-
     def draw(self, s, cam, assets, t):
         x, y = self.x - cam, self.y
         cx = x + self.w / 2
@@ -2723,10 +2690,10 @@ class Player:
                 for k in range(3):
                     fcircle(s, cx - self.facing * k * 12, y + self.h / 2,
                             8 - k * 2, (*C_TEAL_LT, 90))
-            if assets.has("player"):
-                # pick an animation sprite by state, fall back to 'player'
-                # Ty uses ONLY his video-sourced animations, chosen by physics
-                # state; each is a multi-frame clip cycled below for fluid motion.
+            if assets.anims.get("player"):
+                # pick an animation sprite by state. Ty uses ONLY his video-sourced
+                # animation CLIPS, chosen by physics state; each is a multi-frame
+                # clip cycled below for fluid motion (no single-frame/placeholder).
                 if self.pickup_t > 0:
                     want = "player_pickup"         # grabbing a supply crate
                 elif self.throw_t > 0:
@@ -2800,14 +2767,12 @@ class Player:
                     want = "player_walk"           # default move = walking
                 else:
                     want = "player"                # idle
-                # pick the current frame of the animation clip (fall back to a
-                # single sprite, then to the base idle, if a clip is missing)
-                seq = assets.anims.get(want)
-                if seq:
-                    fps = ANIM_FPS.get(want, 12)
-                    name = seq[int(t * fps) % len(seq)]
-                else:
-                    name = want if assets.has(want) else "player"
+                # pick the current frame of the animation CLIP; if a state has no
+                # clip, fall back to the idle CLIP (never a single-frame image), so
+                # every pose Ty ever shows is a real video animation frame.
+                seq = assets.anims.get(want) or assets.anims["player"]
+                fps = ANIM_FPS.get(want, 12)
+                name = seq[int(t * fps) % len(seq)]
                 # consistent size, feet planted. With the shared reference
                 # (anim_ref) every clip scales by ONE constant factor, so Ty
                 # holds a steady size across states — the crouch clips are
@@ -2832,20 +2797,6 @@ class Player:
                 assets.blit_char(s, name, cx, y + self.h, dh,
                                  flip=(self.facing < 0 and not self.climbing),
                                  squash=sq, ref_h=ref)
-            else:
-                bob = abs(math.sin(self.anim * 9)) * 3 if self.on_ground else 0
-                orrect(s, (x + 4, y + 14 - bob, self.w - 8, 26), C_TEAL_DK, 6)
-                orrect(s, (x + 6, y + 15 - bob, self.w - 12, 8), C_TEAL, 4)
-                fcircle(s, cx, y + 9 - bob, 10, (232, 200, 168))
-                orrect(s, (cx - 11, y + 1 - bob, 22, 6), C_TEAL, 3)
-                gx = x + (self.w if self.facing > 0 else 0)
-                pygame.draw.line(s, (60, 70, 66),
-                                 (cx, y + 24 - bob), (gx + self.facing * 14, y + 24 - bob), 6)
-                legs = math.sin(self.anim * 9) * 5 if self.on_ground else 0
-                pygame.draw.line(s, C_TEAL_DK, (cx, y + 40 - bob),
-                                 (cx - 6 + legs, y + self.h), 6)
-                pygame.draw.line(s, C_TEAL_DK, (cx, y + 40 - bob),
-                                 (cx + 6 - legs, y + self.h), 6)
 
 
 # --------------------------------------------------------------------------- #
@@ -4113,8 +4064,12 @@ class Game:
             veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             veil.fill((8, 12, 14, 190))
             s.blit(veil, (0, 0))
-            if self.state == STATE_WIN and self.assets.has("player_victory"):
-                self.assets.blit_fit(s, "player_victory", 116, HEIGHT - 92, 130, 168)
+            if self.state == STATE_WIN and self.assets.anims.get("player_aim"):
+                # heroic victory pose from Ty's video AIM clip (no separate
+                # non-video 'player_victory' image)
+                vic = self.assets.anims["player_aim"]
+                self.assets.blit_fit(s, vic[int(t * 6) % len(vic)],
+                                     116, HEIGHT - 92, 130, 168)
             # Dr. Sporead (CHR_008) — the mastermind looms over each victory
             # tease, cackling (idle vial pose <-> arms-up gloat).
             if self.state == STATE_WIN and self.mission < 5 \
@@ -4344,8 +4299,9 @@ class Game:
         self._panel(14, 12, 332, 74)
         # portrait
         pygame.draw.rect(s, (8, 14, 16), (22, 20, 58, 58), border_radius=6)
-        if self.assets.has("player"):
-            self.assets.blit_fit(s, "player", 51, 49, 54, 54)
+        if self.assets.anims.get("player"):
+            # HUD portrait from Ty's video idle clip (not a single-frame image)
+            self.assets.blit_fit(s, self.assets.anims["player"][0], 51, 49, 54, 54)
         pygame.draw.rect(s, (74, 150, 120), (22, 20, 58, 58), width=2, border_radius=6)
         self._t(self.name_f, "TY", (90, 18), C_TEXT)
         # HP + energy bars
