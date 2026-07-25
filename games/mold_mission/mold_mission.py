@@ -119,7 +119,7 @@ ANIM_FPS = {"player": 6, "player_walk": 11, "player_run": 15, "player_dash": 18,
             "player_rundownfire": 15, "player_walkdownfire": 11,
             "player_dashfire": 18,
             # Micro Mold clips (video-cut, cycled like Ty's)
-            "micromold": 6, "micromold_run": 11, "micromold_attack": 14,
+            "micromold": 7, "micromold_run": 13, "micromold_attack": 14,
             "micromold_hurt": 12}
 DUCK_RATIO = 0.74       # a ducked pose renders this fraction of standing height
 BOSS_H = 1.34           # boss sprite height as a multiple of its collision height
@@ -1172,11 +1172,23 @@ class Enemy:
             if seq:
                 fps = ANIM_FPS.get(state, 8)
                 frame = seq[int(self.t * fps) % len(seq)]
-                breath = 1.0 + 0.04 * math.sin(self.t * 3.2 + self.x * 0.01)
+                draw_h = self.h * CHAR_H
+                feet = y + self.h
+                squash = 1.0 + 0.04 * math.sin(self.t * 3.2 + self.x * 0.01)
                 if self.hit > 0:
-                    breath *= 0.9
-                assets.blit_char(s, frame, cx, y + self.h, self.h * CHAR_H,
-                                 flip=self.vx < 0, squash=breath,
+                    squash *= 0.9
+                # A round, spiky mold doesn't glide — it BOUNCES. When it's moving,
+                # add a hop synced to the walk cycle (two little hops per stride)
+                # with squash-and-stretch: stretched at the apex, squashed as it
+                # lands. That's what makes the crawl read as natural, springy
+                # motion rather than a sprite sliding along the floor.
+                if state == k + "_run" and abs(self.vx) > 8:
+                    u = (self.t * fps / len(seq) * 2.0) % 1.0     # 2 hops / cycle
+                    lift = math.sin(math.pi * u)                  # 0 -> 1 -> 0
+                    feet -= draw_h * 0.11 * lift                  # rise off the floor
+                    squash *= 1.0 + 0.08 * (lift - 0.5)           # stretch up, squash down
+                assets.blit_char(s, frame, cx, feet, draw_h,
+                                 flip=self.vx < 0, squash=squash,
                                  ref_h=assets.enemy_ref[k])
                 return
         # apply the motion bob to EVERY draw path (sprite or vector) so a moving

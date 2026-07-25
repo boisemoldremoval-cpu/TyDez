@@ -32,9 +32,10 @@ OUT = "assets"
 # state key -> (video, first_frame, last_frame, n_frames). Ranges sit inside each
 # labelled section, trimmed off the transitions so the cycle loops cleanly.
 CLIPS = {
-    "micromold":         ("V3",   8,  38, 4),   # IDLE (settle / breathe)
-    "micromold_run":     ("V3",  44,  62, 6),   # WALK cycle (natural gait; RUN adds
-    #                                             speed lines that tile badly)
+    "micromold":         ("V3",   8,  40, 5),   # IDLE (settle / breathe)
+    "micromold_run":     ("V3",  44,  58, 8),   # WALK cycle — a clean single loop
+    #                                             (44-58 only; 60+ carries a motion
+    #                                             streak that flickers on repeat)
     "micromold_attack":  ("V3", 216, 236, 4),   # BASIC ATTACK — spore burst
     "micromold_hurt":    ("V1", 170, 186, 3),   # HURT recoil
 }
