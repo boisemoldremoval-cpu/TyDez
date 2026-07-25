@@ -291,22 +291,29 @@ conventions the game already relies on, and the `--selftest` bot depends on them
   `_charge` / `_hurt` / `_enraged`) auto-load and are chosen in `Enemy.draw`.
   Register the kind in `ASSET_NAMES` + `ENEMY_ASSET`, give it stats in
   `Enemy.__init__`, and add its behaviour branch in `Enemy.update`.
-- **Fully-animated enemy** (like the **Micro Mold**): cut FRAME SEQUENCES with
-  `cut_micromold.py` — feet-aligned on one canvas exactly like Ty's clips — for
-  the WHOLE move-set: idle / walk / run / jump / fall / land / turn / hop /
-  attack / hurt / stun / splat (`<kind>_<state>_0..N`; bare `<kind>_0..N` is
-  idle). Caption bleed ("JUMP"/"FALL") is stripped by dropping near-white pixels
-  and a `crop_top` band on the airborne clips. Add the kind to `ANIMATED_ENEMIES`;
-  `AssetPack` cycles the frames at one shared scale (`enemy_ref` = idle canvas)
-  and `Enemy.draw` runs a state machine (death-splat > stun > hurt > airborne >
-  land > turn > attack > walk > idle) with a synced hop-bounce + squash-stretch
-  on the ground crawl. Give every state a rate in `ANIM_FPS`.
-- Wire the **behaviour** so each clip actually plays: the Micro Mold's dedicated
-  `Enemy.update` branch adds real HOP physics (jump/fall/land), a TURN window on
-  facing flips, and a short spore-burst ATTACK; a charged bolt sets `stun_t`; and
-  death spawns a `death_fx` splat (played once via `_maybe_drop`). Keep swarm
-  impact gentle (low hop, tiny 2-dmg spore, capped) so `--selftest` stays green.
-  Editing placements isn't needed — every existing spawn animates automatically.
+- **Fully-animated character** (framework — the **Micro Mold** is the first): the
+  whole thing is DATA-DRIVEN, so a NEW animated character works on EVERY level
+  with **zero code changes**. Three steps:
+  1. **Cut its clips** with a `cut_<kind>.py` (copy `cut_micromold.py`) — feet-
+     aligned on one canvas like Ty's, for the move-set: idle / walk / run / jump /
+     fall / land / turn / hop / attack / hurt / stun / splat, named
+     `<kind>_<state>_0..N` (bare `<kind>_0..N` = idle). Caption bleed
+     ("JUMP"/"FALL") is stripped by dropping near-white pixels + a `crop_top` band
+     on the airborne clips.
+  2. **Add one `ANIMATED_CFG` entry** (`w,h,hp,dmg,walk,run,far,hop_v,hop_cd,atk`)
+     and register the kind in `ENEMY_ASSET`. `ANIMATED_ENEMIES` is derived from
+     `ANIMATED_CFG`, so that's automatic.
+  3. **Place `Enemy("<kind>", x, y)`** anywhere in `build_level` — on the ground
+     OR on a platform/ledge (it hops and lands on its own spawn lane = `home_y`,
+     so it can't fall down a pit).
+  The shared `Enemy.update` ground-mob AI (walk / run-in when far / hop / turn /
+  spore burst) and the shared `Enemy.draw` state machine (death-splat > stun >
+  hurt > airborne > land > turn > attack > run > walk > idle, with a synced
+  hop-bounce + squash-stretch) then drive its animations automatically.
+  `AssetPack` cycles the clips at one shared scale (`enemy_ref` = idle canvas) and
+  rates come from `ANIM_STATE_FPS` (per-state defaults) — no bespoke `ANIM_FPS`
+  needed. A charged bolt sets `stun_t`; death spawns a `death_fx` splat. Keep
+  combat impact gentle (low hop, small spore dmg) so `--selftest` stays green.
 - **Environment behaviours must stay bot-safe:** damage over floors uses the acid
   pool (`self.acids`) — a gentle non-stagger tick, never instant-death — so a
   trail/impact pool can't shove the bot into a hazard.

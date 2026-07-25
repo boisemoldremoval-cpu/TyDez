@@ -117,12 +117,10 @@ ANIM_FPS = {"player": 6, "player_walk": 11, "player_run": 15, "player_dash": 18,
             "player_crouchfire": 10, "player_crouchshoot": 12,
             "player_runfire": 15, "player_walkfire": 11,
             "player_rundownfire": 15, "player_walkdownfire": 11,
-            "player_dashfire": 18,
-            # Micro Mold clips (video-cut, cycled like Ty's)
-            "micromold": 7, "micromold_walk": 13, "micromold_run": 15,
-            "micromold_jump": 10, "micromold_fall": 10, "micromold_land": 14,
-            "micromold_turn": 12, "micromold_hop": 10, "micromold_attack": 14,
-            "micromold_hurt": 12, "micromold_stun": 8, "micromold_splat": 12}
+            "player_dashfire": 18}
+# NOTE: animated ENEMY clip rates are not listed here — they come from
+# ANIM_STATE_FPS (per-state defaults), so any new animated character is covered
+# automatically. See the Animated-character framework below.
 DUCK_RATIO = 0.74       # a ducked pose renders this fraction of standing height
 BOSS_H = 1.34           # boss sprite height as a multiple of its collision height
 
@@ -564,10 +562,38 @@ ENEMY_ASSET = {
     "corruptcyst": "corruptcyst",
 }
 
+# ---- Animated-character framework -----------------------------------------
 # Enemies with FULL multi-frame animation clips (cut from video, cycled by
 # Enemy.draw the same way Ty's clips are) rather than a single pose per state.
-# The Micro Mold uses its video move-set so its swarms flow naturally everywhere.
-ANIMATED_ENEMIES = ("micromold",)
+#
+# Everything about an animated character is DATA-DRIVEN by ANIMATED_CFG, so a
+# NEW character works on EVERY level with zero code changes: cut its clips
+# (<kind>_<state>_0..N via a cut_*.py), add an ANIMATED_CFG entry, register the
+# kind in ENEMY_ASSET, and place `Enemy("<kind>", x, y)` anywhere in build_level.
+# The shared Enemy.update ground-mob AI (walk / run-in / hop / turn / spore
+# burst) and the shared Enemy.draw state machine (idle/walk/run/jump/fall/land/
+# turn/hop/attack/hurt/stun/death-splat) then drive its animations automatically.
+#
+# Per-kind config keys:
+#   w,h,hp,dmg   collision box + health + contact damage
+#   walk,run     ground speeds (px/s); run plays when Ty is farther than `far`
+#   far          distance beyond which the character RUNS to close in
+#   hop_v        hop launch speed (0 = never hops; grounded characters only)
+#   hop_cd       (min,max) seconds between hops
+#   atk          None, or dict(rng=(near,far), cd=(min,max), spd, dmg) spore burst
+ANIMATED_CFG = {
+    "micromold": dict(w=28, h=26, hp=2, dmg=3, walk=120, run=172, far=340,
+                      hop_v=285, hop_cd=(1.2, 2.6),
+                      atk=dict(rng=(44, 240), cd=(2.8, 4.4), spd=155, dmg=2)),
+}
+ANIMATED_ENEMIES = tuple(ANIMATED_CFG)
+
+# Default cycle rate per animation STATE (by clip suffix) for any animated
+# character, so a new one animates at sensible speeds with no bespoke ANIM_FPS
+# entries. "" is the bare idle clip (<kind>_0..N).
+ANIM_STATE_FPS = {"": 7, "walk": 13, "run": 15, "jump": 10, "fall": 10,
+                  "land": 14, "turn": 12, "hop": 10, "attack": 14,
+                  "hurt": 12, "stun": 8, "splat": 12}
 
 # Ground-hugging crawlers that are armoured on top: standing fire pings off, you
 # must CROUCH to shoot them out. Kept to single-placed low enemies (never the
@@ -650,9 +676,10 @@ class Enemy:
         elif kind == "roofleech":     # V4C2 — ceiling, drips down
             self.w, self.h, self.hp = 34, 30, 4
             self.dmg = 4
-        elif kind == "micromold":     # Micro Mold — common swarm unit (spore burst)
-            self.w, self.h, self.hp = 28, 26, 2
-            self.dmg = 3
+        elif kind in ANIMATED_CFG:    # animated characters — stats from config
+            c = ANIMATED_CFG[kind]
+            self.w, self.h, self.hp = c["w"], c["h"], c["hp"]
+            self.dmg = c["dmg"]
         elif kind == "sporedrifter":  # Spore Drifter — floating spore-shooter
             self.w, self.h, self.hp = 40, 40, 4
             self.dmg = 3
@@ -737,13 +764,16 @@ class Enemy:
             # patrol turn-around on level edges / simple bounds
             if self.x < 60 or self.x > LEVEL_W - 100:
                 self.vx *= -1
-        elif self.kind == "micromold":
-            # Micro Mold — the common swarm mold, now running its full video
-            # move-set. It crawls toward Ty (WALK), HOPS every so often (its
-            # natural gait for a round mold: JUMP -> apex HOP -> FALL -> LAND
-            # squash), swings a TURN-AROUND when Ty crosses to its other side,
-            # and coughs a short spore burst (BASIC ATTACK). No pounce — a leap
-            # into a spike lane could shove Ty, so its hop stays low and vertical.
+        elif self.kind in ANIMATED_CFG:
+            # SHARED ground-mob AI for every animated character (data-driven by
+            # ANIMATED_CFG): it crawls toward Ty (WALK), RUNS in the run clip to
+            # close a big gap, HOPS on a timer (JUMP -> apex HOP -> FALL -> LAND
+            # squash), swings a TURN-AROUND when Ty crosses to its other side, and
+            # coughs a short spore burst (BASIC ATTACK). No pounce — a leap into a
+            # spike lane could shove Ty — and hops stay low/vertical and land back
+            # on the character's own ground lane, so it can't fall down a pit. This
+            # one branch animates ANY new animated character dropped into a level.
+            c = ANIMATED_CFG[self.kind]
             d = player.x - self.x
             face = 1 if d > 0 else -1
             ground = self.home_y
@@ -752,13 +782,13 @@ class Enemy:
                 self.face_prev = face
             self.turn_t = max(0.0, self.turn_t - dt)
             self.land_t = max(0.0, self.land_t - dt)
-            if not self.mm_air:                        # on the ground: maybe HOP
+            if c["hop_v"] and not self.mm_air:         # on the ground: maybe HOP
                 self.hop_cd -= dt
                 if self.hop_cd <= 0 and abs(d) < 540:
-                    self.hop_cd = random.uniform(1.2, 2.6)
-                    self.vy = -285.0
+                    self.hop_cd = random.uniform(*c["hop_cd"])
+                    self.vy = -float(c["hop_v"])
                     self.mm_air = True
-            else:                                      # airborne: arc + LAND
+            elif self.mm_air:                          # airborne: arc + LAND
                 self.vy += 1500 * dt
                 self.y += self.vy * dt
                 if self.y >= ground:
@@ -767,21 +797,26 @@ class Enemy:
                     self.vy = 0.0
                     self.land_t = 0.14
             # RUN to close the gap when Ty is far, WALK once it's on him — so the
-            # run clip (speed lines) actually plays as the swarm rushes in, and it
-            # settles to the walk cycle in melee range. Slows to a shuffle mid-turn.
-            far = abs(d) > 340 and not self.mm_air
-            base = 172 if far else 120
+            # run clip (speed lines) plays as it rushes in, then settles to the
+            # walk cycle in melee range. Slows to a shuffle mid-turn.
+            far = abs(d) > c["far"] and not self.mm_air
+            base = c["run"] if far else c["walk"]
             sp = base * (0.35 if self.turn_t > 0 else 1.0)
-            self.x += face * sp * dt
+            nx = self.x + face * sp * dt
+            self.x = max(20.0, min(LEVEL_W - self.w - 20.0, nx))   # stay on the map
             self.vx = face * sp
-            self.shoot_t -= dt                         # occasional short spore burst
-            if self.shoot_t <= 0 and 44 < abs(d) < 240 and not self.mm_air:
-                self.shoot_t = random.uniform(2.8, 4.4)
-                self.atk_anim = 0.34
-                mx = self.x + self.w / 2 + face * self.w * 0.45
-                my = self.y + self.h * 0.42
-                parts.spark(mx, my, C_MOLD, 6, 150)
-                shots.append(Shot(mx, my, face * 155, 2, -1, hostile=True))
+            atk = c["atk"]                             # occasional short spore burst
+            if atk and not self.mm_air:
+                self.shoot_t -= dt
+                lo, hi = atk["rng"]
+                if self.shoot_t <= 0 and lo < abs(d) < hi:
+                    self.shoot_t = random.uniform(*atk["cd"])
+                    self.atk_anim = 0.34
+                    mx = self.x + self.w / 2 + face * self.w * 0.45
+                    my = self.y + self.h * 0.42
+                    parts.spark(mx, my, C_MOLD, 6, 150)
+                    shots.append(Shot(mx, my, face * atk["spd"], atk["dmg"],
+                                      -1, hostile=True))
         elif self.kind in ("moldbat", "moldbat2", "ventstalker"):
             # circle the player, then dive-bomb (Mk II / Vent Stalker dive faster)
             d = player.x - self.x
@@ -1141,7 +1176,8 @@ class Enemy:
                 state = k
             seq = assets.anims.get(state) or has("_walk") or assets.anims.get(k)
             if seq:
-                fps = ANIM_FPS.get(state, 8)
+                suffix = state[len(k) + 1:] if state != k else ""
+                fps = ANIM_FPS.get(state) or ANIM_STATE_FPS.get(suffix, 8)
                 frame = seq[int(self.t * fps) % len(seq)]
                 draw_h = self.h * CHAR_H
                 feet = y + self.h
@@ -3719,7 +3755,7 @@ class Game:
                             self.snd.play("kill")
                             self._split(e, charged=(sh.level >= 2))
                             self._maybe_drop(e)
-                        elif e.kind == "micromold" and sh.level >= 2:
+                        elif e.kind in ANIMATED_ENEMIES and sh.level >= 2:
                             e.stun_t = max(e.stun_t, 0.5)      # charged bolt stuns it
                             self.parts.spark(e.x + e.w / 2, e.y, C_SUN, 8, 220)
                         sh.dead = True
