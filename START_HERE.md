@@ -293,6 +293,14 @@ conventions the game already relies on, and the `--selftest` bot depends on them
   auto-load; extra poses (`_dash` / `_stun` / `_ceiling` / `_split`) are chosen in
   `Enemy.draw`. Register the kind in `ASSET_NAMES` + `ENEMY_ASSET`, give it stats
   in `Enemy.__init__`, and add its behaviour branch in `Enemy.update`.
+- **Fully-animated enemy** (like the **Micro Mold**): cut FRAME SEQUENCES with
+  `cut_micromold.py` (`<kind>_0..N` idle, `<kind>_run_0..N`, `<kind>_attack_0..N`,
+  `<kind>_hurt_0..N`) — feet-aligned on one canvas exactly like Ty's clips — and
+  add the kind to `ANIMATED_ENEMIES`. `AssetPack` cycles them at one shared scale
+  (`enemy_ref` = the idle canvas) and `Enemy.draw` plays the sequence for the
+  current state, so a whole swarm flows like real motion instead of a 2-pose
+  toggle. Add per-state rates to `ANIM_FPS`. Editing placements isn't needed —
+  every existing spawn of that kind picks up the animation automatically.
 - **Environment behaviours must stay bot-safe:** damage over floors uses the acid
   pool (`self.acids`) — a gentle non-stagger tick, never instant-death — so a
   trail/impact pool can't shove the bot into a hazard. A **ceiling-hang** enemy

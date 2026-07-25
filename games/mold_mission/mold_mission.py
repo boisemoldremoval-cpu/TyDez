@@ -117,7 +117,10 @@ ANIM_FPS = {"player": 6, "player_walk": 11, "player_run": 15, "player_dash": 18,
             "player_crouchfire": 10, "player_crouchshoot": 12,
             "player_runfire": 15, "player_walkfire": 11,
             "player_rundownfire": 15, "player_walkdownfire": 11,
-            "player_dashfire": 18}
+            "player_dashfire": 18,
+            # Micro Mold clips (video-cut, cycled like Ty's)
+            "micromold": 6, "micromold_run": 11, "micromold_attack": 14,
+            "micromold_hurt": 12}
 DUCK_RATIO = 0.74       # a ducked pose renders this fraction of standing height
 BOSS_H = 1.34           # boss sprite height as a multiple of its collision height
 
@@ -342,6 +345,34 @@ class AssetPack:
         idle = self.anims.get("player")
         if idle:
             self.anim_ref = self.imgs[idle[0]].get_height()
+        # multi-frame ENEMY animations (same machinery as Ty): a video-cut enemy
+        # like the Micro Mold ships flowing frame SEQUENCES — <kind>_0..N (idle),
+        # <kind>_run_0..N (walk), <kind>_attack_0..N, <kind>_hurt_0..N — so its
+        # movement reads as real motion, not a two-pose toggle. Each animated kind
+        # keeps ONE shared reference height (its idle canvas) so it holds a steady
+        # on-screen size across every state (see enemy_ref / Enemy.draw).
+        self.enemy_ref = {}
+        for kind in ANIMATED_ENEMIES:
+            for p in sorted(glob.glob(os.path.join(folder, kind + "_*.png"))):
+                key = os.path.basename(p)[:-4]
+                mo = re.match(rf"({kind}(?:_[a-z]+)*)_(\d+)$", key)
+                if not mo:
+                    continue
+                try:
+                    surf = pygame.image.load(p).convert_alpha()
+                except Exception:
+                    continue
+                self.imgs[key] = surf
+                self.anims.setdefault(mo.group(1), []).append(
+                    (int(mo.group(2)), key))
+            # also fold in the plain idle frames saved as <kind>_0.png (they match
+            # the pattern above with an empty state suffix -> group == kind)
+            for k in list(self.anims):
+                if k == kind or k.startswith(kind + "_"):
+                    self.anims[k] = [key for _, key in sorted(self.anims[k])]
+            base = self.anims.get(kind)
+            if base:
+                self.enemy_ref[kind] = self.imgs[base[0]].get_height()
 
     def _load(self, key):
         """Load <key>.png, or transparently reassemble it from byte-parts
@@ -536,6 +567,11 @@ ENEMY_ASSET = {
     "fungusbrute": "fungusbrute", "sporeturret": "sporeturret",
     "corruptcyst": "corruptcyst", "sporemold": "sporemold",
 }
+
+# Enemies with FULL multi-frame animation clips (cut from video, cycled by
+# Enemy.draw the same way Ty's clips are) rather than a single pose per state.
+# The Micro Mold uses its video move-set so its swarms flow naturally everywhere.
+ANIMATED_ENEMIES = ("micromold",)
 
 # Ground-hugging crawlers that are armoured on top: standing fire pings off, you
 # must CROUCH to shoot them out. Kept to single-placed low enemies (never the
@@ -1117,6 +1153,32 @@ class Enemy:
                 want = "sporemold_dash"
             elif self.splitting > 0 and assets.has("sporemold_split"):
                 want = "sporemold_split"
+        # Animated enemies (the Micro Mold): cycle the video-cut frame SEQUENCE for
+        # the current state at ONE shared scale (its idle canvas), so a whole swarm
+        # flows like real motion — idle breathe, walk cycle, spore-burst attack,
+        # hurt recoil — instead of a two-pose toggle. The feet-aligned frames carry
+        # their own body-bob, so this path skips the generic step-bob.
+        if self.kind in ANIMATED_ENEMIES and assets.enemy_ref.get(self.kind):
+            k = self.kind
+            if self.hit > 0 and assets.anims.get(k + "_hurt"):
+                state = k + "_hurt"
+            elif getattr(self, "atk_anim", 0.0) > 0 and assets.anims.get(k + "_attack"):
+                state = k + "_attack"
+            elif abs(self.vx) > 8 and assets.anims.get(k + "_run"):
+                state = k + "_run"
+            else:
+                state = k
+            seq = assets.anims.get(state) or assets.anims.get(k)
+            if seq:
+                fps = ANIM_FPS.get(state, 8)
+                frame = seq[int(self.t * fps) % len(seq)]
+                breath = 1.0 + 0.04 * math.sin(self.t * 3.2 + self.x * 0.01)
+                if self.hit > 0:
+                    breath *= 0.9
+                assets.blit_char(s, frame, cx, y + self.h, self.h * CHAR_H,
+                                 flip=self.vx < 0, squash=breath,
+                                 ref_h=assets.enemy_ref[k])
+                return
         # apply the motion bob to EVERY draw path (sprite or vector) so a moving
         # character always reads as moving, even without dedicated animation art
         y += bob
@@ -3392,7 +3454,12 @@ class Game:
         # the visible sprite (see Enemy.rect)
         for e in self.enemies:
             key = ENEMY_ASSET.get(e.kind)
-            if key and self.assets.has(key):
+            if e.kind in ANIMATED_ENEMIES and self.assets.anims.get(e.kind):
+                # animated enemy: track the idle clip's aspect (its base scale)
+                fk = self.assets.anims[e.kind][0]
+                aw, ah = self.assets.imgs[fk].get_size()
+                e.sprite_aspect = aw / ah
+            elif key and self.assets.has(key):
                 aw, ah = self.assets.imgs[key].get_size()
                 e.sprite_aspect = aw / ah
         self.bg = self._make_bg(self.mission)
