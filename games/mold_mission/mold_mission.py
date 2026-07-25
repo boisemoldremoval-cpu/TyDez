@@ -255,12 +255,6 @@ ASSET_NAMES = ("player", "player_run", "player_jump", "player_fall",
                "player_crouch_jump",
                "micromold", "sporedrifter",
                "sporedrifter_charge", "sporedrifter_enraged",
-               # Spore Mold elite — full video move-set (locomotion + attacks +
-               # environment): idle / run / attack / dash / charge / hurt / stun
-               # / enraged / split / ceiling-hang
-               "sporemold", "sporemold_run", "sporemold_attack", "sporemold_dash",
-               "sporemold_charge", "sporemold_hurt", "sporemold_stun",
-               "sporemold_enraged", "sporemold_split", "sporemold_ceiling",
                "toxicslime", "toxicslime_enraged",
                "moldcrawler_enraged",
                "fungusbrute", "fungusbrute_enraged",
@@ -567,7 +561,7 @@ ENEMY_ASSET = {
     "mycelium": "mycelium", "micromold": "micromold",
     "sporedrifter": "sporedrifter", "toxicslime": "toxicslime",
     "fungusbrute": "fungusbrute", "sporeturret": "sporeturret",
-    "corruptcyst": "corruptcyst", "sporemold": "sporemold",
+    "corruptcyst": "corruptcyst",
 }
 
 # Enemies with FULL multi-frame animation clips (cut from video, cycled by
@@ -674,12 +668,6 @@ class Enemy:
         elif kind == "corruptcyst":   # Corrupt Cyst — slow blob, bursts on death
             self.w, self.h, self.hp = 42, 38, 5
             self.dmg = 4
-        elif kind == "sporemold":     # Spore Mold — spiky elite with the full
-            self.w, self.h, self.hp = 48, 44, 12    # move-set: dash, big spore,
-            self.dmg = 5                             # enrage, corrode, ceiling-drop,
-            self.ceiling = y < 240                   # split. Placed high = hangs.
-            if self.ceiling:
-                self.home_y = float(y)
         elif kind == "moldmite":      # V4C2 — tiny swarm unit
             self.w, self.h, self.hp = 20, 18, 1
             self.dmg = 2
@@ -1058,84 +1046,6 @@ class Enemy:
                 sh = Shot(cx, cy, tx / dist * spd, 4, -1, hostile=True)
                 sh.vy = ty / dist * spd
                 shots.append(sh)
-        elif self.kind == "sporemold":
-            # Spore Mold — the spiky elite. It stalks Ty on the ground and cycles
-            # its whole video move-set: a telegraphed DASH ATTACK (rears back on
-            # the CHARGE/growing pose, then rams on the DASH pose), a ranged BIG
-            # SPORE SHOT lobbed from mid-distance, and once wounded it ENRAGES —
-            # quicker, firing a spore spread, and CORRODING the floor it crosses
-            # (an acid trail; see Toxic Slime). Placed up high it CEILING-HANGS
-            # and drops when Ty walks underneath, splatting a corrosive pool on
-            # impact (SPORE ON IMPACT). A CHARGED buster bolt briefly STUNS it,
-            # and an uncharged kill lets it SPLIT into two smaller molds.
-            self.enraged = self.hp <= 5
-            d = player.x - self.x
-            face = 1 if d > 0 else -1
-            if self.ceiling:                          # clinging up top, waiting
-                self.vx = 0
-                if abs(d) < 70 and not player.dead:   # Ty underneath -> let go
-                    self.ceiling = False
-                    self.dropping = True
-                    self.vy = 40.0
-            elif self.dropping:                       # ceiling drop
-                self.vy += GRAVITY * dt
-                self.y += self.vy * dt
-                self.vx = 0
-                if self.y + self.h >= GROUND_Y:
-                    self.y = GROUND_Y - self.h
-                    self.dropping = False
-                    self.atk_anim = 0.4
-                    if acids is not None:             # spore-on-impact corrosion
-                        acids.append([self.x + self.w / 2, GROUND_Y - 4,
-                                      22, 2.0, 2.0])
-            else:
-                self.lunge_cd = max(0.0, self.lunge_cd - dt)
-                sp = 96 if self.enraged else 62
-                if self.enraged and acids is not None:    # corrode the floor
-                    self.drip_t = getattr(self, "drip_t", 0.9) - dt
-                    if self.drip_t <= 0:
-                        self.drip_t = random.uniform(0.8, 1.3)
-                        acids.append([self.x + self.w / 2, self.y + self.h - 2,
-                                      16, 1.8, 1.8])
-                if self.windup > 0:                   # DASH telegraph — rear back
-                    self.windup -= dt
-                    self.x -= face * 42 * dt
-                    self.vx = 0
-                    self.spore_wind = max(self.windup, 0.01)   # show charge pose
-                    if self.windup <= 0:
-                        self.lunge_vx = face * (560 if self.enraged else 450)
-                        self.lunging = 0.34
-                        self.atk_anim = 0.5
-                        self.spore_wind = 0.0
-                elif self.lunging > 0:                # the DASH itself (rams Ty)
-                    self.lunging -= dt
-                    self.x += self.lunge_vx * dt
-                    self.vx = self.lunge_vx
-                else:
-                    self.shoot_t -= dt
-                    if self.lunge_cd <= 0 and abs(d) < 155:    # close -> dash
-                        self.windup = 0.34
-                        self.lunge_cd = random.uniform(2.4, 3.8)
-                        self.vx = 0
-                    elif self.shoot_t <= 0 and 150 < abs(d) < 470:  # BIG SPORE
-                        self.shoot_t = random.uniform(1.6, 2.4) if self.enraged \
-                            else random.uniform(2.6, 3.8)
-                        self.atk_anim = 0.4
-                        mx = self.x + self.w / 2 + face * self.w * 0.5
-                        my = self.y + self.h * 0.4
-                        big = Shot(mx, my, face * 205, 5, -1, hostile=True)
-                        big.vy = -70
-                        big.grav = 320
-                        shots.append(big)
-                        if self.enraged:              # spore-burst spread
-                            for dv in (face * 110, face * 300):
-                                g2 = Shot(mx, my, dv, 5, -1, hostile=True)
-                                g2.vy = -150
-                                g2.grav = 320
-                                shots.append(g2)
-                    else:                             # stalk toward Ty
-                        self.x += face * sp * dt
-                        self.vx = face * sp
         else:  # toxicsprayer shoots
             self.shoot_t -= dt
             if self.shoot_t <= 0 and abs(player.x - self.x) < 520:
@@ -1164,7 +1074,7 @@ class Enemy:
         # look once wounded, and shows a CHARGE pose while winding up a shot.
         base = asset
         if self.kind in ("sporedrifter", "toxicslime", "moldcrawler",
-                         "fungusbrute", "sporemold") \
+                         "fungusbrute") \
                 and getattr(self, "enraged", False) \
                 and assets.has(asset + "_enraged"):
             base = asset + "_enraged"
@@ -1186,18 +1096,6 @@ class Enemy:
             bob = -abs(math.sin(self.t * 9)) * 3.0
         else:
             bob = math.sin(self.t * 3) * 1.5      # gentle idle breathing
-        # Spore Mold special poses take precedence over the generic state pick:
-        # dizzy STUN, upside-down CEILING hang, the DASH streak-pose mid-ram, and
-        # the pinching SPLIT pose just after it spawns.
-        if self.kind == "sporemold":
-            if self.stun_t > 0 and assets.has("sporemold_stun"):
-                want = "sporemold_stun"; bob = 0.0
-            elif (self.ceiling or self.dropping) and assets.has("sporemold_ceiling"):
-                want = "sporemold_ceiling"; bob = 0.0
-            elif self.lunging > 0 and assets.has("sporemold_dash"):
-                want = "sporemold_dash"
-            elif self.splitting > 0 and assets.has("sporemold_split"):
-                want = "sporemold_split"
         # Animated enemies (the Micro Mold): cycle the video-cut frame SEQUENCE for
         # the current state at ONE shared scale (its idle canvas), so a whole swarm
         # flows like real motion — idle breathe, walk cycle, spore-burst attack,
@@ -3282,10 +3180,6 @@ def build_level(mission=1):
             Enemy("creeper", 1850, GROUND_Y - 28),
             Enemy("roofleech", 2100, 120),
             Enemy("moldmite", 2300, GROUND_Y - 18), Enemy("moldmite", 2324, GROUND_Y - 18),
-            # Spore Mold elite: one stalking the ground, one hung from the rafters
-            # (drops on Ty when he passes underneath) — clear of the pits/spikes.
-            Enemy("sporemold", 600, GROUND_Y - 44),
-            Enemy("sporemold", 980, 150),
         ]
         hazards += [Hazard(x, GROUND_Y, "updraft", h=260) for x in (700, 1250, 1750, 2250)]
     elif mission == 4:  # Level 4 — Crawlspace: piers/beams, standing water
@@ -3320,9 +3214,6 @@ def build_level(mission=1):
             Enemy("ventstalker", 1950, 210),
             Enemy("cultureswarm", 2180, 300),
             Enemy("reactorspore", 2360, GROUND_Y - 44),
-            # Spore Mold elite reinforcement on the lab floor (clear of the pit at
-            # 1600 and the spike at 1340).
-            Enemy("sporemold", 1250, GROUND_Y - 44),
         ]
     # Micro Mold — a common swarm enemy scattered across every level (weak alone,
     # dangerous in numbers). Spawn small clusters on clear ground away from the
@@ -3821,9 +3712,8 @@ class Game:
                             self.snd.play("kill")
                             self._split(e, charged=(sh.level >= 2))
                             self._maybe_drop(e)
-                        elif e.kind in ("sporemold", "micromold") and sh.level >= 2:
-                            e.stun_t = max(e.stun_t,           # charged bolt stuns it
-                                           0.7 if e.kind == "sporemold" else 0.5)
+                        elif e.kind == "micromold" and sh.level >= 2:
+                            e.stun_t = max(e.stun_t, 0.5)      # charged bolt stuns it
                             self.parts.spark(e.x + e.w / 2, e.y, C_SUN, 8, 220)
                         sh.dead = True
                         break
@@ -4071,12 +3961,9 @@ class Game:
                 self._new_shots.append(sh)
             self.acids.append([cx, GROUND_Y - 4, 20, 2.2, 2.2])
             self.shake = max(self.shake, 6)
-        # Swarms / Centipede / Spore Mold split unless killed by a charged hit.
-        # The Spore Mold splits just ONE level (into a pair of small molds), so a
-        # charged buster bolt is the clean way to finish it before it multiplies.
-        maxgen = 1 if e.kind == "sporemold" else 2
-        if e.kind not in ("ventswarm", "centipede", "cultureswarm", "sporemold") \
-                or charged or e.gen >= maxgen:
+        # Swarms / Centipede split unless killed by a charged hit
+        if e.kind not in ("ventswarm", "centipede", "cultureswarm") \
+                or charged or e.gen >= 2:
             return
         for d in (-1, 1):
             child = Enemy(e.kind, e.x + d * 24, e.y)
