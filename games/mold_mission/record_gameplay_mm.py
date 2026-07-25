@@ -23,9 +23,9 @@ w = imageio.get_writer(OUT, fps=30, codec="libx264", quality=8, macro_block_size
 
 st = {}
 frame = 0
-# play until the boss is reached (keeps the clip to the level run where the
-# Micro Mold swarms live), capped so it never runs away.
-for i in range(2600):
+# full Mission 1 gameplay: the level run (where the Micro Mold swarms live)
+# straight through the boss fight to the win, then a short victory beat.
+for i in range(6000):
     keys = M._bot_keys(g, st, i)
     g.update(1 / M.FPS, keys)
     g.draw(i / M.FPS)
@@ -33,7 +33,12 @@ for i in range(2600):
         arr = pygame.surfarray.array3d(screen)
         w.append_data(np.transpose(arr, (1, 0, 2)))
         frame += 1
-    if g.boss is not None:             # stop once the level is cleared to the boss
+    if g.state == M.STATE_WIN:
+        for j in range(60):            # linger on the win screen ~2s
+            g.draw((i + j) / M.FPS)
+            if j % 2 == 0:
+                w.append_data(np.transpose(pygame.surfarray.array3d(screen), (1, 0, 2)))
+                frame += 1
         break
 
 w.close()
