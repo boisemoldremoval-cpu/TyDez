@@ -294,13 +294,21 @@ conventions the game already relies on, and the `--selftest` bot depends on them
   `Enemy.draw`. Register the kind in `ASSET_NAMES` + `ENEMY_ASSET`, give it stats
   in `Enemy.__init__`, and add its behaviour branch in `Enemy.update`.
 - **Fully-animated enemy** (like the **Micro Mold**): cut FRAME SEQUENCES with
-  `cut_micromold.py` (`<kind>_0..N` idle, `<kind>_run_0..N`, `<kind>_attack_0..N`,
-  `<kind>_hurt_0..N`) — feet-aligned on one canvas exactly like Ty's clips — and
-  add the kind to `ANIMATED_ENEMIES`. `AssetPack` cycles them at one shared scale
-  (`enemy_ref` = the idle canvas) and `Enemy.draw` plays the sequence for the
-  current state, so a whole swarm flows like real motion instead of a 2-pose
-  toggle. Add per-state rates to `ANIM_FPS`. Editing placements isn't needed —
-  every existing spawn of that kind picks up the animation automatically.
+  `cut_micromold.py` — feet-aligned on one canvas exactly like Ty's clips — for
+  the WHOLE move-set: idle / walk / run / jump / fall / land / turn / hop /
+  attack / hurt / stun / splat (`<kind>_<state>_0..N`; bare `<kind>_0..N` is
+  idle). Caption bleed ("JUMP"/"FALL") is stripped by dropping near-white pixels
+  and a `crop_top` band on the airborne clips. Add the kind to `ANIMATED_ENEMIES`;
+  `AssetPack` cycles the frames at one shared scale (`enemy_ref` = idle canvas)
+  and `Enemy.draw` runs a state machine (death-splat > stun > hurt > airborne >
+  land > turn > attack > walk > idle) with a synced hop-bounce + squash-stretch
+  on the ground crawl. Give every state a rate in `ANIM_FPS`.
+- Wire the **behaviour** so each clip actually plays: the Micro Mold's dedicated
+  `Enemy.update` branch adds real HOP physics (jump/fall/land), a TURN window on
+  facing flips, and a short spore-burst ATTACK; a charged bolt sets `stun_t`; and
+  death spawns a `death_fx` splat (played once via `_maybe_drop`). Keep swarm
+  impact gentle (low hop, tiny 2-dmg spore, capped) so `--selftest` stays green.
+  Editing placements isn't needed — every existing spawn animates automatically.
 - **Environment behaviours must stay bot-safe:** damage over floors uses the acid
   pool (`self.acids`) — a gentle non-stagger tick, never instant-death — so a
   trail/impact pool can't shove the bot into a hazard. A **ceiling-hang** enemy

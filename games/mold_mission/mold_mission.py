@@ -119,8 +119,10 @@ ANIM_FPS = {"player": 6, "player_walk": 11, "player_run": 15, "player_dash": 18,
             "player_rundownfire": 15, "player_walkdownfire": 11,
             "player_dashfire": 18,
             # Micro Mold clips (video-cut, cycled like Ty's)
-            "micromold": 7, "micromold_run": 13, "micromold_attack": 14,
-            "micromold_hurt": 12}
+            "micromold": 7, "micromold_walk": 13, "micromold_run": 15,
+            "micromold_jump": 10, "micromold_fall": 10, "micromold_land": 14,
+            "micromold_turn": 12, "micromold_hop": 10, "micromold_attack": 14,
+            "micromold_hurt": 12, "micromold_stun": 8, "micromold_splat": 12}
 DUCK_RATIO = 0.74       # a ducked pose renders this fraction of standing height
 BOSS_H = 1.34           # boss sprite height as a multiple of its collision height
 
@@ -621,6 +623,13 @@ class Enemy:
         self.ceiling = False          # Spore Mold: clinging upside-down up top
         self.dropping = False         # Spore Mold: mid ceiling-drop
         self.vy = 0.0                 # Spore Mold: vertical velocity while dropping
+        # Micro Mold full move-set state (hop physics, turn, land, death splat)
+        self.mm_air = False           # airborne during a hop
+        self.hop_cd = random.uniform(0.6, 1.8)
+        self.turn_t = 0.0             # turn-around pose window
+        self.land_t = 0.0             # touchdown squash window
+        self.death_t = 0.0            # death-splat play-out (kept only for FX timing)
+        self.face_prev = 1
         if kind == "sporebot":
             self.w, self.h, self.hp = 40, 40, 4
             self.vx = -70
@@ -740,6 +749,46 @@ class Enemy:
             # patrol turn-around on level edges / simple bounds
             if self.x < 60 or self.x > LEVEL_W - 100:
                 self.vx *= -1
+        elif self.kind == "micromold":
+            # Micro Mold — the common swarm mold, now running its full video
+            # move-set. It crawls toward Ty (WALK), HOPS every so often (its
+            # natural gait for a round mold: JUMP -> apex HOP -> FALL -> LAND
+            # squash), swings a TURN-AROUND when Ty crosses to its other side,
+            # and coughs a short spore burst (BASIC ATTACK). No pounce — a leap
+            # into a spike lane could shove Ty, so its hop stays low and vertical.
+            d = player.x - self.x
+            face = 1 if d > 0 else -1
+            ground = self.home_y
+            if face != self.face_prev:                 # reversed facing -> TURN
+                self.turn_t = 0.20
+                self.face_prev = face
+            self.turn_t = max(0.0, self.turn_t - dt)
+            self.land_t = max(0.0, self.land_t - dt)
+            if not self.mm_air:                        # on the ground: maybe HOP
+                self.hop_cd -= dt
+                if self.hop_cd <= 0 and abs(d) < 540:
+                    self.hop_cd = random.uniform(1.2, 2.6)
+                    self.vy = -285.0
+                    self.mm_air = True
+            else:                                      # airborne: arc + LAND
+                self.vy += 1500 * dt
+                self.y += self.vy * dt
+                if self.y >= ground:
+                    self.y = ground
+                    self.mm_air = False
+                    self.vy = 0.0
+                    self.land_t = 0.14
+            sp = 120 * (0.35 if self.turn_t > 0 else 1.0)   # slow through the turn
+            self.x += face * sp * dt
+            self.vx = face * sp
+            self.shoot_t -= dt                         # occasional short spore burst
+            if self.shoot_t <= 0 and 44 < abs(d) < 240 and not self.mm_air:
+                self.shoot_t = random.uniform(2.8, 4.4)
+                self.atk_anim = 0.34
+                mx = self.x + self.w / 2 + face * self.w * 0.45
+                my = self.y + self.h * 0.42
+                parts.spark(mx, my, C_MOLD, 6, 150)
+                shots.append(Shot(mx, my, face * 155, 2, -1, hostile=True))
         elif self.kind in ("moldbat", "moldbat2", "ventstalker"):
             # circle the player, then dive-bomb (Mk II / Vent Stalker dive faster)
             d = player.x - self.x
@@ -757,14 +806,13 @@ class Enemy:
                 self.y += (self.home_y + math.sin(self.t * 3) * 26 - self.y) \
                     * min(1.0, dt * 3)
         elif self.kind in ("moldcrawler", "steammite", "moldmite", "mudstalker",
-                            "centipede", "sporeworm", "sentinel", "creeper",
-                            "micromold"):
+                            "centipede", "sporeworm", "sentinel", "creeper"):
             # ground stalkers: chase, telegraph (rear back), then pounce
             d = player.x - self.x
             face = 1 if d > 0 else -1
             sp = {"moldcrawler": 105, "steammite": 165, "moldmite": 190,
                   "mudstalker": 90, "centipede": 85, "sporeworm": 155,
-                  "sentinel": 55, "creeper": 45, "micromold": 120}[self.kind]
+                  "sentinel": 55, "creeper": 45}[self.kind]
             # the Mold Crawler is a fast skitterer that goes INFECTED (enraged,
             # even quicker) once wounded
             if self.kind == "moldcrawler":
@@ -796,9 +844,6 @@ class Enemy:
                     blob.vy = -300
                     blob.grav = 900
                     shots.append(blob)
-            elif self.kind == "micromold":              # common swarm: steady crawl,
-                self.x += face * sp * dt                 # no pounce (a lunge could leap
-                self.vx = face * sp                      # into a spike lane and shove Ty)
             elif self.lunge_cd <= 0 and abs(d) < 150:   # in range -> wind up
                 self.windup = 0.30
                 self.lunge_cd = random.uniform(2.2, 3.6)
@@ -1160,15 +1205,36 @@ class Enemy:
         # their own body-bob, so this path skips the generic step-bob.
         if self.kind in ANIMATED_ENEMIES and assets.enemy_ref.get(self.kind):
             k = self.kind
-            if self.hit > 0 and assets.anims.get(k + "_hurt"):
+
+            def has(st):
+                return assets.anims.get(k + st)
+            air = getattr(self, "mm_air", False)
+            # full state machine, most-specific first: death splat > stun > hurt >
+            # airborne (rise/apex/fall) > land squash > turn-around > attack burst >
+            # ground crawl > idle. Each falls back to the walk/idle clip if missing.
+            if getattr(self, "death_t", 0.0) > 0 and has("_splat"):
+                state = k + "_splat"
+            elif self.stun_t > 0 and has("_stun"):
+                state = k + "_stun"
+            elif self.hit > 0 and has("_hurt"):
                 state = k + "_hurt"
-            elif getattr(self, "atk_anim", 0.0) > 0 and assets.anims.get(k + "_attack"):
+            elif air and self.vy < -25 and has("_jump"):
+                state = k + "_jump"
+            elif air and self.vy > 25 and has("_fall"):
+                state = k + "_fall"
+            elif air and has("_hop"):
+                state = k + "_hop"
+            elif getattr(self, "land_t", 0.0) > 0 and has("_land"):
+                state = k + "_land"
+            elif getattr(self, "turn_t", 0.0) > 0 and has("_turn"):
+                state = k + "_turn"
+            elif getattr(self, "atk_anim", 0.0) > 0 and has("_attack"):
                 state = k + "_attack"
-            elif abs(self.vx) > 8 and assets.anims.get(k + "_run"):
-                state = k + "_run"
+            elif abs(self.vx) > 8 and has("_walk"):
+                state = k + "_walk"
             else:
                 state = k
-            seq = assets.anims.get(state) or assets.anims.get(k)
+            seq = assets.anims.get(state) or has("_walk") or assets.anims.get(k)
             if seq:
                 fps = ANIM_FPS.get(state, 8)
                 frame = seq[int(self.t * fps) % len(seq)]
@@ -1177,16 +1243,17 @@ class Enemy:
                 squash = 1.0 + 0.04 * math.sin(self.t * 3.2 + self.x * 0.01)
                 if self.hit > 0:
                     squash *= 0.9
-                # A round, spiky mold doesn't glide — it BOUNCES. When it's moving,
-                # add a hop synced to the walk cycle (two little hops per stride)
-                # with squash-and-stretch: stretched at the apex, squashed as it
-                # lands. That's what makes the crawl read as natural, springy
-                # motion rather than a sprite sliding along the floor.
-                if state == k + "_run" and abs(self.vx) > 8:
+                # A round, spiky mold doesn't glide — it BOUNCES. During the GROUND
+                # crawl (between real hops), add a small bob synced to the walk cycle
+                # with squash-and-stretch (stretched at the apex, squashed as it
+                # lands) so the crawl reads as springy motion, not a sprite sliding.
+                if state == k + "_walk" and abs(self.vx) > 8:
                     u = (self.t * fps / len(seq) * 2.0) % 1.0     # 2 hops / cycle
                     lift = math.sin(math.pi * u)                  # 0 -> 1 -> 0
-                    feet -= draw_h * 0.11 * lift                  # rise off the floor
-                    squash *= 1.0 + 0.08 * (lift - 0.5)           # stretch up, squash down
+                    feet -= draw_h * 0.07 * lift
+                    squash *= 1.0 + 0.06 * (lift - 0.5)
+                elif state == k + "_land":                        # touchdown splat
+                    squash *= 0.9
                 assets.blit_char(s, frame, cx, feet, draw_h,
                                  flip=self.vx < 0, squash=squash,
                                  ref_h=assets.enemy_ref[k])
@@ -3485,6 +3552,7 @@ class Game:
         self.shots = []
         self.pickups = []
         self.acids = []          # Toxic Slime acid pools: [x, y, r, life, maxlife]
+        self.death_fx = []       # Micro Mold death splats: [cx,feet,kind,asp,t,h,face]
         self.parts = Particles()
         self.boss = None
         self.cam = 0.0
@@ -3667,6 +3735,10 @@ class Game:
                                                    ar * 2, ar * 1.2, *p.rect()):
                 in_acid = True
         self.acids = [a for a in self.acids if a[3] > 0]
+        # age out Micro Mold death splats (index 4 = elapsed time)
+        for fx in self.death_fx:
+            fx[4] += dt
+        self.death_fx = [fx for fx in self.death_fx if fx[4] < 0.42]
         if in_acid and not p.dead:
             self.acid_tick = getattr(self, "acid_tick", 0.0) - dt
             if self.acid_tick <= 0:
@@ -3749,8 +3821,9 @@ class Game:
                             self.snd.play("kill")
                             self._split(e, charged=(sh.level >= 2))
                             self._maybe_drop(e)
-                        elif e.kind == "sporemold" and sh.level >= 2:
-                            e.stun_t = max(e.stun_t, 0.7)   # charged bolt stuns it
+                        elif e.kind in ("sporemold", "micromold") and sh.level >= 2:
+                            e.stun_t = max(e.stun_t,           # charged bolt stuns it
+                                           0.7 if e.kind == "sporemold" else 0.5)
                             self.parts.spark(e.x + e.w / 2, e.y, C_SUN, 8, 220)
                         sh.dead = True
                         break
@@ -3972,6 +4045,13 @@ class Game:
         self.snd.play("win")
 
     def _maybe_drop(self, e):
+        # a fully-animated enemy (Micro Mold) leaves a brief DEATH SPLAT where it
+        # died — its splat frames play out as a decoupled FX so the kill reads as a
+        # real death animation, not an instant pop-out.
+        if e.kind in ANIMATED_ENEMIES and self.assets.anims.get(e.kind + "_splat"):
+            self.death_fx.append([e.x + e.w / 2, e.y + e.h, e.kind,
+                                  e.sprite_aspect or 1.0, 0.0, e.h,
+                                  1 if e.vx >= 0 else -1])
         r = random.random()
         if r < 0.22:
             self.pickups.append(Pickup(e.x + e.w / 2, e.y, "health"))
@@ -4268,6 +4348,17 @@ class Game:
             wp.draw(s, cam, self.assets, t)
         for e in self.enemies:
             e.draw(s, cam, self.assets)
+        # Micro Mold DEATH SPLATS: play the splat clip ONCE where each one died
+        for fx in self.death_fx:
+            cxf, feet, kind, asp, tt, hh, face = fx
+            seq = self.assets.anims.get(kind + "_splat")
+            if not seq:
+                continue
+            prog = min(0.999, tt / 0.42)
+            frame = seq[min(len(seq) - 1, int(prog * len(seq)))]
+            self.assets.blit_char(s, frame, cxf - cam, feet, hh * CHAR_H,
+                                  flip=face < 0,
+                                  ref_h=self.assets.enemy_ref.get(kind))
         if self.boss:
             self.boss.draw(s, cam, self.assets)
         # MOLD-E companion drone hovers behind Ty; switches to ALERT near mold

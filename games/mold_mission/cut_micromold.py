@@ -33,11 +33,20 @@ OUT = "assets"
 # labelled section, trimmed off the transitions so the cycle loops cleanly.
 CLIPS = {
     "micromold":         ("V3",   8,  40, 5),   # IDLE (settle / breathe)
-    "micromold_run":     ("V3",  44,  58, 8),   # WALK cycle — a clean single loop
+    "micromold_walk":    ("V3",  44,  58, 8),   # WALK cycle — a clean single loop
     #                                             (44-58 only; 60+ carries a motion
     #                                             streak that flickers on repeat)
+    "micromold_run":     ("V3",  64,  80, 6),   # RUN (faster gait, speed lines)
+    "micromold_jump":    ("V3",  88,  98, 3, 150),  # JUMP — rising. crop_top=150 cuts
+    #                                                the caption band (creature is lower)
+    "micromold_fall":    ("V3", 124, 136, 3, 150),  # FALL — descending (same crop)
+    "micromold_land":    ("V3", 152, 170, 4),   # LAND — touchdown squash
+    "micromold_turn":    ("V3", 174, 190, 3),   # TURN AROUND (reverse facing)
+    "micromold_hop":     ("V3", 196, 210, 3),   # HOP — a little skip
     "micromold_attack":  ("V3", 216, 236, 4),   # BASIC ATTACK — spore burst
     "micromold_hurt":    ("V1", 170, 186, 3),   # HURT recoil
+    "micromold_stun":    ("V1", 196, 230, 3),   # STUNNED (dizzy stars)
+    "micromold_splat":   ("V1",  48,  74, 4),   # CONTACT SPLAT — used as DEATH splat
 }
 
 _cache = {}
@@ -65,6 +74,11 @@ def key(fr):
     cb = np.where(spill, np.minimum(cb, cg + 24), cb)
     mag = (cr > cg + 12) & (cb > cg + 3)
     mask = mask & ~mag
+    # drop near-WHITE pixels: those are the on-screen caption text ("JUMP" / "FALL")
+    # and sparkle FX, never the creature (its brightest bits are yellow eyes / gold
+    # spikes, all with a low blue channel), so this strips label bleed cleanly.
+    white = (cr > 205) & (cg > 205) & (cb > 205)
+    mask = mask & ~white
     lbl2, n2 = ndimage.label(mask)
     if n2 > 1:
         sizes2 = ndimage.sum(np.ones_like(lbl2), lbl2, range(1, n2 + 1))
@@ -82,12 +96,18 @@ def foot_x(mask):
 
 
 def build(name, spec):
-    v, a, b, k = spec
+    v, a, b, k = spec[:4]
+    crop_top = spec[4] if len(spec) > 4 else 0   # blank the caption band up top
     frs = frames_of(v)
     idxs = [int(round(a + (b - a) * i / (k - 1))) for i in range(k)] if k > 1 else [a]
     keyed = []
     for i in idxs:
-        rgba, mask = key(frs[i])
+        fr = frs[i]
+        if crop_top:
+            arr = np.array(fr.convert("RGB"))
+            arr[:crop_top] = (200, 40, 110)      # paint it the magenta stage colour
+            fr = Image.fromarray(arr)
+        rgba, mask = key(fr)
         if not mask.any():
             continue
         fx, by, ty, lx, rx = foot_x(mask)
