@@ -766,7 +766,12 @@ class Enemy:
                     self.mm_air = False
                     self.vy = 0.0
                     self.land_t = 0.14
-            sp = 120 * (0.35 if self.turn_t > 0 else 1.0)   # slow through the turn
+            # RUN to close the gap when Ty is far, WALK once it's on him — so the
+            # run clip (speed lines) actually plays as the swarm rushes in, and it
+            # settles to the walk cycle in melee range. Slows to a shuffle mid-turn.
+            far = abs(d) > 340 and not self.mm_air
+            base = 172 if far else 120
+            sp = base * (0.35 if self.turn_t > 0 else 1.0)
             self.x += face * sp * dt
             self.vx = face * sp
             self.shoot_t -= dt                         # occasional short spore burst
@@ -1128,6 +1133,8 @@ class Enemy:
                 state = k + "_turn"
             elif getattr(self, "atk_anim", 0.0) > 0 and has("_attack"):
                 state = k + "_attack"
+            elif abs(self.vx) > 150 and has("_run"):     # rushing in from afar
+                state = k + "_run"
             elif abs(self.vx) > 8 and has("_walk"):
                 state = k + "_walk"
             else:

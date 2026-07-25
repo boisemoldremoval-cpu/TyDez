@@ -51,6 +51,8 @@ def pose_of(e):
         return "TURN AROUND"
     if e.atk_anim > 0:
         return "SPORE BURST"
+    if abs(e.vx) > 150:
+        return "RUN (rushing in)"
     if abs(e.vx) > 8:
         return "WALK"
     return "IDLE"
@@ -92,8 +94,10 @@ def run(n, ty_at=None, keys=None, label=None):
             grab(label)
 
 
-# 1) Ty stands to the RIGHT -> the mold WALKS toward him, HOPS along the way
-run(230, ty_at=520)
+# 0) Ty stands FAR to the right -> the mold RUNS in (speed lines), then walks
+run(150, ty_at=760)
+# 1) Ty closer on the RIGHT -> the mold WALKS toward him, HOPS along the way
+run(150, ty_at=300)
 # 2) Ty jumps to the mold's LEFT -> it swings a TURN-AROUND, then walks left
 run(150, ty_at=-520)
 # 3) Ty steps into mid-range -> the mold coughs a SPORE BURST
