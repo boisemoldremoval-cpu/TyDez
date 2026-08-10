@@ -303,13 +303,18 @@ conventions the game already relies on, and the `--selftest` bot depends on them
   with **zero code changes**. Three steps:
   1. **Cut its clips** with a `cut_<kind>.py` (copy `cut_micromold.py`) — feet-
      aligned on one canvas like Ty's, for the move-set: idle / walk / run / jump /
-     fall / land / turn / hop / attack / hurt / stun / splat, named
-     `<kind>_<state>_0..N` (bare `<kind>_0..N` = idle). Caption bleed
-     ("JUMP"/"FALL") is stripped by dropping near-white pixels + a `crop_top` band
-     on the airborne clips.
-  2. **Add one `ANIMATED_CFG` entry** (`w,h,hp,dmg,walk,run,far,hop_v,hop_cd,atk`)
-     and register the kind in `ENEMY_ASSET`. `ANIMATED_ENEMIES` is derived from
-     `ANIMATED_CFG`, so that's automatic.
+     fall / land / turn / hop / attack / hurt / stun / splat, plus optional
+     `enraged` + `fade` (2nd death beat), named `<kind>_<state>_0..N` (bare
+     `<kind>_0..N` = idle). Multiple source videos are fine (add them to the `VID`
+     map and point clips at whichever). Caption bleed ("JUMP"/"FALL") is stripped
+     by dropping near-white pixels + a `crop_top` band on the airborne clips; big
+     effect auras/projectiles just make a wider/taller canvas — the shared
+     `enemy_ref` (idle) scale keeps the body the right size, effects extend past.
+  2. **Add one `ANIMATED_CFG` entry** (`w,h,hp,dmg,walk,run,far,hop_v,hop_cd,atk`,
+     optional `enrage_hp`) and register the kind in `ENEMY_ASSET`.
+     `ANIMATED_ENEMIES` is derived from `ANIMATED_CFG`, so that's automatic. With
+     `enrage_hp` set, the mob goes red-eyed + a bit faster at/below that HP and the
+     `_enraged` clip plays; a `_fade` clip makes death a splat→fade two-beat.
   3. **Place `Enemy("<kind>", x, y)`** anywhere in `build_level` — on the ground
      OR on a platform/ledge (it hops and lands on its own spawn lane = `home_y`,
      so it can't fall down a pit).

@@ -575,8 +575,8 @@ ENEMY_ASSET = {
 #   atk          None, or dict(rng=(near,far), cd=(min,max), spd, dmg) spore burst
 ANIMATED_CFG = {
     "micromold": dict(w=28, h=26, hp=2, dmg=3, walk=120, run=172, far=340,
-                      hop_v=285, hop_cd=(1.2, 2.6),
-                      atk=dict(rng=(44, 240), cd=(2.8, 4.4), spd=155, dmg=2)),
+                      hop_v=285, hop_cd=(1.2, 2.6), enrage_hp=1,
+                      atk=dict(rng=(44, 260), cd=(2.6, 4.2), spd=175, dmg=2)),
 }
 ANIMATED_ENEMIES = tuple(ANIMATED_CFG)
 
@@ -584,8 +584,8 @@ ANIMATED_ENEMIES = tuple(ANIMATED_CFG)
 # character, so a new one animates at sensible speeds with no bespoke ANIM_FPS
 # entries. "" is the bare idle clip (<kind>_0..N).
 ANIM_STATE_FPS = {"": 7, "walk": 13, "run": 15, "jump": 10, "fall": 10,
-                  "land": 14, "turn": 12, "hop": 10, "attack": 14,
-                  "hurt": 12, "stun": 8, "splat": 12}
+                  "land": 14, "turn": 12, "hop": 10, "attack": 13,
+                  "hurt": 12, "stun": 8, "splat": 12, "fade": 9, "enraged": 9}
 
 # Ground-hugging crawlers that are armoured on top: standing fire pings off, you
 # must CROUCH to shoot them out. Kept to single-placed low enemies (never the
@@ -766,6 +766,11 @@ class Enemy:
             # on the character's own ground lane, so it can't fall down a pit. This
             # one branch animates ANY new animated character dropped into a level.
             c = ANIMATED_CFG[self.kind]
+            # ENRAGED (rare): once wounded to its enrage threshold it goes red-eyed
+            # and pushes in a bit quicker (the enraged clip plays — see Enemy.draw).
+            eh = c.get("enrage_hp")
+            self.enraged = eh is not None and self.hp <= eh
+            rage = 1.22 if self.enraged else 1.0
             d = player.x - self.x
             face = 1 if d > 0 else -1
             ground = self.home_y
@@ -792,7 +797,7 @@ class Enemy:
             # run clip (speed lines) plays as it rushes in, then settles to the
             # walk cycle in melee range. Slows to a shuffle mid-turn.
             far = abs(d) > c["far"] and not self.mm_air
-            base = c["run"] if far else c["walk"]
+            base = (c["run"] if far else c["walk"]) * rage
             sp = base * (0.35 if self.turn_t > 0 else 1.0)
             nx = self.x + face * sp * dt
             self.x = max(20.0, min(LEVEL_W - self.w - 20.0, nx))   # stay on the map
@@ -1160,6 +1165,8 @@ class Enemy:
                 state = k + "_turn"
             elif getattr(self, "atk_anim", 0.0) > 0 and has("_attack"):
                 state = k + "_attack"
+            elif getattr(self, "enraged", False) and has("_enraged"):
+                state = k + "_enraged"                   # red-eyed rage aura
             elif abs(self.vx) > 150 and has("_run"):     # rushing in from afar
                 state = k + "_run"
             elif abs(self.vx) > 8 and has("_walk"):
@@ -3623,7 +3630,7 @@ class Game:
         # age out Micro Mold death splats (index 4 = elapsed time)
         for fx in self.death_fx:
             fx[4] += dt
-        self.death_fx = [fx for fx in self.death_fx if fx[4] < 0.42]
+        self.death_fx = [fx for fx in self.death_fx if fx[4] < 0.62]
         if in_acid and not p.dead:
             self.acid_tick = getattr(self, "acid_tick", 0.0) - dt
             if self.acid_tick <= 0:
@@ -4236,10 +4243,18 @@ class Game:
         # Micro Mold DEATH SPLATS: play the splat clip ONCE where each one died
         for fx in self.death_fx:
             cxf, feet, kind, asp, tt, hh, face = fx
-            seq = self.assets.anims.get(kind + "_splat")
+            # play the DEATH SPLAT (bursts into goo) then the DEATH FADE (the goo
+            # flattens and thins out), so a kill reads as a full two-beat death.
+            splat = self.assets.anims.get(kind + "_splat")
+            fade = self.assets.anims.get(kind + "_fade")
+            if tt < 0.28 or not fade:
+                seq = splat
+                prog = min(0.999, tt / 0.28)
+            else:
+                seq = fade
+                prog = min(0.999, (tt - 0.28) / 0.34)
             if not seq:
                 continue
-            prog = min(0.999, tt / 0.42)
             frame = seq[min(len(seq) - 1, int(prog * len(seq)))]
             self.assets.blit_char(s, frame, cxf - cam, feet, hh * CHAR_H,
                                   flip=face < 0,

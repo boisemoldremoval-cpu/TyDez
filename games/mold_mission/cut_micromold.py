@@ -26,11 +26,14 @@ VID = {
     "V1": "/root/.claude/uploads/bd9207a8-f98b-5cb2-b956-cc56d2cddccc/026df666-gemini_generated_video_A240F980.mp4",
     "V2": "/root/.claude/uploads/bd9207a8-f98b-5cb2-b956-cc56d2cddccc/3bf597a3-gemini_generated_video_B4188FEB.mp4",
     "V3": "/root/.claude/uploads/bd9207a8-f98b-5cb2-b956-cc56d2cddccc/dd1eca11-gemini_generated_video_554AEEF4.mp4",
+    # V4 — the Micro Mold's expanded sheet: idle/walk/run/fall/land, BIG SPORE
+    # SHOT, death splat + FADE, respawn, and ENRAGED (rare).
+    "V4": "/root/.claude/uploads/bd9207a8-f98b-5cb2-b956-cc56d2cddccc/62f8fd61-gemini_generated_video_46F958C3.mp4",
 }
 OUT = "assets"
 
-# state key -> (video, first_frame, last_frame, n_frames). Ranges sit inside each
-# labelled section, trimmed off the transitions so the cycle loops cleanly.
+# state key -> (video, first_frame, last_frame, n_frames[, crop_top]). Ranges sit
+# inside each labelled section, trimmed off the transitions so cycles loop cleanly.
 CLIPS = {
     "micromold":         ("V3",   8,  40, 5),   # IDLE (settle / breathe)
     "micromold_walk":    ("V3",  44,  58, 8),   # WALK cycle — a clean single loop
@@ -43,10 +46,12 @@ CLIPS = {
     "micromold_land":    ("V3", 152, 170, 4),   # LAND — touchdown squash
     "micromold_turn":    ("V3", 174, 190, 3),   # TURN AROUND (reverse facing)
     "micromold_hop":     ("V3", 196, 210, 3),   # HOP — a little skip
-    "micromold_attack":  ("V3", 216, 236, 4),   # BASIC ATTACK — spore burst
-    "micromold_hurt":    ("V1", 170, 186, 3),   # HURT recoil
+    "micromold_attack":  ("V4", 118, 126, 3),   # BIG SPORE SHOT — spews the spore
+    "micromold_hurt":    ("V1", 170, 186, 3),   # HURT recoil (clean V1 source)
     "micromold_stun":    ("V1", 196, 230, 3),   # STUNNED (dizzy stars)
-    "micromold_splat":   ("V1",  48,  74, 4),   # CONTACT SPLAT — used as DEATH splat
+    "micromold_splat":   ("V4", 150, 164, 3),   # DEATH SPLAT — bursts into goo
+    "micromold_fade":    ("V4", 168, 180, 3),   # DEATH FADE — the goo flattens out
+    "micromold_enraged": ("V4", 216, 232, 3),   # ENRAGED (rare) — red-eyed, aura
 }
 
 _cache = {}
