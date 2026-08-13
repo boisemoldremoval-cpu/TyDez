@@ -42,6 +42,9 @@ NEW_CLIPS = {
     "micromold_corrode":  ("V6", 112, 126, 3),   # CORRODE SURFACE — melts the floor
     "micromold_enatk":    ("V6", 186, 198, 3),   # ENRAGED ATTACK — red-eyed big spore
     "micromold_sporetrail": ("V6", 88, 100, 3),  # SPORE TRAIL — trails spores
+    "micromold_sporeburst": ("V6", 52, 70, 3),   # SPORE BURST — spews a spread
+    "micromold_contact":  ("V7", 204, 216, 3, 0, 660),  # CONTACT ATTACK — splat burst
+    #                                            (crop_right=660 drops the side panels)
 }
 OUT = "assets"
 
@@ -116,14 +119,18 @@ def foot_x(mask):
 def build(name, spec):
     v, a, b, k = spec[:4]
     crop_top = spec[4] if len(spec) > 4 else 0   # blank the caption band up top
+    crop_right = spec[5] if len(spec) > 5 else 0  # blank the reference-panel column
     frs = frames_of(v)
     idxs = [int(round(a + (b - a) * i / (k - 1))) for i in range(k)] if k > 1 else [a]
     keyed = []
     for i in idxs:
         fr = frs[i]
-        if crop_top:
+        if crop_top or crop_right:
             arr = np.array(fr.convert("RGB"))
-            arr[:crop_top] = (200, 40, 110)      # paint it the magenta stage colour
+            if crop_top:
+                arr[:crop_top] = (200, 40, 110)  # paint it the magenta stage colour
+            if crop_right:
+                arr[:, crop_right:] = (200, 40, 110)   # drop the side panel boxes
             fr = Image.fromarray(arr)
         rgba, mask = key(fr)
         if not mask.any():

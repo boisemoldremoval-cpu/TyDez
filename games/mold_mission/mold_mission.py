@@ -586,7 +586,8 @@ ANIMATED_ENEMIES = tuple(ANIMATED_CFG)
 ANIM_STATE_FPS = {"": 7, "walk": 13, "run": 15, "jump": 10, "fall": 10,
                   "land": 14, "turn": 12, "hop": 10, "attack": 13,
                   "hurt": 12, "stun": 8, "splat": 12, "fade": 9, "enraged": 9,
-                  "dash": 18, "corrode": 9, "enatk": 12, "sporetrail": 12}
+                  "dash": 18, "corrode": 9, "enatk": 12, "sporetrail": 12,
+                  "sporeburst": 13, "contact": 14}
 
 # Ground-hugging crawlers that are armoured on top: standing fire pings off, you
 # must CROUCH to shoot them out. Kept to single-placed low enemies (never the
@@ -643,6 +644,8 @@ class Enemy:
         self.land_t = 0.0             # touchdown squash window
         self.death_t = 0.0            # death-splat play-out (kept only for FX timing)
         self.corrode_t = 0.0          # Micro Mold: shows the corrode pose while acid drips
+        self.contact_t = 0.0          # Micro Mold: contact-attack splat pose (point-blank)
+        self.burst = False            # Micro Mold: alternate spore-BURST vs big-spore pose
         self.face_prev = 1
         if kind == "sporebot":
             self.w, self.h, self.hp = 40, 40, 4
@@ -749,6 +752,7 @@ class Enemy:
         self.atk_anim = max(0.0, self.atk_anim - dt)
         self.splitting = max(0.0, self.splitting - dt)
         self.corrode_t = max(0.0, self.corrode_t - dt)
+        self.contact_t = max(0.0, self.contact_t - dt)
         self.t += dt
         if self.stun_t > 0:                    # STUNNED (dizzy): frozen, can't act
             self.stun_t -= dt
@@ -777,6 +781,8 @@ class Enemy:
             d = player.x - self.x
             face = 1 if d > 0 else -1
             ground = self.home_y
+            if abs(d) < 30 and not self.mm_air:        # point-blank -> CONTACT ATTACK
+                self.contact_t = 0.18                  # splat-burst pose (draw only)
             if face != self.face_prev:                 # reversed facing -> TURN
                 self.turn_t = 0.20
                 self.face_prev = face
@@ -826,6 +832,9 @@ class Enemy:
                     if self.shoot_t <= 0 and lo < abs(d) < hi:
                         self.shoot_t = random.uniform(*atk["cd"])
                         self.atk_anim = 0.34
+                        # alternate the SPORE BURST (spread) and big-spore poses for
+                        # variety — draw only; the fired bolt is unchanged either way
+                        self.burst = not self.burst
                         mx = self.x + self.w / 2 + face * self.w * 0.45
                         my = self.y + self.h * 0.42
                         parts.spark(mx, my, C_MOLD, 6, 150)
@@ -1178,11 +1187,20 @@ class Enemy:
                 state = k + "_hop"
             elif getattr(self, "land_t", 0.0) > 0 and has("_land"):
                 state = k + "_land"
+            elif getattr(self, "contact_t", 0.0) > 0 and has("_contact"):
+                state = k + "_contact"                   # point-blank CONTACT splat
             elif getattr(self, "turn_t", 0.0) > 0 and has("_turn"):
                 state = k + "_turn"
-            elif getattr(self, "atk_anim", 0.0) > 0 and (has("_attack") or has("_enatk")):
-                # ENRAGED ATTACK swaps in the heavier red-eyed spore pose
-                state = k + ("_enatk" if (self.enraged and has("_enatk")) else "_attack")
+            elif getattr(self, "atk_anim", 0.0) > 0 \
+                    and (has("_attack") or has("_enatk") or has("_sporeburst")):
+                # ENRAGED ATTACK swaps in the heavier red-eyed spore pose; otherwise
+                # alternate the SPORE BURST spread with the big-spore shot for variety
+                if self.enraged and has("_enatk"):
+                    state = k + "_enatk"
+                elif getattr(self, "burst", False) and has("_sporeburst"):
+                    state = k + "_sporeburst"
+                else:
+                    state = k + "_attack"
             elif getattr(self, "enraged", False):
                 # raging: CORRODE while acid drips, SPORE TRAIL while moving, else aura
                 if self.corrode_t > 0 and has("_corrode"):
