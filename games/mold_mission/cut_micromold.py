@@ -46,6 +46,9 @@ NEW_CLIPS = {
     "micromold_contact":  ("V7", 204, 216, 3, 0, 872, 656),  # CONTACT ATTACK — splat
     #                          burst; crop_right drops the side panels, crop_bot the
     #                          "Contact Attack" caption band under the splat
+    "micromold_wallcrawl": ("V7", 92, 104, 3, 70, 1000, 662),  # WALL CRAWL — clinging
+    #                          to a vertical wall; crop_top title, crop_right the metal
+    #                          wall, crop_bot the caption
 }
 OUT = "assets"
 
@@ -122,12 +125,13 @@ def build(name, spec):
     crop_top = spec[4] if len(spec) > 4 else 0   # blank the caption band up top
     crop_right = spec[5] if len(spec) > 5 else 0  # blank the reference-panel column
     crop_bot = spec[6] if len(spec) > 6 else 0   # blank the bottom caption band
+    crop_left = spec[7] if len(spec) > 7 else 0  # blank a left region (dust / prop)
     frs = frames_of(v)
     idxs = [int(round(a + (b - a) * i / (k - 1))) for i in range(k)] if k > 1 else [a]
     keyed = []
     for i in idxs:
         fr = frs[i]
-        if crop_top or crop_right or crop_bot:
+        if crop_top or crop_right or crop_bot or crop_left:
             arr = np.array(fr.convert("RGB"))
             if crop_top:
                 arr[:crop_top] = (200, 40, 110)  # paint it the magenta stage colour
@@ -135,6 +139,8 @@ def build(name, spec):
                 arr[:, crop_right:] = (200, 40, 110)   # drop the side panel boxes
             if crop_bot:
                 arr[crop_bot:, :] = (200, 40, 110)     # drop the bottom caption
+            if crop_left:
+                arr[:, :crop_left] = (200, 40, 110)    # drop a left prop / dust cloud
             fr = Image.fromarray(arr)
         rgba, mask = key(fr)
         if not mask.any():

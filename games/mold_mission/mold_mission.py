@@ -587,7 +587,7 @@ ANIM_STATE_FPS = {"": 7, "walk": 13, "run": 15, "jump": 10, "fall": 10,
                   "land": 14, "turn": 12, "hop": 10, "attack": 13,
                   "hurt": 12, "stun": 8, "splat": 12, "fade": 9, "enraged": 9,
                   "dash": 18, "corrode": 9, "enatk": 12, "sporetrail": 12,
-                  "sporeburst": 13, "contact": 14}
+                  "sporeburst": 13, "contact": 14, "wallcrawl": 9}
 
 # Ground-hugging crawlers that are armoured on top: standing fire pings off, you
 # must CROUCH to shoot them out. Kept to single-placed low enemies (never the
@@ -646,6 +646,8 @@ class Enemy:
         self.corrode_t = 0.0          # Micro Mold: shows the corrode pose while acid drips
         self.contact_t = 0.0          # Micro Mold: contact-attack splat pose (point-blank)
         self.burst = False            # Micro Mold: alternate spore-BURST vs big-spore pose
+        self.wallcrawl = False        # Micro Mold: clings to a wall, climbs up/down
+        self.wc_lo = 0.0; self.wc_hi = 0.0; self.wc_dir = 1
         self.face_prev = 1
         if kind == "sporebot":
             self.w, self.h, self.hp = 40, 40, 4
@@ -772,6 +774,17 @@ class Enemy:
             # spike lane could shove Ty — and hops stay low/vertical and land back
             # on the character's own ground lane, so it can't fall down a pit. This
             # one branch animates ANY new animated character dropped into a level.
+            if self.wallcrawl:
+                # WALL CRAWL: cling to a grappler wall and climb up/down its face
+                # (fixed x). These walls sit clear of the ground-running bot, so
+                # this is an ambient threat only — no ground AI, selftest-safe.
+                self.vx = 0.0
+                self.y += self.wc_dir * 32 * dt
+                if self.y <= self.wc_lo:
+                    self.y = self.wc_lo; self.wc_dir = 1
+                elif self.y >= self.wc_hi:
+                    self.y = self.wc_hi; self.wc_dir = -1
+                return
             c = ANIMATED_CFG[self.kind]
             # ENRAGED (rare): once wounded to its enrage threshold it goes red-eyed
             # and pushes in a bit quicker (the enraged clip plays — see Enemy.draw).
@@ -1173,7 +1186,9 @@ class Enemy:
             # full state machine, most-specific first: death splat > stun > hurt >
             # airborne (rise/apex/fall) > land squash > turn-around > attack burst >
             # ground crawl > idle. Each falls back to the walk/idle clip if missing.
-            if getattr(self, "death_t", 0.0) > 0 and has("_splat"):
+            if getattr(self, "wallcrawl", False) and has("_wallcrawl") and self.hit <= 0:
+                state = k + "_wallcrawl"                 # clinging to a wall
+            elif getattr(self, "death_t", 0.0) > 0 and has("_splat"):
                 state = k + "_splat"
             elif self.stun_t > 0 and has("_stun"):
                 state = k + "_stun"
@@ -3332,6 +3347,16 @@ def build_level(mission=1):
     for (wx, wy, ww, wh) in walls_by:
         plats.append((wx, wy, ww, wh))
         coins.append(Coin(wx + ww / 2, wy - 22))       # a reward atop each wall
+        # a WALL-CRAWL Micro Mold clings to each grappler wall, climbing up and
+        # down its face (uses the wall-crawl clip). The walls are seated clear of
+        # the ground-running auto-player, so these are ambient threats that only
+        # matter if Ty grapples up — the bot never touches them (selftest-safe).
+        wc = Enemy("micromold", wx - 22, wy + wh * 0.4)
+        wc.wallcrawl = True
+        wc.wc_lo = wy - 6
+        wc.wc_hi = wy + wh - wc.h
+        wc.home_y = wc.y
+        enemies.append(wc)
     return plats, enemies, coins, hazards, ladders, movers
 
 
