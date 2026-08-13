@@ -29,6 +29,19 @@ VID = {
     # V4 — the Micro Mold's expanded sheet: idle/walk/run/fall/land, BIG SPORE
     # SHOT, death splat + FADE, respawn, and ENRAGED (rare).
     "V4": "/root/.claude/uploads/bd9207a8-f98b-5cb2-b956-cc56d2cddccc/62f8fd61-gemini_generated_video_46F958C3.mp4",
+    # V6/V7 — canonical reference clips; only their PLAIN-STAGE states are cut
+    # (the wall/ceiling/drop/infection states are composited with metal props and
+    # side panels, so they don't key cleanly and are intentionally skipped).
+    "V6": "/root/.claude/uploads/bd9207a8-f98b-5cb2-b956-cc56d2cddccc/a071467a-gemini_generated_video_51715F06.mp4",
+    "V7": "/root/.claude/uploads/bd9207a8-f98b-5cb2-b956-cc56d2cddccc/1bd57b0b-gemini_generated_video_FB8348AB.mp4",
+}
+# new clean states cut from V6/V7 (built on demand — the V1-V4 sources may be
+# absent, so run these with build() directly rather than main()).
+NEW_CLIPS = {
+    "micromold_dash":     ("V7",  24,  44, 4),   # DASH ATTACK — charges in, dust
+    "micromold_corrode":  ("V6", 112, 126, 3),   # CORRODE SURFACE — melts the floor
+    "micromold_enatk":    ("V6", 186, 198, 3),   # ENRAGED ATTACK — red-eyed big spore
+    "micromold_sporetrail": ("V6", 88, 100, 3),  # SPORE TRAIL — trails spores
 }
 OUT = "assets"
 

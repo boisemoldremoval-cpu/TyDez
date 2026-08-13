@@ -575,7 +575,7 @@ ENEMY_ASSET = {
 #   atk          None, or dict(rng=(near,far), cd=(min,max), spd, dmg) spore burst
 ANIMATED_CFG = {
     "micromold": dict(w=28, h=26, hp=2, dmg=3, walk=120, run=172, far=340,
-                      hop_v=285, hop_cd=(1.2, 2.6), enrage_hp=1,
+                      hop_v=285, hop_cd=(1.2, 2.6), enrage_hp=1, corrode=True,
                       atk=dict(rng=(44, 260), cd=(2.6, 4.2), spd=175, dmg=2)),
 }
 ANIMATED_ENEMIES = tuple(ANIMATED_CFG)
@@ -585,7 +585,8 @@ ANIMATED_ENEMIES = tuple(ANIMATED_CFG)
 # entries. "" is the bare idle clip (<kind>_0..N).
 ANIM_STATE_FPS = {"": 7, "walk": 13, "run": 15, "jump": 10, "fall": 10,
                   "land": 14, "turn": 12, "hop": 10, "attack": 13,
-                  "hurt": 12, "stun": 8, "splat": 12, "fade": 9, "enraged": 9}
+                  "hurt": 12, "stun": 8, "splat": 12, "fade": 9, "enraged": 9,
+                  "dash": 18, "corrode": 9, "enatk": 12, "sporetrail": 12}
 
 # Ground-hugging crawlers that are armoured on top: standing fire pings off, you
 # must CROUCH to shoot them out. Kept to single-placed low enemies (never the
@@ -641,6 +642,7 @@ class Enemy:
         self.turn_t = 0.0             # turn-around pose window
         self.land_t = 0.0             # touchdown squash window
         self.death_t = 0.0            # death-splat play-out (kept only for FX timing)
+        self.corrode_t = 0.0          # Micro Mold: shows the corrode pose while acid drips
         self.face_prev = 1
         if kind == "sporebot":
             self.w, self.h, self.hp = 40, 40, 4
@@ -746,6 +748,7 @@ class Enemy:
         self.hit = max(0.0, self.hit - dt)
         self.atk_anim = max(0.0, self.atk_anim - dt)
         self.splitting = max(0.0, self.splitting - dt)
+        self.corrode_t = max(0.0, self.corrode_t - dt)
         self.t += dt
         if self.stun_t > 0:                    # STUNNED (dizzy): frozen, can't act
             self.stun_t -= dt
@@ -793,27 +796,41 @@ class Enemy:
                     self.mm_air = False
                     self.vy = 0.0
                     self.land_t = 0.14
-            # RUN to close the gap when Ty is far, WALK once it's on him — so the
-            # run clip (speed lines) plays as it rushes in, then settles to the
-            # walk cycle in melee range. Slows to a shuffle mid-turn.
-            far = abs(d) > c["far"] and not self.mm_air
-            base = (c["run"] if far else c["walk"]) * rage
-            sp = base * (0.35 if self.turn_t > 0 else 1.0)
-            nx = self.x + face * sp * dt
-            self.x = max(20.0, min(LEVEL_W - self.w - 20.0, nx))   # stay on the map
-            self.vx = face * sp
-            atk = c["atk"]                             # occasional short spore burst
-            if atk and not self.mm_air:
-                self.shoot_t -= dt
-                lo, hi = atk["rng"]
-                if self.shoot_t <= 0 and lo < abs(d) < hi:
-                    self.shoot_t = random.uniform(*atk["cd"])
-                    self.atk_anim = 0.34
-                    mx = self.x + self.w / 2 + face * self.w * 0.45
-                    my = self.y + self.h * 0.42
-                    parts.spark(mx, my, C_MOLD, 6, 150)
-                    shots.append(Shot(mx, my, face * atk["spd"], atk["dmg"],
-                                      -1, hostile=True))
+            if True:
+                # RUN to close a big gap (the DASH-ATTACK charge clip plays here —
+                # see Enemy.draw — so the mold reads as dashing in), WALK once it's
+                # on him; slows to a shuffle mid-turn. Enraged pushes in a bit
+                # quicker. Movement itself is unchanged from the baseline, so the
+                # bot's timing (and --selftest robustness) is unaffected.
+                far = abs(d) > c["far"] and not self.mm_air
+                base = (c["run"] if far else c["walk"]) * rage
+                sp = base * (0.35 if self.turn_t > 0 else 1.0)
+                nx = self.x + face * sp * dt
+                self.x = max(20.0, min(LEVEL_W - self.w - 20.0, nx))
+                self.vx = face * sp
+                # CORRODE SURFACE: an enraged mold shows the corrode pose and leaves
+                # a green residue as it crosses — COSMETIC (particles only, no acid
+                # damage) so a raging swarm never raises the difficulty / flakes the
+                # selftest; it just reads as melting the floor.
+                if self.enraged and c.get("corrode"):
+                    self.drip_t = getattr(self, "drip_t", 0.8) - dt
+                    if self.drip_t <= 0:
+                        self.drip_t = random.uniform(0.8, 1.4)
+                        self.corrode_t = 0.34          # show the corrode pose
+                        parts.spark(self.x + self.w / 2, self.y + self.h - 2,
+                                    C_MOLD, 5, 90)
+                atk = c["atk"]                          # spore shot (enraged reuses the
+                if atk and not self.mm_air:             # heavier ENATK pose, same dmg)
+                    self.shoot_t -= dt
+                    lo, hi = atk["rng"]
+                    if self.shoot_t <= 0 and lo < abs(d) < hi:
+                        self.shoot_t = random.uniform(*atk["cd"])
+                        self.atk_anim = 0.34
+                        mx = self.x + self.w / 2 + face * self.w * 0.45
+                        my = self.y + self.h * 0.42
+                        parts.spark(mx, my, C_MOLD, 6, 150)
+                        shots.append(Shot(mx, my, face * atk["spd"], atk["dmg"],
+                                          -1, hostile=True))
         elif self.kind in ("moldbat", "moldbat2", "ventstalker"):
             # circle the player, then dive-bomb (Mk II / Vent Stalker dive faster)
             d = player.x - self.x
@@ -1163,12 +1180,23 @@ class Enemy:
                 state = k + "_land"
             elif getattr(self, "turn_t", 0.0) > 0 and has("_turn"):
                 state = k + "_turn"
-            elif getattr(self, "atk_anim", 0.0) > 0 and has("_attack"):
-                state = k + "_attack"
-            elif getattr(self, "enraged", False) and has("_enraged"):
-                state = k + "_enraged"                   # red-eyed rage aura
-            elif abs(self.vx) > 150 and has("_run"):     # rushing in from afar
-                state = k + "_run"
+            elif getattr(self, "atk_anim", 0.0) > 0 and (has("_attack") or has("_enatk")):
+                # ENRAGED ATTACK swaps in the heavier red-eyed spore pose
+                state = k + ("_enatk" if (self.enraged and has("_enatk")) else "_attack")
+            elif getattr(self, "enraged", False):
+                # raging: CORRODE while acid drips, SPORE TRAIL while moving, else aura
+                if self.corrode_t > 0 and has("_corrode"):
+                    state = k + "_corrode"
+                elif abs(self.vx) > 8 and has("_sporetrail"):
+                    state = k + "_sporetrail"
+                elif has("_enraged"):
+                    state = k + "_enraged"
+                else:
+                    state = k
+            elif abs(self.vx) > 150 and (has("_dash") or has("_run")):
+                # rushing in from afar — the DASH-ATTACK charge clip reads as a
+                # dash-in; falls back to the run clip if there's no dash clip
+                state = k + ("_dash" if has("_dash") else "_run")
             elif abs(self.vx) > 8 and has("_walk"):
                 state = k + "_walk"
             else:

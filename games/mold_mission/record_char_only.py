@@ -31,12 +31,16 @@ SEQUENCE = [
     ("LAND", "_land", 1.1),
     ("TURN AROUND", "_turn", 1.3),
     ("HOP", "_hop", 1.3),
-    ("BIG SPORE SHOT (attack)", "_attack", 1.8),
-    ("HURT", "_hurt", 1.3),
-    ("STUNNED", "_stun", 1.6),
-    ("ENRAGED (rare)", "_enraged", 2.0),
-    ("DEATH SPLAT", "_splat", 1.4),
-    ("DEATH FADE", "_fade", 1.4),
+    ("BIG SPORE SHOT (attack)", "_attack", 1.6),
+    ("DASH ATTACK", "_dash", 1.6),
+    ("HURT", "_hurt", 1.2),
+    ("STUNNED", "_stun", 1.4),
+    ("ENRAGED (rare)", "_enraged", 1.6),
+    ("ENRAGED ATTACK", "_enatk", 1.6),
+    ("CORRODE SURFACE", "_corrode", 1.6),
+    ("SPORE TRAIL", "_sporetrail", 1.6),
+    ("DEATH SPLAT", "_splat", 1.2),
+    ("DEATH FADE", "_fade", 1.2),
 ]
 
 DRAW_H = 340          # on-stage height of the character
