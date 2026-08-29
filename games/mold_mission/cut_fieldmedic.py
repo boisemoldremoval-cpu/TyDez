@@ -36,6 +36,13 @@ VID = {
 }
 OUT = "assets"
 
+# clips whose effect is translucent green over the pink stage (their see-through
+# pixels key out pinkish) — cut with the stronger pink-scrub (key(strong=True)).
+# (the barrier dome is a full see-through force field — a uniform translucent
+# tint from the gentle key reads better there than a forced recolor, which
+# mottles its hexes — so it's deliberately left out.)
+FX_CLIPS = {"fieldmedic_dash", "fieldmedic_burst"}
+
 # state key -> (video, first_frame, last_frame, n_frames[, crop_top, crop_right,
 # crop_bot, crop_left]). Ranges sit inside each labelled section, trimmed off the
 # caption transitions so cycles loop cleanly.
@@ -63,13 +70,18 @@ def frames_of(v):
     return _cache[v]
 
 
-def key(fr):
+def key(fr, strong=False):
     """Chroma-key the PINK stage, keep largest blob, de-spill. Returns (RGBA, mask).
 
     Pink background signature: high red AND blue with green pulled well below both
     (bg ~226,90,175). The Medic's white armour, skin and — crucially — her green
     medical accents and the green heal/barrier FX all keep green at or above the
-    other channels, so none of them trip this test."""
+    other channels, so none of them trip this test.
+
+    `strong` tightens the de-spill for the translucent-FX clips (dash streaks,
+    barrier dome, burst aura) whose green effect is semi-transparent over the
+    pink stage, so their see-through pixels read pink; it pulls those hard toward
+    green. Body/face clips leave it off so skin and her rosy lips stay warm."""
     a = np.asarray(fr.convert("RGB")).astype(int)
     r, g, b = a[:, :, 0], a[:, :, 1], a[:, :, 2]
     pink = (r > 175) & (b > 125) & (g < r - 42) & (g < b - 18)
@@ -81,12 +93,26 @@ def key(fr):
     mask = ndimage.binary_fill_holes(mask)
     src = np.asarray(fr.convert("RGB")).astype(int)
     cr, cg, cb = src[:, :, 0], src[:, :, 1], src[:, :, 2]
-    # de-spill only strongly-pink edge pixels (r and b both well above green) so we
-    # scrub the pink halo without desaturating skin (skin is only ~20 red>green).
-    spill = ((cr > cg + 40) & (cb > cg + 20)) & mask
-    cr = np.where(spill, np.minimum(cr, cg + 20), cr)
-    cb = np.where(spill, np.minimum(cb, cg + 12), cb)
-    mag = (cr > cg + 42) & (cb > cg + 18)
+    # de-spill pink edge pixels (r and b both above green) so we scrub the pink
+    # halo without desaturating skin (skin is only ~20 red>green, blue<green).
+    if strong:
+        # these clips' effect is translucent green over pink, so the see-through
+        # pixels are genuinely pink (green is faint) — merely suppressing r/b would
+        # leave them grey. RE-TINT every pink pixel to a green of the SAME
+        # brightness so the dash streaks / dome / aura read as the green energy
+        # they are. Skin (blue<green) and white armour (r~=g~=b) aren't pink-biased,
+        # so they're left alone.
+        pinkpx = ((cr > cg + 12) & (cb > cg + 4)) & mask
+        lum = 0.30 * cr + 0.55 * cg + 0.15 * cb
+        cr = np.where(pinkpx, np.clip(lum * 0.52, 0, 255), cr)
+        cg = np.where(pinkpx, np.clip(lum * 1.06, 0, 255), cg)
+        cb = np.where(pinkpx, np.clip(lum * 0.58, 0, 255), cb)
+        mag = (cr > cg + 60) & (cb > cg + 34)     # only punch out the most saturated
+    else:
+        spill = ((cr > cg + 40) & (cb > cg + 20)) & mask
+        cr = np.where(spill, np.minimum(cr, cg + 20), cr)
+        cb = np.where(spill, np.minimum(cb, cg + 12), cb)
+        mag = (cr > cg + 42) & (cb > cg + 18)
     mask = mask & ~mag
     lbl2, n2 = ndimage.label(mask)
     if n2 > 1:
@@ -126,7 +152,7 @@ def build(name, spec):
             if crop_left:
                 arr[:, :crop_left] = (226, 90, 175)
             fr = Image.fromarray(arr)
-        rgba, mask = key(fr)
+        rgba, mask = key(fr, strong=name in FX_CLIPS)
         if not mask.any():
             continue
         fx, by, ty, lx, rx = foot_x(mask)
