@@ -338,7 +338,7 @@ class AssetPack:
         # keeps ONE shared reference height (its idle canvas) so it holds a steady
         # on-screen size across every state (see enemy_ref / Enemy.draw).
         self.enemy_ref = {}
-        for kind in ANIMATED_ENEMIES:
+        for kind in ANIMATED_ENEMIES + ALLY_ANIM:
             for p in sorted(glob.glob(os.path.join(folder, kind + "_*.png"))):
                 key = os.path.basename(p)[:-4]
                 mo = re.match(rf"({kind}(?:_[a-z]+)*)_(\d+)$", key)
@@ -580,6 +580,15 @@ ANIMATED_CFG = {
 }
 ANIMATED_ENEMIES = tuple(ANIMATED_CFG)
 
+# Friendly animated ally characters — same video-cut clip machinery as the
+# animated enemies (idle/run/heal/... frame SEQUENCES, one shared reference
+# height), but drawn by the Ally class and NEVER spawned as a hostile, so they
+# don't sit in Game.enemies and never count toward a mission clear: the
+# seed-sensitive --selftest is untouched by anything an ally does. The Field
+# Medic (Dr. Mira — Squad Medic / Support / Reviver, healing rifle) animates
+# from her pink-stage video via these clips (see cut_fieldmedic.py, Ally.draw).
+ALLY_ANIM = ("fieldmedic",)
+
 # Default cycle rate per animation STATE (by clip suffix) for any animated
 # character, so a new one animates at sensible speeds with no bespoke ANIM_FPS
 # entries. "" is the bare idle clip (<kind>_0..N).
@@ -587,7 +596,10 @@ ANIM_STATE_FPS = {"": 7, "walk": 13, "run": 15, "jump": 10, "fall": 10,
                   "land": 14, "turn": 12, "hop": 10, "attack": 13,
                   "hurt": 12, "stun": 8, "splat": 12, "fade": 9, "enraged": 9,
                   "dash": 18, "corrode": 9, "enatk": 12, "sporetrail": 12,
-                  "sporeburst": 13, "contact": 14, "wallcrawl": 9}
+                  "sporeburst": 13, "contact": 14, "wallcrawl": 9,
+                  # Field Medic (ally) states
+                  "heal": 11, "shoot": 13, "barrier": 8, "happy": 8,
+                  "slide": 16, "reload": 11, "burst": 11}
 
 # Ground-hugging crawlers that are armoured on top: standing fire pings off, you
 # must CROUCH to shoot them out. Kept to single-placed low enemies (never the
@@ -3364,10 +3376,15 @@ def build_level(mission=1):
 # Dr. Mira — support ally
 # --------------------------------------------------------------------------- #
 class Ally:
-    """Dr. Mira (CHR — Field Scientist / Support Specialist). She deploys with
-    Ty, trails just behind him, and fires a Bio-Cleaner HEAL BEAM whenever his
-    health drops — keeping the run sustainable and the boss fights winnable.
-    She's a non-combatant: enemies pass through her and she takes no damage."""
+    """Dr. Mira — the FIELD MEDIC (Squad Medic / Support / Reviver, healing
+    rifle). She deploys with Ty, trails just behind him, and channels a green
+    HEAL BEAM whenever his health drops — keeping the run sustainable and the
+    boss fights winnable. She's a non-combatant: enemies pass through her and
+    she takes no damage. Her whole move-set is drawn from her video clips
+    (idle / run / heal-beam / happy cheer; see cut_fieldmedic.py, ALLY_ANIM),
+    cycled at one constant scale exactly like the animated enemies."""
+    KIND = "fieldmedic"
+
     def __init__(self, x):
         self.w, self.h = 30, 52
         self.x = float(x)
@@ -3377,6 +3394,8 @@ class Ally:
         self.moving = False
         self.heal_t = 0.0
         self.beam_cd = 0.0
+        self.emote_t = 0.0          # happy-cheer emote window
+        self.emote_cd = random.uniform(4.0, 8.0)
 
     def update(self, dt, p, parts, snd):
         self.anim += dt
@@ -3396,10 +3415,69 @@ class Ally:
             self.heal_t = 1.5
             self.beam_cd = 4.5
             snd.play("health")
+        # ambient HAPPY cheer: a brief emote when she's settled and Ty is healthy,
+        # so her idle reads as a lively squadmate, not a frozen prop
+        if self.emote_t > 0:
+            self.emote_t -= dt
+        elif (not self.moving and self.heal_t <= 0 and not p.dead
+                and p.hp >= p.maxhp * 0.9):
+            self.emote_cd -= dt
+            if self.emote_cd <= 0:
+                self.emote_t = 1.1
+                self.emote_cd = random.uniform(6.0, 11.0)
+
+    def _clip(self, assets, state):
+        """The video-cut frame for `state` at this instant, or None if unbuilt."""
+        seq = (assets.anims.get(self.KIND + state)
+               or assets.anims.get(self.KIND))
+        if not seq:
+            return None
+        fps = ANIM_STATE_FPS.get(state.lstrip("_"), 8)
+        return seq[int(self.anim * fps) % len(seq)]
 
     def draw(self, s, cam, assets, t, p):
         healing = self.heal_t > 0
-        if healing:                       # green heal beam from Mira's emitter to Ty
+        ref = assets.enemy_ref.get(self.KIND)
+        # pick the state: HEAL BEAM (channel pose) while topping Ty up > HAPPY
+        # cheer emote > RUN while catching up > IDLE. Each falls back to idle.
+        if healing and assets.anims.get(self.KIND + "_channel"):
+            state = "_channel"
+        elif self.emote_t > 0 and assets.anims.get(self.KIND + "_happy"):
+            state = "_happy"
+        elif self.moving and assets.anims.get(self.KIND + "_run"):
+            state = "_run"
+        else:
+            state = ""
+        frame = self._clip(assets, state) if ref else None
+        if frame is not None:
+            feet_x = self.x - cam + self.w / 2
+            feet_y = self.y + self.h
+            breath = 1.0 + 0.045 * math.sin(t * 3.0 + self.x * 0.02)
+            if healing:
+                # she holds the healing-rifle CHANNEL pose; draw a live green beam
+                # from her muzzle to Ty (aims correctly at him, unlike the clip's
+                # baked-in generic ally target) so it clearly reads as healing HIM.
+                ex = feet_x + self.facing * (self.w / 2 + 9)
+                ey = self.y + 22
+                tx = p.x - cam + p.w / 2
+                ty = p.y + p.h * 0.45
+                pulse = 150 + int(80 * math.sin(t * 22))
+                pygame.draw.line(s, (*C_HP, 70), (ex, ey), (tx, ty), 7)
+                pygame.draw.line(s, (150, 255, 190, pulse), (ex, ey), (tx, ty), 3)
+                glow(s, tx, ty, 16, C_HP, 120)
+                denom = (tx - ex) or 1.0
+                for _ in range(2):
+                    fx = random.uniform(min(ex, tx), max(ex, tx))
+                    fy = ey + (ty - ey) * (fx - ex) / denom
+                    fcircle(s, fx, fy + random.uniform(-4, 4), 2, (190, 255, 205))
+            assets.blit_char(s, frame, feet_x, feet_y, self.h * CHAR_H,
+                             flip=self.facing < 0, squash=breath, ref_h=ref)
+            return
+        # fallback: the old single-pose Mira art, if the medic clips aren't present
+        name = ("mira_heal" if healing and assets.has("mira_heal")
+                else "mira_run" if self.moving and assets.has("mira_run")
+                else "mira")
+        if healing:
             ex = self.x - cam + self.w / 2 + self.facing * 26
             ey = self.y + 26
             tx = p.x - cam + p.w / 2
@@ -3408,14 +3486,6 @@ class Ally:
             pygame.draw.line(s, (*C_HP, 70), (ex, ey), (tx, ty), 7)
             pygame.draw.line(s, (150, 255, 190, pulse), (ex, ey), (tx, ty), 3)
             glow(s, tx, ty, 16, C_HP, 120)
-            denom = (tx - ex) or 1.0
-            for _ in range(2):
-                fx = random.uniform(min(ex, tx), max(ex, tx))
-                fy = ey + (ty - ey) * (fx - ex) / denom
-                fcircle(s, fx, fy + random.uniform(-4, 4), 2, (190, 255, 205))
-        name = ("mira_heal" if healing and assets.has("mira_heal")
-                else "mira_run" if self.moving and assets.has("mira_run")
-                else "mira")
         if not assets.has(name):
             name = "mira" if assets.has("mira") else None
         if name:
