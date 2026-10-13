@@ -3193,7 +3193,11 @@ def build_level(mission=1):
             Mover(1360, 240, 84, "v", span=180, speed=85),
             Mover(2000, 300, 80, "fall")],
         4: [Mover(700, 320, 100, "belt", span=150, speed=70, push=170),
-            Mover(1180, 300, 90, "v", span=160, speed=75),
+            # kept HIGH + short-throw (top y<=276) so it clears the ~1300 spike's
+            # leap arc: Ty's ground jump apexes his feet near y=380, so a platform
+            # that never dips below ~276 can't catch his spike leap and drop him
+            # onto the spikes (instant death) — do not lower this one.
+            Mover(1180, 236, 90, "v", span=80, speed=75),
             Mover(1900, 300, 84, "h", span=230, speed=100)],
         5: [Mover(560, 300, 96, "h", span=250, speed=130),
             Mover(1000, 250, 84, "v", span=190, speed=90),
@@ -4690,7 +4694,13 @@ def _bot_keys(game, st, i):
         stranded = (not p.on_ground and p.vy > 30 and p.jumps > 0
                     and not solid_below(front + 6))   # falling into a pit
         boss_hop = game.boss is not None and p.on_ground and i % 48 == 0
-        ground_danger = p.on_ground and (pit or hazard_ahead() or enemy_block())
+        # Near a spike/pit, RESERVE jumps for the hazard itself: a jump burned
+        # hopping a blocking enemy (often a drifting Micro Mold) would either land
+        # Ty descending onto the spike, or spend the jump he needs to clear a pit
+        # (leaving only a knock-outable double-jump). So ignore enemy_block while a
+        # hazard is soon — the dedicated hazard jump owns the timing there.
+        ground_danger = p.on_ground and (pit or hazard_ahead()
+                                         or (enemy_block() and not hazard_soon()))
         if ground_danger or stranded or boss_hop or stuck:
             if not st.get("sp", False):         # need a release first for an edge
                 st["jt"] = 20
